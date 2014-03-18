@@ -1,0 +1,92 @@
+# create .bin directory:
+dummy := $(shell [ -d .bin ] || mkdir .bin )
+
+# find sources to use for the build:
+src := $(wildcard src/*.cpp)
+obj := $(patsubst src/%.cpp,.bin/%.o,$(src))
+deps := $(patsubst src/%.cpp,.bin/%.d,$(src))
+
+# in case we build a library, add the according rule:
+ifneq ($(LIB),)
+LIBTARGET := ../lib/lib$(LIB).so
+
+all: $(LIBTARGET)
+
+$(LIBTARGET): $(obj)
+	$(SHARED_CMD)
+-include $(deps)                                                                                                                                                                                                                                              
+endif
+
+
+# same for the 'test' target:
+ifneq ($(TEST),)
+all: $(TEST)
+testsrc := $(wildcard test/*.cpp)
+testobj := $(patsubst test/%.cpp,.bin/%.o,$(testsrc))
+$(TEST): $(testobj)
+	$(EXE_CMD) -l$(LIB)
+
+-include $(deps)                                                                                                                                                                                                                                              
+endif
+
+# slightly more complicated: the dictionary target:
+ifneq ($(DICT),)
+
+# NOTE: to get the necessary options for genreflex, run "scram b -v" for some dictionaries ...
+.bin/dict__.cpp: src/classes_def.xml src/classes.h
+	@echo generating dictionary
+	@genreflex src/classes.h -s src/classes_def.xml -o $@ --deep --pool --fail_on_warnings -DDICTGEN -D__STRICT_ANSI__ -D_REENTRANT -DGNUSOURCE -DGNU_GCC -D_GNU_SOURCE $(GENREFLEX_FLAGS) -Iinclude -I$(shell root-config --incdir) --gccxmlpath=$(shell dirname `which gccxml`) --gccxmlopt="--gccxml-config $(call scramtag,gccxml,GCCXML_BASE)/share/gccxml-0.9/gccxml_config --gccxml-root $(call scramtag,gccxml,GCCXML_BASE)/share/gccxml-0.9/"
+
+../lib/lib$(LIB).so: .bin/dict__.o
+endif
+
+
+# allow the local Makefile to override some locations, e.g. for root and boost
+-include Makefile.local
+
+scramtag = $(shell cd $$CMSSW_BASE; scram tool tag $(1) $(2))
+
+
+ifeq ($(ROOT_CFLAGS),)
+  ROOT_CFLAGS := $(shell root-config --cflags)
+  ROOT_LDFLAGS := $(shell root-config --ldflags --libs) -lReflex -lCintex -lGenVector
+endif
+
+
+ifeq ($(BOOST_CFLAGS),)
+  BOOST_CFLAGS := -I$(call scramtag,boost,INCLUDE)
+endif
+
+
+# stick together all flags:
+CXXFLAGS := -std=c++0x -O3 -Wall -g -fPIC -I.. -Iinclude -pipe $(USERCXXFLAGS)
+LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../lib $(USERLDFLAGS)
+
+# compile commands, to be used in cubdirectory makefiles:
+SHARED_CMD = @echo creating $@; $(CXX) $+ -shared $(LDFLAGS) -o $@ 
+EXE_CMD = $(CXX) $(LDFLAGS) -o $@ $+ $(USERLDFLAGS)
+
+.bin/%.o: src/%.cpp
+	@echo compiling $<
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+.bin/%.o: test/%.cpp
+	@echo compiling $<
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+.bin/%.o: bin/%.cpp
+	@echo compiling $<
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+.bin/dict__.o: .bin/dict__.cpp
+	@echo compiling $<
+	@$(CXX) $(CXXFLAGS) -I. -DDICTGEN -c $< -o $@
+
+clean-subdir:
+	rm -rf .bin
+
+.bin/%.d: %.cpp 
+	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
+
+.bin/%.d: src/%.cpp
+	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
