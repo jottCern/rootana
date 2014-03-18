@@ -80,9 +80,11 @@ public:
 	disc_string_ = dirname.substr(dirname.size()-2);
 	discriminator_ = std::atof(disc_string_.c_str())/10.;
 	ZRho_ = false;
+	Rho1D_ = false;
 	
 	
 	if (dirname.find("ZRho") != std::string::npos) ZRho_ = true;
+	if (dirname.find("Rho1D") != std::string::npos) Rho1D_ = true;
 	    
 	if (ZRho_)
 	{
@@ -92,6 +94,19 @@ public:
 	    {
 		identifier id("ZRho_"+categories[i]+disc_string_);
 		book<TH2D>(id, 560, -70, 70, 300, 0, 30);
+		cat_id.push_back(id);
+		
+	    }
+	}
+	
+	if (Rho1D_)
+	{
+	    book<TH1D>("Rho1D_All"+disc_string_, 300, 0, 30);
+	    
+	    for (unsigned int i = 0; i < ARRAY_SIZE; ++i)
+	    {
+		identifier id("Rho1D_"+categories[i]+disc_string_);
+		book<TH1D>(id, 300, 0, 30);
 		cat_id.push_back(id);
 		
 	    }
@@ -109,19 +124,34 @@ public:
     virtual void process(Event & e){
 	ID(thisProcessFlags);
 	ID(recoPos);
-	identifier All("ZRho_All"+disc_string_);
 
         auto flags = e.get<Flags>(thisProcessFlags);
         const Point & position = e.get<Point>(recoPos);
 	
 	if (ZRho_)
 	{
-	    fill(All, position.z(), position.rho());
+	    identifier ZRho_All("ZRho_All"+disc_string_);
+	    fill(ZRho_All, position.z(), position.rho());
 	    
 	    for (unsigned int i = 0; i < flags.size(); ++i) // alternative: for (auto & id : cat_id) *then*
 	    {
 		if (flags[i] > discriminator_)
 		    fill(cat_id[i], position.z(), position.rho());
+	    }
+	}
+	
+	if (Rho1D_)
+	{
+	    identifier Rho1D_All("Rho1D_All"+disc_string_);
+	    if (std::abs(position.z()) < 29)
+	    {
+		fill(Rho1D_All, position.rho());
+		
+		for (unsigned int i = 0; i < flags.size(); ++i) // alternative: for (auto & id : cat_id) *then*
+		{
+		    if (flags[i] > discriminator_)
+			fill(cat_id[i], position.rho());
+		}
 	    }
 	}
 	
@@ -175,6 +205,7 @@ private:
     std::string disc_string_;
     
     bool ZRho_;
+    bool Rho1D_;
 
 };
 
