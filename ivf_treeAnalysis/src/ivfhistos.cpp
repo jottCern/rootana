@@ -89,74 +89,306 @@ namespace
 // 
 // REGISTER_HISTS(BaseHists)
 
-class IvfZRhoGeantHists: public Hists{
+class IvfGeantHists: public Hists{
 public:
-    IvfZRhoGeantHists(const ptree & xyz, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
+    IvfGeantHists(const ptree & xyz, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
 	for (unsigned int i = 0; i < ARRAY_SIZE; ++i)
 	    categories.push_back(catchar[i]);
 	
 	disc_string_ = dirname.substr(dirname.size()-2);
 	discriminator_ = std::atof(disc_string_.c_str())/10.;
 	
-	book<TH2D>("ZRho_GeantAll"+disc_string_, 560, -70, 70, 300, 0, 30);
+	rest_id_ = "GeantRest"+disc_string_;
 	
+// 	book<TH2D>("ZRho_GeantAll"+disc_string_, 560, -70, 70, 300, 0, 30);
+// 	
 	for (unsigned int i = 0; i < cats.geant_cat_size; ++i)
 	{
-	    identifier id("ZRho_"+categories[cats.geant_cat[i]]+disc_string_);
-	    book<TH2D>(id, 560, -70, 70, 300, 0, 30);
+	    identifier id(categories[cats.geant_cat[i]]+disc_string_);
+// 	    book<TH2D>(id, 560, -70, 70, 300, 0, 30);
 	    cat_id.push_back(id);
 	}
-	
-	book<TH2D>("ZRho_GeantRest"+disc_string_, 560, -70, 70, 300, 0, 30);
-	book<TH2D>("ZRho_GeantRestPlot"+disc_string_, 560, -70, 70, 300, 0, 30);
+// 	
+// 	book<TH2D>("ZRho_GeantRest"+disc_string_, 560, -70, 70, 300, 0, 30);
+// 	book<TH2D>("ZRho_GeantRestPlot"+disc_string_, 560, -70, 70, 300, 0, 30);
    
     }
     
-    void fill(const identifier & id, double value){
-        get(id)->Fill(value);
+    virtual void fill(const identifier & id, double value){
+//         get(id)->Fill(value);
     }
     
-    void fill(const identifier & id, double x, double y){
-        get(id)->Fill(x, y);
+    virtual void fill(const identifier & id, double x, double y){
+//         get(id)->Fill(x, y);
     }
     
-    virtual void process(Event & e){
+    virtual void process(Event & e) {}
+    
+    virtual identifier geant_process(Event & e){
+	identifier process_id;
 	ID(thisProcessFlags);
-	ID(recoPos);
+// 	ID(recoPos);
 
         auto flags = e.get<Flags>(thisProcessFlags);
-        const Point & position = e.get<Point>(recoPos);
+//         const Point & position = e.get<Point>(recoPos);
 	
-	identifier All("ZRho_GeantAll"+disc_string_);
-	identifier Rest("ZRho_GeantRest"+disc_string_);
-	identifier RestPlot("ZRho_GeantRestPlot"+disc_string_);
+// 	identifier All("ZRho_GeantAll"+disc_string_);
+// 	identifier Rest("GeantRest"+disc_string_);
+// 	identifier RestPlot("GeantRestPlot"+disc_string_);
 	
 	//begin filling histograms
 	
 	bool hist_filled = false;
 	
-	fill(All, position.z(), position.rho());
+// 	fill(All, position.z(), position.rho());
 	
 	for (unsigned int i = 0; i < cats.geant_cat_size; ++i) // alternative: for (auto & id : cat_id) *then*
 	{
 	    if (flags[cats.geant_cat[i]] > discriminator_)
 	    {
-		fill(cat_id[i], position.z(), position.rho());
+		process_id = cat_id[i];
+// 		fill(cat_id[i], position.z(), position.rho());
 		hist_filled = true;
 	    }
 	}
 	
 	if (!hist_filled && (flags[GeantPrimary]+flags[Decay]) > discriminator_)
 	{
-	    fill(cat_id[4], position.z(), position.rho()); // make nicer access, e.g. using a map of enums+index instead of a vector
+	    process_id = cat_id[4];
+// 	    fill(cat_id[4], position.z(), position.rho()); // make nicer access, e.g. using a map of enums+index instead of a vector
 	    hist_filled = true;
 	}
 	
 	if (!hist_filled)
-	    fill(Rest, position.z(), position.rho());
+	    process_id = rest_id_;
+// 	    fill(Rest, position.z(), position.rho());
 	
-	if (flags[Unknown] > discriminator_ || flags[Undefined] > discriminator_ || flags[Compton] > discriminator_ || flags[Annihilation] > discriminator_ || flags[EIoni] > discriminator_ || flags[HIoni] > discriminator_ || flags[MuIoni] > discriminator_ || flags[Photon] > discriminator_ || flags[MuPairProd] > discriminator_ || flags[SynchrotronRadiation] > discriminator_ || flags[MuBrem] > discriminator_ || flags[MuNucl] > discriminator_)
-	    fill(RestPlot, position.z(), position.rho());
+// 	if (flags[Unknown] > discriminator_ || flags[Undefined] > discriminator_ || flags[Compton] > discriminator_ || flags[Annihilation] > discriminator_ || flags[EIoni] > discriminator_ || flags[HIoni] > discriminator_ || flags[MuIoni] > discriminator_ || flags[Photon] > discriminator_ || flags[MuPairProd] > discriminator_ || flags[SynchrotronRadiation] > discriminator_ || flags[MuBrem] > discriminator_ || flags[MuNucl] > discriminator_)
+// 	    fill(RestPlot, position.z(), position.rho());
+	    
+	return process_id;
+        
+    }
+    
+private:
+    
+    std::vector<std::string> categories;
+//     std::vector<std::string> cat_disc;
+    std::vector<identifier> cat_id;
+    identifier rest_id_;
+    
+    float discriminator_;
+    std::string disc_string_;
+
+};
+
+// REGISTER_HISTS(IvfGeantHists)
+
+
+
+
+class IvfDecayHists: public Hists{
+public:
+    IvfDecayHists(const ptree & xyz, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
+	for (unsigned int i = 0; i < ARRAY_SIZE; ++i)
+	    categories.push_back(catchar[i]);
+	
+	disc_string_ = dirname.substr(dirname.size()-2);
+	discriminator_ = std::atof(disc_string_.c_str())/10.;
+	
+	rest_id_ = "DecayRest"+disc_string_;
+	
+// 	book<TH2D>("ZRho_DecayAll"+disc_string_, 560, -70, 70, 300, 0, 30);
+	
+	for (unsigned int i = 0; i < cats.decay_cat_size; ++i)
+	{
+	    identifier id(categories[cats.decay_cat[i]]+disc_string_);
+// 	    book<TH2D>(id, 560, -70, 70, 300, 0, 30);
+	    cat_id.push_back(id);
+	}
+	
+// 	book<TH2D>("ZRho_DecayRest"+disc_string_, 560, -70, 70, 300, 0, 30);
+// 	book<TH2D>("ZRho_DecayRestPlot"+disc_string_, 560, -70, 70, 300, 0, 30);
+   
+    }
+    
+    virtual void fill(const identifier & id, double value){
+//         get(id)->Fill(value);
+    }
+    
+    virtual void fill(const identifier & id, double x, double y){
+//         get(id)->Fill(x, y);
+    }
+    
+    virtual void process(Event & e) {}
+    
+    virtual identifier decay_process(Event & e){
+	
+	ID(thisProcessFlags);
+// 	ID(recoPos);
+
+        auto flags = e.get<Flags>(thisProcessFlags);
+//         const Point & position = e.get<Point>(recoPos);
+	
+// 	identifier RestPlot("ZRho_DecayRestPlot"+disc_string_);
+	
+// 	if (flags[GeantPrimary]+flags[Decay] <= discriminator_)
+// 	{
+// 	    fill(RestPlot, position.z(), position.rho());
+// 	    return;
+// 	}
+	
+// 	identifier All("DecayAll"+disc_string_);
+// 	identifier Rest("DecayRest"+disc_string_);
+	
+// 	bool hist_filled = false;
+	
+// 	fill(All, position.z(), position.rho());
+	
+	identifier dec_id;
+	std::pair<float, identifier> best_decay = std::make_pair(0., dec_id);
+// 	int cat = -1;
+	
+	for (unsigned int i = 0; i < cats.decay_cat_size; ++i) // alternative: for (auto & id : cat_id) *then*
+	{
+	    if (cats.decay_cat[i] == CWeak)
+	    {
+		if (flags[CWeak] > best_decay.first && flags[BWeak] == 0.)
+		{
+		    best_decay = std::make_pair(flags[CWeak], cat_id[1]);
+// 		    cat = CWeak;
+// 		    hist_filled = true;
+// 		    fill(cat_id[1], position.z(), position.rho());
+		}
+		else if (flags[CWeak]+flags[BWeak] > best_decay.first && flags[BWeak] > 0.)
+		{
+		    best_decay = std::make_pair(flags[CWeak]+flags[BWeak], cat_id[0]);
+// 		    cat = BWeak;
+		}
+		
+	    }
+	    else
+	    {
+		if (flags[cats.decay_cat[i]] > best_decay.first)
+		{
+		    best_decay = std::make_pair(flags[cats.decay_cat[i]], cat_id[i]);
+// 		    cat = cats.decay_cat[i];
+// 		    hist_filled = true;
+// 		    fill(cat_id[i], position.z(), position.rho());
+		}
+	    }
+	}
+	
+	if (best_decay.second.id() == -1)
+	{
+	    best_decay = std::make_pair(0., rest_id_);
+// 	    fill(0, position.z(), position.rho()); // make nicer access, e.g. using a map of enums+index instead of a vector
+// 	    hist_filled = true;
+	}
+	
+// 	fill(best_decay.second, position.z(), position.rho());
+	
+// 	if (cat == ChargePion || cat == ChargeKaon || cat == Tau || cat == Lambda || cat == Jpsi || cat == Xi || cat == SigmaPlus || cat == SigmaMinus || cat == -1)
+	    
+// 	    fill(RestPlot, position.z(), position.rho());
+
+	return best_decay.second;
+        
+    }
+    
+private:
+    
+    std::vector<std::string> categories;
+//     std::vector<std::string> cat_disc;
+    std::vector<identifier> cat_id;
+    identifier rest_id_;
+    
+    float discriminator_;
+    std::string disc_string_;
+
+};
+
+// REGISTER_HISTS(IvfDecayHists)
+
+
+
+
+
+
+
+
+class IvfZRhoGeantHists: public IvfGeantHists{
+public:
+    IvfZRhoGeantHists(const ptree & xyz, const std::string & dirname, const s_dataset & dataset, OutputManager & out): IvfGeantHists(dirname, dataset, out){
+// 	for (unsigned int i = 0; i < ARRAY_SIZE; ++i)
+// 	    categories.push_back(catchar[i]);
+	
+// 	disc_string_ = dirname.substr(dirname.size()-2);
+// 	discriminator_ = std::atof(disc_string_.c_str())/10.;
+	
+	book<TH2D>("GeantAll"+disc_string_, 560, -70, 70, 300, 0, 30);
+	
+	for (unsigned int i = 0; i < cats.geant_cat_size; ++i)
+	{
+	    identifier id(categories[cats.geant_cat[i]]+disc_string_);
+	    book<TH2D>(id, 560, -70, 70, 300, 0, 30);
+// 	    cat_id.push_back(id);
+	}
+	
+	book<TH2D>("GeantRest"+disc_string_, 560, -70, 70, 300, 0, 30);
+// 	book<TH2D>("ZRho_GeantRestPlot"+disc_string_, 560, -70, 70, 300, 0, 30);
+   
+    }
+    
+//     void fill(const identifier & id, double value){
+//         get(id)->Fill(value);
+//     }
+    
+    virtual void fill(const identifier & id, double x, double y){
+        get(id)->Fill(x, y);
+    }
+    
+    virtual void process(Event & e){
+// 	ID(thisProcessFlags);
+	ID(recoPos);
+
+//         auto flags = e.get<Flags>(thisProcessFlags);
+        const Point & position = e.get<Point>(recoPos);
+	
+	identifier all_id("GeantAll"+disc_string_);
+// 	identifier Rest("ZRho_GeantRest"+disc_string_);
+// 	identifier RestPlot("ZRho_GeantRestPlot"+disc_string_);
+	
+	//begin filling histograms
+	
+// 	bool hist_filled = false;
+	
+	fill(all_id, position.z(), position.rho());
+	
+	identifier process_id = geant_process(e);
+	
+	fill(process_id, position.z(), position.rho());
+	
+// 	for (unsigned int i = 0; i < cats.geant_cat_size; ++i) // alternative: for (auto & id : cat_id) *then*
+// 	{
+// 	    if (flags[cats.geant_cat[i]] > discriminator_)
+// 	    {
+// 		fill(cat_id[i], position.z(), position.rho());
+// 		hist_filled = true;
+// 	    }
+// 	}
+// 	
+// 	if (!hist_filled && (flags[GeantPrimary]+flags[Decay]) > discriminator_)
+// 	{
+// 	    fill(cat_id[4], position.z(), position.rho()); // make nicer access, e.g. using a map of enums+index instead of a vector
+// 	    hist_filled = true;
+// 	}
+// 	
+// 	if (!hist_filled)
+// 	    fill(Rest, position.z(), position.rho());
+// 	
+// 	if (flags[Unknown] > discriminator_ || flags[Undefined] > discriminator_ || flags[Compton] > discriminator_ || flags[Annihilation] > discriminator_ || flags[EIoni] > discriminator_ || flags[HIoni] > discriminator_ || flags[MuIoni] > discriminator_ || flags[Photon] > discriminator_ || flags[MuPairProd] > discriminator_ || flags[SynchrotronRadiation] > discriminator_ || flags[MuBrem] > discriminator_ || flags[MuNucl] > discriminator_)
+// 	    fill(RestPlot, position.z(), position.rho());
         
     }
     
