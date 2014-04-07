@@ -1,4 +1,4 @@
-// Generated at Mon Mar 17 19:24:50 2014. Do not modify it
+// Generated at Tue Apr  1 18:56:37 2014. Do not modify it
 
 #ifdef _WIN32
 #pragma warning ( disable : 4786 )
@@ -21,21 +21,21 @@ namespace {
   ::Reflex::Type type_111 = ::Reflex::TypeBuilder(Reflex::Literal("long"));
   ::Reflex::Type type_113 = ::Reflex::TypeBuilder(Reflex::Literal("void"));
   ::Reflex::Type type_void = ::Reflex::TypeBuilder(Reflex::Literal("void"));
-  ::Reflex::Type type_635 = ::Reflex::TypeBuilder(Reflex::Literal("float"));
+  ::Reflex::Type type_636 = ::Reflex::TypeBuilder(Reflex::Literal("float"));
   ::Reflex::Type type_69 = ::Reflex::TypeBuilder(Reflex::Literal("double"));
   ::Reflex::Type type_65 = ::Reflex::TypeBuilder(Reflex::Literal("unsigned long"));
-  ::Reflex::Type type_662 = ::Reflex::TypeBuilder(Reflex::Literal("Basic3DVector<float>"));
+  ::Reflex::Type type_663 = ::Reflex::TypeBuilder(Reflex::Literal("Basic3DVector<float>"));
   ::Reflex::Type type_1785 = ::Reflex::TypeBuilder(Reflex::Literal("std::vector<double>"));
   ::Reflex::Type type_2079 = ::Reflex::TypeBuilder(Reflex::Literal("std::allocator<double>"));
-  ::Reflex::Type type_6576 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::RowOffsets<3>"));
-  ::Reflex::Type type_887 = ::Reflex::TypeBuilder(Reflex::Literal("Vector3DBase<float,GlobalTag>"));
+  ::Reflex::Type type_6586 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::RowOffsets<3>"));
+  ::Reflex::Type type_888 = ::Reflex::TypeBuilder(Reflex::Literal("Vector3DBase<float,GlobalTag>"));
   ::Reflex::Type type_2772 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::PxPyPzE4D<double>"));
   ::Reflex::Type type_2595 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::MatRepSym<double,3>"));
-  ::Reflex::Type type_2986 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::Cartesian3D<double>"));
-  ::Reflex::Type type_2911 = ::Reflex::TypeBuilder(Reflex::Literal("Geom::Spherical2Cartesian<float>"));
-  ::Reflex::Type type_2909 = ::Reflex::TypeBuilder(Reflex::Literal("Geom::Cylindrical2Cartesian<float>"));
+  ::Reflex::Type type_2987 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::Cartesian3D<double>"));
+  ::Reflex::Type type_2912 = ::Reflex::TypeBuilder(Reflex::Literal("Geom::Spherical2Cartesian<float>"));
+  ::Reflex::Type type_2910 = ::Reflex::TypeBuilder(Reflex::Literal("Geom::Cylindrical2Cartesian<float>"));
   ::Reflex::Type type_1707 = ::Reflex::TypeBuilder(Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>"));
-  ::Reflex::Type type_2988 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::DefaultCoordinateSystemTag"));
+  ::Reflex::Type type_2989 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::DefaultCoordinateSystemTag"));
   ::Reflex::Type type_2170 = ::Reflex::TypeBuilder(Reflex::Literal("std::_Vector_base<double,std::allocator<double> >"));
   ::Reflex::Type type_2696 = ::Reflex::TypeBuilder(Reflex::Literal("__gnu_cxx::__alloc_traits<std::allocator<double> >"));
   ::Reflex::Type type_529 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> >"));
@@ -44,15 +44,15 @@ namespace {
   ::Reflex::Type type_2710 = ::Reflex::TypeBuilder(Reflex::Literal("__gnu_cxx::__normal_iterator<const double*,std::vector<double> >"));
   ::Reflex::Type type_2162 = ::Reflex::TypeBuilder(Reflex::Literal("std::reverse_iterator<__gnu_cxx::__normal_iterator<double*,std::vector<double> > >"));
   ::Reflex::Type type_2161 = ::Reflex::TypeBuilder(Reflex::Literal("std::reverse_iterator<__gnu_cxx::__normal_iterator<const double*,std::vector<double> > >"));
-  ::Reflex::Type type_798 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>"));
+  ::Reflex::Type type_799 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>"));
   ::Reflex::Type type_2774 = ::Reflex::TypeBuilder(Reflex::Literal("ROOT::Math::DisplacementVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>"));
   ::Reflex::Type type_395 = ::Reflex::TypedefTypeBuilder(Reflex::Literal("CovarianceMatrix"), type_394);
   ::Reflex::Type type_530 = ::Reflex::TypedefTypeBuilder(Reflex::Literal("LorentzVector"), type_529);
-  ::Reflex::Type type_1657 = ::Reflex::TypedefTypeBuilder(Reflex::Literal("Global3DVector"), type_887);
-  ::Reflex::Type type_888 = ::Reflex::TypedefTypeBuilder(Reflex::Literal("GlobalVector"), type_1657);
-  ::Reflex::Type type_662c = ::Reflex::ConstBuilder(type_662);
-  ::Reflex::Type type_6390 = ::Reflex::ReferenceBuilder(type_662c);
-  ::Reflex::Type type_799 = ::Reflex::TypedefTypeBuilder(Reflex::Literal("Point"), type_798);
+  ::Reflex::Type type_1657 = ::Reflex::TypedefTypeBuilder(Reflex::Literal("Global3DVector"), type_888);
+  ::Reflex::Type type_889 = ::Reflex::TypedefTypeBuilder(Reflex::Literal("GlobalVector"), type_1657);
+  ::Reflex::Type type_663c = ::Reflex::ConstBuilder(type_663);
+  ::Reflex::Type type_6400 = ::Reflex::ReferenceBuilder(type_663c);
+  ::Reflex::Type type_800 = ::Reflex::TypedefTypeBuilder(Reflex::Literal("Point"), type_799);
   ::Reflex::Type type_1663c = ::Reflex::ConstBuilder(type_1663);
   ::Reflex::Type type_6730 = ::Reflex::ReferenceBuilder(type_1663c);
   ::Reflex::Type type_1707c = ::Reflex::ConstBuilder(type_1707);
@@ -67,20 +67,20 @@ namespace {
   ::Reflex::Type type_1785c = ::Reflex::ConstBuilder(type_1785);
   ::Reflex::Type type_6734 = ::Reflex::ReferenceBuilder(type_1785c);
   ::Reflex::Type type_7259 = ::Reflex::ArrayBuilder(type_69, 6);
-  ::Reflex::Type type_6576c = ::Reflex::ConstBuilder(type_6576);
-  ::Reflex::Type type_7260 = ::Reflex::PointerBuilder(type_6576c);
+  ::Reflex::Type type_6586c = ::Reflex::ConstBuilder(type_6586);
+  ::Reflex::Type type_7260 = ::Reflex::PointerBuilder(type_6586c);
   ::Reflex::Type type_2595c = ::Reflex::ConstBuilder(type_2595);
   ::Reflex::Type type_7261 = ::Reflex::ReferenceBuilder(type_2595c);
-  ::Reflex::Type type_7263 = ::Reflex::ReferenceBuilder(type_6576c);
+  ::Reflex::Type type_7263 = ::Reflex::ReferenceBuilder(type_6586c);
   ::Reflex::Type type_394c = ::Reflex::ConstBuilder(type_394);
   ::Reflex::Type type_5966 = ::Reflex::ReferenceBuilder(type_394c);
   ::Reflex::Type type_529c = ::Reflex::ConstBuilder(type_529);
   ::Reflex::Type type_6347 = ::Reflex::ReferenceBuilder(type_529c);
-  ::Reflex::Type type_887c = ::Reflex::ConstBuilder(type_887);
-  ::Reflex::Type type_6463 = ::Reflex::ReferenceBuilder(type_887c);
-  ::Reflex::Type type_798c = ::Reflex::ConstBuilder(type_798);
-  ::Reflex::Type type_6443 = ::Reflex::ReferenceBuilder(type_798c);
-  ::Reflex::Type type_798f = ::Reflex::TypedefTypeBuilder(Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<Double32_t>,ROOT::Math::DefaultCoordinateSystemTag>"), type_798);
+  ::Reflex::Type type_888c = ::Reflex::ConstBuilder(type_888);
+  ::Reflex::Type type_6473 = ::Reflex::ReferenceBuilder(type_888c);
+  ::Reflex::Type type_799c = ::Reflex::ConstBuilder(type_799);
+  ::Reflex::Type type_6453 = ::Reflex::ReferenceBuilder(type_799c);
+  ::Reflex::Type type_799f = ::Reflex::TypedefTypeBuilder(Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<Double32_t>,ROOT::Math::DefaultCoordinateSystemTag>"), type_799);
 } // unnamed namespace
 
 #ifndef __CINT__
@@ -177,20 +177,20 @@ class __ROOT__Math__PositionVector3D_ROOT__Math__Cartesian3D_double__ROOT__Math_
 #endif // __CINT__
 namespace {
 //------Stub functions for class Basic3DVector<float> -------------------------------
-static void destructor_2914(void*, void * o, const std::vector<void*>&, void *) {
+static void destructor_2915(void*, void * o, const std::vector<void*>&, void *) {
 (((::Basic3DVector<float>*)o)->::Basic3DVector<float>::~Basic3DVector)();
 }
-static void constructor_2916( void* retaddr, void* mem, const std::vector<void*>&, void*) {
+static void constructor_2917( void* retaddr, void* mem, const std::vector<void*>&, void*) {
   if (retaddr) *(void**)retaddr = ::new(mem) ::Basic3DVector<float>();
   else ::new(mem) ::Basic3DVector<float>();
 }
 
-static void constructor_2917( void* retaddr, void* mem, const std::vector<void*>& arg, void*) {
+static void constructor_2918( void* retaddr, void* mem, const std::vector<void*>& arg, void*) {
   if (retaddr) *(void**)retaddr = ::new(mem) ::Basic3DVector<float>(*(const ::Basic3DVector<float>*)arg[0]);
   else ::new(mem) ::Basic3DVector<float>(*(const ::Basic3DVector<float>*)arg[0]);
 }
 
-static void method_newdel_662( void* retaddr, void*, const std::vector<void*>&, void*)
+static void method_newdel_663( void* retaddr, void*, const std::vector<void*>&, void*)
 {
   static ::Reflex::NewDelFunctions s_funcs;
   s_funcs.fNew         = ::Reflex::NewDelFunctionsT< ::Basic3DVector<float> >::new_T;
@@ -208,24 +208,24 @@ Reflex::GenreflexMemberBuilder __Basic3DVector_float__datamem_bld(&__Basic3DVect
 Reflex::GenreflexMemberBuilder __Basic3DVector_float__funcmem_bld(&__Basic3DVector_float__db_funcmem);
 void __Basic3DVector_float__dict() {
   ::Reflex::ClassBuilder(Reflex::Literal("Basic3DVector<float>"), typeid(::Basic3DVector<float>), sizeof(::Basic3DVector<float>), ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL, ::Reflex::CLASS)
-  .AddTypedef(type_635, Reflex::Literal("Basic3DVector<float>::ScalarType"))
-  .AddTypedef(type_2909, Reflex::Literal("Basic3DVector<float>::Cylindrical"))
-  .AddTypedef(type_2911, Reflex::Literal("Basic3DVector<float>::Spherical"))
-  .AddTypedef(type_2911, Reflex::Literal("Basic3DVector<float>::Polar"))
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("~Basic3DVector"), destructor_2914, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::DESTRUCTOR )
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("Basic3DVector"), constructor_2916, 0, 0, ::Reflex::PUBLIC | ::Reflex::EXPLICIT | ::Reflex::CONSTRUCTOR)
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void, type_6390), Reflex::Literal("Basic3DVector"), constructor_2917, 0, "p", ::Reflex::PUBLIC | ::Reflex::CONSTRUCTOR)
-  .AddFunctionMember<void*(void)>(Reflex::Literal("__getNewDelFunctions"), method_newdel_662, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL)
+  .AddTypedef(type_636, Reflex::Literal("Basic3DVector<float>::ScalarType"))
+  .AddTypedef(type_2910, Reflex::Literal("Basic3DVector<float>::Cylindrical"))
+  .AddTypedef(type_2912, Reflex::Literal("Basic3DVector<float>::Spherical"))
+  .AddTypedef(type_2912, Reflex::Literal("Basic3DVector<float>::Polar"))
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("~Basic3DVector"), destructor_2915, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::DESTRUCTOR )
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("Basic3DVector"), constructor_2917, 0, 0, ::Reflex::PUBLIC | ::Reflex::EXPLICIT | ::Reflex::CONSTRUCTOR)
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void, type_6400), Reflex::Literal("Basic3DVector"), constructor_2918, 0, "p", ::Reflex::PUBLIC | ::Reflex::CONSTRUCTOR)
+  .AddFunctionMember<void*(void)>(Reflex::Literal("__getNewDelFunctions"), method_newdel_663, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL)
   .AddOnDemandDataMemberBuilder(&__Basic3DVector_float__datamem_bld);
 }
 
 //------Delayed data member builder for class Basic3DVector<float> -------------------
 void __Basic3DVector_float__db_datamem(Reflex::Class* cl) {
   ::Reflex::ClassBuilder(cl)
-  .AddDataMember(type_635, Reflex::Literal("theX"), OffsetOf(__shadow__::__Basic3DVector_float_, theX), ::Reflex::PRIVATE)
-  .AddDataMember(type_635, Reflex::Literal("theY"), OffsetOf(__shadow__::__Basic3DVector_float_, theY), ::Reflex::PRIVATE)
-  .AddDataMember(type_635, Reflex::Literal("theZ"), OffsetOf(__shadow__::__Basic3DVector_float_, theZ), ::Reflex::PRIVATE)
-  .AddDataMember(type_635, Reflex::Literal("theW"), OffsetOf(__shadow__::__Basic3DVector_float_, theW), ::Reflex::PRIVATE);
+  .AddDataMember(type_636, Reflex::Literal("theX"), OffsetOf(__shadow__::__Basic3DVector_float_, theX), ::Reflex::PRIVATE)
+  .AddDataMember(type_636, Reflex::Literal("theY"), OffsetOf(__shadow__::__Basic3DVector_float_, theY), ::Reflex::PRIVATE)
+  .AddDataMember(type_636, Reflex::Literal("theZ"), OffsetOf(__shadow__::__Basic3DVector_float_, theZ), ::Reflex::PRIVATE)
+  .AddDataMember(type_636, Reflex::Literal("theW"), OffsetOf(__shadow__::__Basic3DVector_float_, theW), ::Reflex::PRIVATE);
 }
 //------Delayed function member builder for class Basic3DVector<float> -------------------
 void __Basic3DVector_float__db_funcmem(Reflex::Class*) {
@@ -273,7 +273,7 @@ void __TV_dict() {
 //------Delayed data member builder for class TV -------------------
 void __TV_db_datamem(Reflex::Class* cl) {
   ::Reflex::ClassBuilder(cl)
-  .AddDataMember(type_799, Reflex::Literal("tvPos"), OffsetOf(__shadow__::__TV, tvPos), ::Reflex::PUBLIC)
+  .AddDataMember(type_800, Reflex::Literal("tvPos"), OffsetOf(__shadow__::__TV, tvPos), ::Reflex::PUBLIC)
   .AddDataMember(type_39, Reflex::Literal("pdgIdMother"), OffsetOf(__shadow__::__TV, pdgIdMother), ::Reflex::PUBLIC)
   .AddDataMember(type_530, Reflex::Literal("p4daughters"), OffsetOf(__shadow__::__TV, p4daughters), ::Reflex::PUBLIC)
   .AddDataMember(type_39, Reflex::Literal("numberChargedDaughters"), OffsetOf(__shadow__::__TV, numberChargedDaughters), ::Reflex::PUBLIC);
@@ -314,12 +314,12 @@ Reflex::GenreflexMemberBuilder __PV3DBase_float_VectorTag_GlobalTag__datamem_bld
 Reflex::GenreflexMemberBuilder __PV3DBase_float_VectorTag_GlobalTag__funcmem_bld(&__PV3DBase_float_VectorTag_GlobalTag__db_funcmem);
 void __PV3DBase_float_VectorTag_GlobalTag__dict() {
   ::Reflex::ClassBuilder(Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>"), typeid(::PV3DBase<float,VectorTag,GlobalTag>), sizeof(::PV3DBase<float,VectorTag,GlobalTag>), ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL, ::Reflex::CLASS)
-  .AddTypedef(type_635, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::ScalarType"))
-  .AddTypedef(type_662, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::BasicVectorType"))
-  .AddTypedef(type_2909, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::Cylindrical"))
-  .AddTypedef(type_2911, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::Spherical"))
-  .AddTypedef(type_2911, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::Polar"))
-  .AddTypedef(type_662, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::MathVector"))
+  .AddTypedef(type_636, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::ScalarType"))
+  .AddTypedef(type_663, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::BasicVectorType"))
+  .AddTypedef(type_2910, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::Cylindrical"))
+  .AddTypedef(type_2912, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::Spherical"))
+  .AddTypedef(type_2912, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::Polar"))
+  .AddTypedef(type_663, Reflex::Literal("PV3DBase<float,VectorTag,GlobalTag>::MathVector"))
   .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("~PV3DBase"), destructor_3282, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::DESTRUCTOR )
   .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void, type_6732), Reflex::Literal("PV3DBase"), constructor_3284, 0, "", ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::CONSTRUCTOR)
   .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("PV3DBase"), constructor_3285, 0, 0, ::Reflex::PUBLIC | ::Reflex::EXPLICIT | ::Reflex::CONSTRUCTOR)
@@ -330,7 +330,7 @@ void __PV3DBase_float_VectorTag_GlobalTag__dict() {
 //------Delayed data member builder for class PV3DBase<float,VectorTag,GlobalTag> -------------------
 void __PV3DBase_float_VectorTag_GlobalTag__db_datamem(Reflex::Class* cl) {
   ::Reflex::ClassBuilder(cl)
-  .AddDataMember(type_662, Reflex::Literal("theVector"), OffsetOf(__shadow__::__PV3DBase_float_VectorTag_GlobalTag_, theVector), ::Reflex::PROTECTED);
+  .AddDataMember(type_663, Reflex::Literal("theVector"), OffsetOf(__shadow__::__PV3DBase_float_VectorTag_GlobalTag_, theVector), ::Reflex::PROTECTED);
 }
 //------Delayed function member builder for class PV3DBase<float,VectorTag,GlobalTag> -------------------
 void __PV3DBase_float_VectorTag_GlobalTag__db_funcmem(Reflex::Class*) {
@@ -522,7 +522,7 @@ static void constructor_7462( void* retaddr, void* mem, const std::vector<void*>
   else ::new(mem) ::ROOT::Math::RowOffsets<3>();
 }
 
-static void method_newdel_6576( void* retaddr, void*, const std::vector<void*>&, void*)
+static void method_newdel_6586( void* retaddr, void*, const std::vector<void*>&, void*)
 {
   static ::Reflex::NewDelFunctions s_funcs;
   s_funcs.fNew         = ::Reflex::NewDelFunctionsT< ::ROOT::Math::RowOffsets<3> >::new_T;
@@ -543,7 +543,7 @@ void __ROOT__Math__RowOffsets_3__dict() {
   .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("~RowOffsets"), destructor_7459, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::DESTRUCTOR )
   .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void, type_7263), Reflex::Literal("RowOffsets"), constructor_7461, 0, "", ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::CONSTRUCTOR)
   .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("RowOffsets"), constructor_7462, 0, 0, ::Reflex::PUBLIC | ::Reflex::EXPLICIT | ::Reflex::CONSTRUCTOR)
-  .AddFunctionMember<void*(void)>(Reflex::Literal("__getNewDelFunctions"), method_newdel_6576, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL);
+  .AddFunctionMember<void*(void)>(Reflex::Literal("__getNewDelFunctions"), method_newdel_6586, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL);
 }
 
 //------Delayed data member builder for class RowOffsets<3> -------------------
@@ -659,20 +659,20 @@ void __ROOT__Math__LorentzVector_ROOT__Math__PxPyPzE4D_double_s__db_funcmem(Refl
 
 }
 //------Stub functions for class Vector3DBase<float,GlobalTag> -------------------------------
-static void destructor_3063(void*, void * o, const std::vector<void*>&, void *) {
+static void destructor_3064(void*, void * o, const std::vector<void*>&, void *) {
 (((::Vector3DBase<float,GlobalTag>*)o)->::Vector3DBase<float,GlobalTag>::~Vector3DBase)();
 }
-static void constructor_3065( void* retaddr, void* mem, const std::vector<void*>& arg, void*) {
+static void constructor_3066( void* retaddr, void* mem, const std::vector<void*>& arg, void*) {
   if (retaddr) *(void**)retaddr = ::new(mem) ::Vector3DBase<float,GlobalTag>(*(const ::Vector3DBase<float,GlobalTag>*)arg[0]);
   else ::new(mem) ::Vector3DBase<float,GlobalTag>(*(const ::Vector3DBase<float,GlobalTag>*)arg[0]);
 }
 
-static void constructor_3066( void* retaddr, void* mem, const std::vector<void*>&, void*) {
+static void constructor_3067( void* retaddr, void* mem, const std::vector<void*>&, void*) {
   if (retaddr) *(void**)retaddr = ::new(mem) ::Vector3DBase<float,GlobalTag>();
   else ::new(mem) ::Vector3DBase<float,GlobalTag>();
 }
 
-static void method_newdel_887( void* retaddr, void*, const std::vector<void*>&, void*)
+static void method_newdel_888( void* retaddr, void*, const std::vector<void*>&, void*)
 {
   static ::Reflex::NewDelFunctions s_funcs;
   s_funcs.fNew         = ::Reflex::NewDelFunctionsT< ::Vector3DBase<float,GlobalTag> >::new_T;
@@ -702,14 +702,14 @@ void __Vector3DBase_float_GlobalTag__dict() {
   ::Reflex::ClassBuilder(Reflex::Literal("Vector3DBase<float,GlobalTag>"), typeid(::Vector3DBase<float,GlobalTag>), sizeof(::Vector3DBase<float,GlobalTag>), ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL, ::Reflex::CLASS)
   .AddBase(type_1707, ::Reflex::BaseOffset< ::Vector3DBase<float,GlobalTag>, ::PV3DBase<float,VectorTag,GlobalTag> >::Get(), ::Reflex::PUBLIC)
   .AddTypedef(type_1707, Reflex::Literal("Vector3DBase<float,GlobalTag>::BaseClass"))
-  .AddTypedef(type_2909, Reflex::Literal("Vector3DBase<float,GlobalTag>::Cylindrical"))
-  .AddTypedef(type_2911, Reflex::Literal("Vector3DBase<float,GlobalTag>::Spherical"))
-  .AddTypedef(type_2911, Reflex::Literal("Vector3DBase<float,GlobalTag>::Polar"))
-  .AddTypedef(type_662, Reflex::Literal("Vector3DBase<float,GlobalTag>::BasicVectorType"))
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("~Vector3DBase"), destructor_3063, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::DESTRUCTOR )
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void, type_6463), Reflex::Literal("Vector3DBase"), constructor_3065, 0, "", ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::CONSTRUCTOR)
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("Vector3DBase"), constructor_3066, 0, 0, ::Reflex::PUBLIC | ::Reflex::EXPLICIT | ::Reflex::CONSTRUCTOR)
-  .AddFunctionMember<void*(void)>(Reflex::Literal("__getNewDelFunctions"), method_newdel_887, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL)
+  .AddTypedef(type_2910, Reflex::Literal("Vector3DBase<float,GlobalTag>::Cylindrical"))
+  .AddTypedef(type_2912, Reflex::Literal("Vector3DBase<float,GlobalTag>::Spherical"))
+  .AddTypedef(type_2912, Reflex::Literal("Vector3DBase<float,GlobalTag>::Polar"))
+  .AddTypedef(type_663, Reflex::Literal("Vector3DBase<float,GlobalTag>::BasicVectorType"))
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("~Vector3DBase"), destructor_3064, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::DESTRUCTOR )
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void, type_6473), Reflex::Literal("Vector3DBase"), constructor_3066, 0, "", ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::CONSTRUCTOR)
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("Vector3DBase"), constructor_3067, 0, 0, ::Reflex::PUBLIC | ::Reflex::EXPLICIT | ::Reflex::CONSTRUCTOR)
+  .AddFunctionMember<void*(void)>(Reflex::Literal("__getNewDelFunctions"), method_newdel_888, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL)
   .AddFunctionMember<void*(void)>(Reflex::Literal("__getBasesTable"), method_x11, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL);
 }
 
@@ -722,20 +722,20 @@ void __Vector3DBase_float_GlobalTag__db_funcmem(Reflex::Class*) {
 
 }
 //------Stub functions for class PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag> -------------------------------
-static void destructor_2990(void*, void * o, const std::vector<void*>&, void *) {
+static void destructor_2991(void*, void * o, const std::vector<void*>&, void *) {
 (((::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>*)o)->::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>::~PositionVector3D)();
 }
-static void constructor_2992( void* retaddr, void* mem, const std::vector<void*>& arg, void*) {
+static void constructor_2993( void* retaddr, void* mem, const std::vector<void*>& arg, void*) {
   if (retaddr) *(void**)retaddr = ::new(mem) ::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>(*(const ::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>*)arg[0]);
   else ::new(mem) ::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>(*(const ::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>*)arg[0]);
 }
 
-static void constructor_2993( void* retaddr, void* mem, const std::vector<void*>&, void*) {
+static void constructor_2994( void* retaddr, void* mem, const std::vector<void*>&, void*) {
   if (retaddr) *(void**)retaddr = ::new(mem) ::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>();
   else ::new(mem) ::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>();
 }
 
-static void method_newdel_798( void* retaddr, void*, const std::vector<void*>&, void*)
+static void method_newdel_799( void* retaddr, void*, const std::vector<void*>&, void*)
 {
   static ::Reflex::NewDelFunctions s_funcs;
   s_funcs.fNew         = ::Reflex::NewDelFunctionsT< ::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag> >::new_T;
@@ -755,19 +755,19 @@ void __ROOT__Math__PositionVector3D_ROOT__Math__Cartesian3D_double__ROOT__Math__
   ::Reflex::ClassBuilder(Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>"), typeid(::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>), sizeof(::ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>), ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL, ::Reflex::CLASS)
   .AddProperty(Reflex::Literal("o_name"), "ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<Double32_t>,ROOT::Math::DefaultCoordinateSystemTag>")
   .AddTypedef(type_69, Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>::Scalar"))
-  .AddTypedef(type_2986, Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>::CoordinateType"))
-  .AddTypedef(type_2988, Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>::CoordinateSystemTag"))
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("~PositionVector3D"), destructor_2990, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::DESTRUCTOR )
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void, type_6443), Reflex::Literal("PositionVector3D"), constructor_2992, 0, "", ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::CONSTRUCTOR)
-  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("PositionVector3D"), constructor_2993, 0, 0, ::Reflex::PUBLIC | ::Reflex::EXPLICIT | ::Reflex::CONSTRUCTOR)
-  .AddFunctionMember<void*(void)>(Reflex::Literal("__getNewDelFunctions"), method_newdel_798, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL)
+  .AddTypedef(type_2987, Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>::CoordinateType"))
+  .AddTypedef(type_2989, Reflex::Literal("ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag>::CoordinateSystemTag"))
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("~PositionVector3D"), destructor_2991, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::DESTRUCTOR )
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void, type_6453), Reflex::Literal("PositionVector3D"), constructor_2993, 0, "", ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL | ::Reflex::CONSTRUCTOR)
+  .AddFunctionMember(::Reflex::FunctionTypeBuilder(type_void), Reflex::Literal("PositionVector3D"), constructor_2994, 0, 0, ::Reflex::PUBLIC | ::Reflex::EXPLICIT | ::Reflex::CONSTRUCTOR)
+  .AddFunctionMember<void*(void)>(Reflex::Literal("__getNewDelFunctions"), method_newdel_799, 0, 0, ::Reflex::PUBLIC | ::Reflex::ARTIFICIAL)
   .AddOnDemandDataMemberBuilder(&__ROOT__Math__PositionVector3D_ROOT__Math__Cartesian3D_double__ROOT__Math__DefaultCoordinateSystemTag__datamem_bld);
 }
 
 //------Delayed data member builder for class PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag> -------------------
 void __ROOT__Math__PositionVector3D_ROOT__Math__Cartesian3D_double__ROOT__Math__DefaultCoordinateSystemTag__db_datamem(Reflex::Class* cl) {
   ::Reflex::ClassBuilder(cl)
-  .AddDataMember(type_2986, Reflex::Literal("fCoordinates"), OffsetOf(__shadow__::__ROOT__Math__PositionVector3D_ROOT__Math__Cartesian3D_double__ROOT__Math__DefaultCoordinateSystemTag_, fCoordinates), ::Reflex::PRIVATE);
+  .AddDataMember(type_2987, Reflex::Literal("fCoordinates"), OffsetOf(__shadow__::__ROOT__Math__PositionVector3D_ROOT__Math__Cartesian3D_double__ROOT__Math__DefaultCoordinateSystemTag_, fCoordinates), ::Reflex::PRIVATE);
 }
 //------Delayed function member builder for class PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag> -------------------
 void __ROOT__Math__PositionVector3D_ROOT__Math__Cartesian3D_double__ROOT__Math__DefaultCoordinateSystemTag__db_funcmem(Reflex::Class*) {
@@ -789,16 +789,16 @@ namespace {
       __ROOT__Math__PositionVector3D_ROOT__Math__Cartesian3D_double__ROOT__Math__DefaultCoordinateSystemTag__dict(); 
     }
     ~Dictionaries() {
-      type_662.Unload(); // class Basic3DVector<float> 
+      type_663.Unload(); // class Basic3DVector<float> 
       type_1663.Unload(); // class TV 
       type_1707.Unload(); // class PV3DBase<float,VectorTag,GlobalTag> 
       type_1785.Unload(); // class std::vector<double> 
       type_2595.Unload(); // class ROOT::Math::MatRepSym<double,3> 
-      type_6576.Unload(); // class ROOT::Math::RowOffsets<3> 
+      type_6586.Unload(); // class ROOT::Math::RowOffsets<3> 
       type_394.Unload(); // class ROOT::Math::SMatrix<double,3,3,ROOT::Math::MatRepSym<double,3> > 
       type_529.Unload(); // class ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double> > 
-      type_887.Unload(); // class Vector3DBase<float,GlobalTag> 
-      type_798.Unload(); // class ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag> 
+      type_888.Unload(); // class Vector3DBase<float,GlobalTag> 
+      type_799.Unload(); // class ROOT::Math::PositionVector3D<ROOT::Math::Cartesian3D<double>,ROOT::Math::DefaultCoordinateSystemTag> 
     }
   };
   static Dictionaries instance;
