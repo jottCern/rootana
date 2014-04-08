@@ -1,0 +1,6 @@
+Makefile.local
+*.root
+*.eps
+lib/*
+*/test.exe
+*/.bin
