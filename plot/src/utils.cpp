@@ -92,36 +92,53 @@ T get_option(const map<string, string> & options, const string & key, const T de
     return boost::lexical_cast<T>(it->second);
 }
 
-// options refer to the whole file, not an individual histogram. Available are:
-// * "ylog": if non-empty, logarithmic y axis
-// * "use_yrange": if non-empty, use y axis range from first histogram instead of auto
-// * "title_ul": additional title placed on the upper left, usually "CMS preliminary sqrt(s) = XTeV"
+void trim(string & s){
+    while(!s.empty() && s[0]==' ') s = s.substr(1);
+    while(!s.empty() && s.back() == ' ') s = s.substr(0, s.size()-1);
+}
+
+}
+
+
+// Draw the given histograms in the order they are arranged in the vector.
+//
+// histos[0].options control many aspects of drawing:
+// * "title_ul": additional title placed on the upper left, e.g. "CMS preliminary sqrt(s) = XTeV"
 // * "title_ul1": upper left lower title, within the plot, line 1
 // * "title_ul2": upper left lower title, within the plot, line 2
 // * "title_ul3": upper left title, line 3
-// * "title_ur": additional title placed on the upper right, usually used for lumi
-// * "vertical_line": a x value where to draw a vertical line
+// * "title_ur": additional title placed on the upper right, e.g. for lumi
+//
 // * "legend_align": either "left" (in this case, do not use title_ul1, title_ul2) or "right" (default)
-// * "legend_fontsize", "legend_xshift" (default: 0.03, 0) font size and offset from default position of the legend box
-// * "legend_linespread" (default: 1.1) distance of the lines, measured in font size
-// * "xlabel_factor" and "ylabel_factor": values > 1.0 increase the distance of axis / axis legend (default: 1.0)
-// * "auto_linestyles": if non-empty, use different line styles for all non-filled histograms for better b/w readability
-// * "as_function": if non-empty, convert histograms to TGraphs with same linecolor / style
-// * "labelsize"/"titlesize": if non-empty and positive, the size of the x/y labels/titles
 // * "legend_xshift": double, shift of legend from default position
-// * "more_ymax": double, incrase space in y direction (for legend, etc.), as fraction of pad height
-// * "draw_total_error": string. If non-empty, draw the total error (=the one from histos[0], which is usually the complete background in a stackplot) as hatched area
-// * "draw_ratio": if non-empty, draw (data - MC) / MC at the bottom of the plot, using Gaussian error propagation
+// * "legend_fontsize" (default: 0.03) font size for the legend
+// * "legend_linespread" (default: 1.1) vertical distance of the lines in the legend (in units of the font size)
+//
+// * "xlabel_factor" and "ylabel_factor": values > 1.0 increase the distance of axis / axis legend (default: 1.0)
 // * "xmin", "xmax" to override the x range of histos[0] which is drawn. Note that this only works if both, xmin and xmax, are set.
+// * "use_yrange": if non-empty, use y axis range from first histogram instead of auto
+// * "more_ymax": incrase space in y direction (for legend, etc.), as fraction of pad height
+// * "ylog": if non-empty, logarithmic y axis
 //
-// all of these are taken from histogram[0].
+// * "auto_linestyles": if non-empty, use different line styles for all non-filled histograms for better b/w readability
+// * "as_function": if non-empty, draws histograms as TGraphs with same linecolor / style
+// * "labelsize"/"titlesize": if non-empty and positive, the size of the x/y labels/titles
 //
-// per-histogram options:
+// * "draw_total_error": string. If non-empty, draw the total error (=the one from histos[0], which is usually the complete background in a stackplot) as hatched area
+// * "draw_ratio": if non-empty, should be set to "proc1 / proc2" with process names proc1 and proc2; defaults to "data / bkg". In this case, further options are
+//   - "ratio_ytext": y axis label for ratio plot
+//   - "ratio_ymin" and "ratio_ymax": minimum and maximum y value
+//   - "ratio_line1": if non-empoty draw a line at ratio=1
+// * "vertical_line": a x value where to draw a vertical line
+//
+// All of the above options are taken from histos[0].options.
+//
+// Additional interpreted options per histogram are:
 // * "use_errors": plot the errors
 // * "fill": fill the histogram. If false, only draw a line
-void draw_histos(vector<Histogram> & histos, const string & filename) {
+void draw_histos(const vector<Histogram> & histos, const string & filename) {
     if(histos.size() == 0){
-        throw string("draw_histos: empty histos vector given!!!");
+        throw runtime_error("draw_histos: empty histos vector given");
     }
     const map<string, string> & options = histos[0].options;
     bool debug = get_option<string>(options, "debug", "").size();
@@ -131,8 +148,8 @@ void draw_histos(vector<Histogram> & histos, const string & filename) {
     bool draw_ratio = get_option<string>(options, "draw_ratio", "").size() > 0;
     double labelsize = get_option<double>(options, "labelsize", -1.0);
     double titlesize = get_option<double>(options, "titlesize", -1.0);
-    string ytext = get_option<string>(options, "ytext", histos[0].histo->GetXaxis()->GetTitle());
-    string xtext = get_option<string>(options, "xtext", histos[0].histo->GetYaxis()->GetTitle());
+    string ytext = get_option<string>(options, "ytext", histos[0].histo->GetYaxis()->GetTitle());
+    string xtext = get_option<string>(options, "xtext", histos[0].histo->GetXaxis()->GetTitle());
     double xmin = get_option<double>(options, "xmin", NAN);
     double xmax = get_option<double>(options, "xmax", NAN);
     if(!std::isnan(xmin) && !std::isnan(xmax)){
@@ -148,28 +165,53 @@ void draw_histos(vector<Histogram> & histos, const string & filename) {
             i_linestyle = (i_linestyle + 1) % n_linestyles;
         }
     }
+    
+    std::string ratio_num, ratio_denom;
+    
+    if(draw_ratio){
+        string draw_ratio_option = get_option<string>(options, "draw_ratio", "data/bkg");
+        size_t p = draw_ratio_option.find('/');
+        if(p!=string::npos){
+            ratio_num = draw_ratio_option.substr(0, p);
+            ratio_denom = draw_ratio_option.substr(p+1);
+            trim(ratio_num);
+            trim(ratio_denom);
+        }
+        else{
+            ratio_num = "data";
+            ratio_denom = "bkg";
+        }
+    }
 
-    TCanvas *c = new TCanvas("c", "c", 600, 600);
+    std::unique_ptr<TCanvas> c(new TCanvas("c", "c", 600, 600));
     c->cd();
+    const double mainpad_height = 0.67;
     if(draw_ratio){
         c->Divide(1, 2);
+        c->cd(1);
+        gPad->SetPad(0.0, 0.33, 1.0, 1.0);
+        gPad->SetBottomMargin(0.02);
         c->cd(2);
         // make the bottom pad smaller
-        gPad->SetPad(0.0, 0.0, 1.0, 0.25);
+        gPad->SetPad(0.0, 0.0, 1.0, 0.33);
+        gPad->SetTopMargin(0.03); // note: 0 is problematic, as centered y axis labels will then be truncated.
+        gPad->SetBottomMargin(0.3);
+        
         c->cd(1);
-        gPad->SetPad(0.0, 0.25, 1.0, 1.0);
     }
+    
+    
+    // *** axis:
     
     if(ylog){
         gPad->SetLogy();
     }
     double ymax=-1;
     double ymin = numeric_limits<double>::infinity();
-    double bincenter_first = histos[0].histo->GetXaxis()->GetBinLowEdge(histos[0].histo->GetXaxis()->GetFirst()) + 0.5 * histos[0].histo->GetBinWidth(histos[0].histo->GetXaxis()->GetFirst());
-    double bincenter_last = histos[0].histo->GetXaxis()->GetBinUpEdge(histos[0].histo->GetXaxis()->GetLast()) - 0.5 * histos[0].histo->GetBinWidth(histos[0].histo->GetXaxis()->GetLast());
     for (size_t i=0; i<histos.size(); i++) {
-        int ibin0 = histos[i].histo->GetXaxis()->FindBin(bincenter_first);
-        int ibin1 = histos[i].histo->GetXaxis()->FindBin(bincenter_last);
+        // NOTE: pay attention to range set ...
+        int ibin0 = histos[0].histo->GetXaxis()->GetFirst();
+        int ibin1 = histos[0].histo->GetXaxis()->GetLast();
         for(int k=ibin0; k<=ibin1; ++k){
             double c;
             ymax = max(ymax, c = histos[i].histo->GetBinContent(k));
@@ -177,11 +219,8 @@ void draw_histos(vector<Histogram> & histos, const string & filename) {
                 ymin = min(ymin, c);
             }
         }
-        /*if(histos[i].histo->GetFillColor()==0 && linewidth > 0){
-            histos[i].histo->SetLineWidth(linewidth);
-        }*/
     }
-    TH1* h = (TH1*)histos[0].histo->Clone();
+    std::unique_ptr<TH1> h((TH1*)histos[0].histo->Clone());
     h->GetXaxis()->SetTitle(xtext.c_str());
     h->GetYaxis()->SetTitle(ytext.c_str());
     double xlabel_factor = get_option<double>(options, "xlabel_factor", 1.0);
@@ -197,8 +236,13 @@ void draw_histos(vector<Histogram> & histos, const string & filename) {
         h->GetYaxis()->SetTitleSize(titlesize);
     }
     
-    bool use_yrange = get_option<string>(options, "use_yrange", "").size();
+    if(draw_ratio){
+        // hide x axis labels by making them white:
+        h->GetXaxis()->SetLabelColor(kWhite);
+        h->GetXaxis()->SetTitleColor(kWhite);
+    }
 
+    bool use_yrange = get_option<string>(options, "use_yrange", "").size();
     if(!use_yrange){
         if(ylog){
             h->SetMinimum(ymin);
@@ -214,17 +258,14 @@ void draw_histos(vector<Histogram> & histos, const string & filename) {
 
     h->Draw("AXIS");
     
-    TH1* data_histo = 0;
-    if(debug){
-        c->Print(("debug0_"+filename).c_str());
-    }
+    
+    // *** histograms:
     std::vector<std::unique_ptr<TObject>> tmp_objects; // will be destroyed upon return ...
     TH1* total_error_hist=0;
     static identifier data("data");
     for (size_t i=0; i<histos.size(); i++) {
         identifier process = histos[i].process;
         if(process==data){
-            data_histo = histos[i].histo.get();
             if(draw_total_error){ // just before drawing data, draw the total error
                 //cout << "draw total error" << endl;
                 // the E3 option from root connects the *end* of the error bars which is not
@@ -283,31 +324,51 @@ void draw_histos(vector<Histogram> & histos, const string & filename) {
             }
         }
     }
-    if(debug){
-        c->Print(("debug1_"+filename).c_str());
-    }
+
     
+    // *** Legend:
     double legend_xshift = get_option<double>(options, "legend_xshift", 0.0);
     string legend_align = get_option<string>(options, "legend_align", "right");
     
     double legend_fontsize = get_option<double>(options, "legend_fontsize", 0.03);
     double legend_linespread = get_option<double>(options, "legend_linespread", 1.1);
     
-    double legend_x0 = 0.70 + legend_xshift;
-    if(legend_align=="left") legend_x0 = gPad->GetLeftMargin() + 0.03 + legend_xshift;
+    const double legend_space_h = 0.02;
+    const double legend_space_v = 0.02;
     
-    TLegend *leg1 = new TLegend(legend_x0, 0.91 - histos.size() * legend_fontsize  * legend_linespread, 0.88, 0.91,"","brNDC");
+    // determine max legend width:
+    double legend_maxwidth = 0.0;
+    for(auto & h : histos){
+        TLatex l(0.0, 0.0, h.legend.c_str());
+        l.SetTextSize(legend_fontsize);
+        l.SetTextFont(gStyle->GetTextFont());
+        //cout << "Width of '" << h.legend << "': " << l.GetXsize() << endl;
+        legend_maxwidth = max(legend_maxwidth, l.GetXsize());
+    }
+    
+    
+    double legend_x0, legend_x1;
+    if(legend_align=="left"){
+        legend_x0 = gPad->GetLeftMargin() + legend_space_h + legend_xshift;
+        legend_x1 = legend_x0 + legend_maxwidth + 0.1;
+    }
+    else{
+        legend_x0 = 1.0 - gPad->GetRightMargin() - 0.1 - legend_maxwidth - legend_space_h;
+        legend_x1 = legend_x0 + legend_maxwidth + 0.1;
+    }
+    
+    unique_ptr<TLegend> leg1(new TLegend(legend_x0,
+                                1.0 - gPad->GetTopMargin() - legend_space_v - histos.size() * legend_fontsize  * legend_linespread,
+                                legend_x1,
+                                1.0 - gPad->GetTopMargin() - legend_space_v,"","brNDC"));
     leg1->SetBorderSize(0);
     leg1->SetTextSize(legend_fontsize);
     leg1->SetTextFont(gStyle->GetTextFont());
     leg1->SetFillColor(10);
     leg1->SetLineColor(1);
     TLegendEntry* entries[histos.size()];
-    int n_legend_nonempty = 0;
     TLegendEntry * total_error_legentry = 0;
     for (size_t i=0; i<histos.size(); i++) {
-        ++n_legend_nonempty;
-        string title = histos[i].histo->GetTitle();
         string options = "L";
         if(!get_option<string>(histos[i].options, "fill", "").empty()){
             options = "F";
@@ -324,12 +385,7 @@ void draw_histos(vector<Histogram> & histos, const string & filename) {
         entries[i]->SetLineWidth(3);
         entries[i]->SetTextColor(1);
     }
-    if(n_legend_nonempty > 0){
-        leg1->Draw();
-    }
-    if(debug){
-        c->Print(("debug2_"+filename).c_str());
-    }
+    leg1->Draw();
 
     TLatex title_ul;
     title_ul.SetNDC();
@@ -372,50 +428,80 @@ void draw_histos(vector<Histogram> & histos, const string & filename) {
         c->Print(("debug3_"+filename).c_str());
     }
     
-    TH1D* ratio = 0;
+    unique_ptr<TH1D> ratio;
     if(draw_ratio){
         c->cd(2);
-        ratio = new TH1D("ratio", "ratio", histos[0].histo->GetNbinsX(), histos[0].histo->GetXaxis()->GetXmin(), histos[0].histo->GetXaxis()->GetXmax());
-        double font_factor = 3.0;
-        ratio->GetYaxis()->SetTitle("(data - MC) / MC");
-        ratio->GetYaxis()->SetTitleSize(histos[0].histo->GetXaxis()->GetTitleSize() * font_factor);
-        ratio->GetYaxis()->SetLabelSize(histos[0].histo->GetXaxis()->GetLabelSize() * font_factor);
-        ratio->GetXaxis()->SetTitleSize(histos[0].histo->GetXaxis()->GetTitleSize() * font_factor);
-        ratio->GetXaxis()->SetLabelSize(histos[0].histo->GetXaxis()->GetLabelSize() * font_factor);
+        ratio.reset(new TH1D("ratio", "ratio", h->GetNbinsX(), h->GetXaxis()->GetXmin(), h->GetXaxis()->GetXmax()));
+        string ytext = get_option<string>(options, "ratio_ytext", (ratio_num + " / " + ratio_denom));
+        ratio->GetYaxis()->SetTitle(ytext.c_str());
+        ratio->GetXaxis()->SetTitle(h->GetXaxis()->GetTitle());
+                
+        double font_factor = mainpad_height / (1 - mainpad_height);
+        ratio->GetYaxis()->SetTitleSize(h->GetYaxis()->GetTitleSize() * font_factor);
+        ratio->GetYaxis()->SetLabelSize(h->GetYaxis()->GetLabelSize() * font_factor);
+        ratio->GetXaxis()->SetTitleSize(h->GetXaxis()->GetTitleSize() * font_factor);
+        ratio->GetXaxis()->SetLabelSize(h->GetXaxis()->GetLabelSize() * font_factor);
+        ratio->GetYaxis()->SetTitleOffset(0.5);
+        
+        // find the indices for the num and denom histos:
+        int inum=-1, idenom=-1;
+        for(size_t i=0; i<histos.size(); ++i){
+            if(ratio_num == histos[i].process.name() || (ratio_num == "bkg" && i==0)) inum = i;
+            if(ratio_denom == histos[i].process.name() || (ratio_denom == "bkg" && i==0)) idenom = i;
+        }
+        
         const double inf = numeric_limits<double>::infinity();
         double minentry = inf, maxentry = -inf;
         for(int ibin=1; ibin <= ratio->GetNbinsX(); ++ibin){
-            double mc = histos[0].histo->GetBinContent(ibin);
-            double delta_mc = histos[0].histo->GetBinError(ibin);
+            double entry = 1.0, entry_error = 1.0;
             
-            double d = mc, delta_d = 0;
-            if(data_histo){
-                delta_d = data_histo->GetBinError(ibin);
-                d = data_histo->GetBinContent(ibin);
-            }
+            if(inum >= 0 and idenom >= 0){
+                double delta_num = histos[inum].histo->GetBinError(ibin);
+                double num = histos[inum].histo->GetBinContent(ibin);
             
-            double entry = (d - mc) / mc;
-            double entry_error = sqrt(pow(delta_d / mc, 2) + pow(delta_mc / mc, 2) * d / mc);
+                double delta_denom = histos[idenom].histo->GetBinError(ibin);
+                double denom = histos[idenom].histo->GetBinContent(ibin);
             
-            if(std::isnan(entry)){
-                entry = 1.0;
-                entry_error = 1.0;
+                entry = num / denom;
+                // the relative error on the ratio is the quadratic sum of the relative errors of numerator and denominator:
+                entry_error = sqrt(pow(delta_num / num, 2) + pow(delta_denom / denom, 2)) * entry;
+            
+                if(!std::isfinite(entry) || !std::isfinite(entry_error)){
+                    entry = 1.0;
+                    entry_error = 0.0;
+                }
             }
             
             ratio->SetBinContent(ibin, entry);
             ratio->SetBinError(ibin, entry_error);
-            minentry = min(minentry, entry - entry_error);
-            maxentry = max(maxentry, entry + entry_error);
+            minentry = min(minentry, entry - 1.2 * entry_error);
+            maxentry = max(maxentry, entry + 1.2 * entry_error);
         }
-        ratio->SetMinimum(max(-1.0, minentry));
-        ratio->SetMaximum(min(1.0, maxentry));
-        ratio->Draw("E");
+        // make range a bit larger by rounding to the next 0.1:
+        minentry = int(minentry * 10) * 0.1;
+        maxentry = int(maxentry * 10 + 1) * 0.1;
+        
+        double ratio_ymin = get_option<double>(options, "ratio_ymin", NAN);
+        double ratio_ymax = get_option<double>(options, "ratio_ymax", NAN);
+        double ymin = minentry;
+        double ymax = maxentry;
+        if(!std::isnan(ratio_ymin)) ymin = ratio_ymin;
+        if(!std::isnan(ratio_ymax)) ymax = ratio_ymax;
+        ratio->SetMinimum(ymin);
+        ratio->SetMaximum(ymax);
+        ratio->GetXaxis()->SetNdivisions(h->GetXaxis()->GetNdivisions());
+        ratio->Draw("AXIS");
+        
+        TLine line;
+        if(!get_option<string>(options, "ratio_line1", "").empty()){
+            line.SetLineWidth(2.0);
+            line.SetLineColor(kGray);
+            line.DrawLine(ratio->GetXaxis()->GetXmin(), 1.0, ratio->GetXaxis()->GetXmax(), 1.0);
+        }
+        
+        ratio->Draw("ESAME");
     }
     c->Print(filename.c_str());
-    delete leg1;
-    delete h;
-    delete ratio;
-    delete c;
 }
 
 
@@ -427,9 +513,6 @@ void create_dir(const string & filename){
     if(res < 0){
         throw runtime_error("Error executing 'mkdir -p " + path + "'");
     }
-}
-
-
 }
 
 
@@ -457,9 +540,7 @@ void ProcessHistogramsTFile::init_files(const std::initializer_list<std::string>
     }
 }
 
-namespace {
-
-void get_names_of_type(std::vector<std::string> & result, TDirectory * dir, const char * type, const string & prefix = ""){
+void get_names_of_type(std::vector<std::string> & result, TDirectory * dir, const char * type, const string & prefix){
     TList * keys = dir->GetListOfKeys();
     TObjLink *lnk = keys->FirstLink();
     while (lnk) {
@@ -474,8 +555,6 @@ void get_names_of_type(std::vector<std::string> & result, TDirectory * dir, cons
         }
         lnk = lnk->Next();
     }
-}
-
 }
 
 
@@ -513,9 +592,6 @@ ProcessHistogramsTFile::~ProcessHistogramsTFile(){
         delete file;
     }
 }
-
-//Formatter::~Formatter(){}
-
 
 Formatters::Formatters(): all("*"){
 }
@@ -598,25 +674,31 @@ void RebinRange::operator()(Histogram & h){
     }
 }
 
+
+std::vector<Histogram> Plotter::get_formatted_histograms(const std::vector<std::shared_ptr<ProcessHistograms> > & hsources, const std::string & hname){
+    vector<Histogram> histograms;
+    for(auto & p : hsources){
+        Histogram p_histo;
+        try{
+            p_histo = p->get_histogram(hname);
+        }
+        catch(std::runtime_error & ){
+            cout << "Warning: histogram '" << hname << "' for process '" << p->id().name() << "' not found." << endl;
+            continue;
+        }
+        formatters(p_histo);
+        if(!p_histo.ignore){
+            histograms.emplace_back(move(p_histo));
+        }
+    }
+    return histograms;
+}
+
 void Plotter::stackplots(const std::initializer_list<identifier> & processes_to_stack){
     // get list of histograms:
     std::vector<std::string> hnames = histos[0]->get_histogram_names();
     for(const string & hname : hnames){
-        vector<Histogram> histograms;
-        for(auto & p : histos){
-            Histogram p_histo;
-            try{
-                p_histo = p->get_histogram(hname);
-            }
-            catch(std::runtime_error & ){
-                cout << "Warning: histogram '" << hname << "' for process '" << p->id().name() << "' not found." << endl;
-                continue;
-            }
-            formatters(p_histo);
-            if(!p_histo.ignore){
-                histograms.emplace_back(move(p_histo));
-            }
-        }
+        auto histograms = get_formatted_histograms(histos, hname);
         // if all ignored:
         if(histograms.empty()) continue;
         // make the stack, in the right order (=given by processes_to_stack):
@@ -648,6 +730,29 @@ void Plotter::stackplots(const std::initializer_list<identifier> & processes_to_
         string outfilename = outdir + hname + "_stacked.eps";
         create_dir(outfilename);
         draw_histos(histos_for_draw, outfilename);
+    }
+}
+
+void Plotter::shapeplots(const std::initializer_list<ra::identifier> & processes_to_compare, const string & suffix){
+    std::vector<std::shared_ptr<ProcessHistograms> > selected_histos;
+    for(auto id : processes_to_compare){
+        for(auto & psource : histos){
+            if(psource->id()==id) selected_histos.push_back(psource);
+        }
+    }
+    std::vector<std::string> hnames = histos[0]->get_histogram_names();
+    for(const string & hname : hnames){
+        auto histograms = get_formatted_histograms(selected_histos, hname);
+        if(histograms.empty()) continue;
+        // normalize all and set line color to fill color:
+        for(auto & h: histograms){
+            h.histo->Scale(1.0 / h.histo->Integral());
+            h.histo->SetLineColor(h.histo->GetFillColor());
+            h.histo->SetLineWidth(2.0);
+            h.histo->SetFillColor(0);
+        }
+        string outfilename = outdir + hname + suffix + "_shape.eps";
+        draw_histos(histograms, outfilename);
     }
 }
 

@@ -7,13 +7,6 @@
 #include <boost/lexical_cast.hpp>
 #include "identifier.hpp"
 
-namespace boost {
-    template<> 
-    bool lexical_cast<bool, std::string>(const std::string& arg);
-    template<>
-    std::string lexical_cast<std::string, bool>(const bool& b);
-}
-
 
 // see cmssw: DataFormats/Math/interface/deltaR.h
 // from 0 to +pi

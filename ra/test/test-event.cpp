@@ -41,7 +41,8 @@ BOOST_AUTO_TEST_SUITE(event)
 
 BOOST_AUTO_TEST_CASE(simple){
     Event e;
-    BOOST_CHECK(!e.exists<int>("test"));
+    BOOST_CHECK(!e.present<int>("test"));
+    BOOST_CHECK(!e.allocated<int>("test"));
     BOOST_CHECK_THROW(e.get<int>("test"), std::runtime_error);
     
     e.set<int>("test", 5);
@@ -67,11 +68,46 @@ BOOST_AUTO_TEST_CASE(addresses){
     BOOST_CHECK_EQUAL(&(e.get<int>("test")), &idata);
 }
 
+
+BOOST_AUTO_TEST_CASE(unset){
+    Event e;
+    BOOST_CHECK(not e.present<int>("itest"));
+    BOOST_CHECK(not e.allocated<int>("itest"));
+    
+    e.set<int>("itest", 17);
+    BOOST_CHECK(e.present<int>("itest"));
+    BOOST_CHECK(e.allocated<int>("itest"));
+    BOOST_REQUIRE_EQUAL(e.get<int>("itest"), 17);
+    const void * itestptr0 = e.get_raw(typeid(int), "itest");
+    
+    // unsetting makes present and allocated and 'get' behave as expected:
+    e.unset<int>("itest");
+    BOOST_CHECK(not e.present<int>("itest"));
+    BOOST_CHECK(e.allocated<int>("itest"));
+    BOOST_CHECK_THROW(e.get<int>("itest"), std::runtime_error);
+    
+    // unsetting twice does not harm:
+    e.unset<int>("itest");
+    BOOST_CHECK(not e.present<int>("itest"));
+    BOOST_CHECK(e.allocated<int>("itest"));
+    
+    e.set<int>("itest", 23);
+    BOOST_REQUIRE_EQUAL(e.get<int>("itest"), 23);
+    const void * itestptr1 = e.get_raw(typeid(int), "itest");
+    BOOST_CHECK_EQUAL(itestptr0, itestptr1);
+    
+    e.erase<int>("itest");
+    BOOST_CHECK(not e.present<int>("itest"));
+    BOOST_CHECK(not e.allocated<int>("itest"));
+    BOOST_CHECK_THROW(e.get<int>("itest"), std::runtime_error);
+}
+
+
+
 BOOST_AUTO_TEST_CASE(read){
     TFile f("tree.root", "read");
     TTree * tree = dynamic_cast<TTree*>(f.Get("test"));
     BOOST_REQUIRE(tree);
-    
     
     // check that reading intdata works:
     Event event;
@@ -102,6 +138,7 @@ BOOST_AUTO_TEST_CASE(read_wrong_type){
     in.declare_event_input<double>("intdata");
     BOOST_CHECK_THROW(in.setup_tree(tree), std::runtime_error);
 }
+
 
 
 BOOST_AUTO_TEST_CASE(outtree){

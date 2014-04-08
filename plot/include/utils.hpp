@@ -29,7 +29,9 @@ struct Histogram {
     Histogram(): ignore(false){}
 };
 
+void draw_histos(const std::vector<Histogram> & histos, const std::string & filename);
 
+void get_names_of_type(std::vector<std::string> & result, TDirectory * dir, const char * type, const std::string & prefix = "");
 
 class ProcessHistograms {
 public:
@@ -137,11 +139,28 @@ private:
     int col;
 };
 
-class Ignore{
+class Scale {
 public:
     void operator()(Histogram & h){
-        h.ignore = true;
+        h.histo->Scale(factor);
     }
+    
+    explicit Scale(double factor_): factor(factor_){}
+    
+private:
+    double factor;
+};
+
+class Ignore{
+public:
+    Ignore(bool ignore_ = true): ignore(ignore_){}
+    
+    void operator()(Histogram & h){
+        h.ignore = ignore;
+    }
+    
+private:
+    bool ignore;
 };
 
 class SetFillColor {
@@ -194,12 +213,16 @@ public:
     
     void stackplots(const std::initializer_list<ra::identifier> & processes_to_stack);
     
+    void shapeplots(const std::initializer_list<ra::identifier> & processes_to_compare, const std::string & filenamesuffix = "");
+    
     // make a latex cutflow table:
     void cutflow(const std::string & cutflow_hname, const std::string & outname);
 private:
     std::string outdir;
     std::vector<std::shared_ptr<ProcessHistograms> > histos;
     const Formatters & formatters;
+    
+    std::vector<Histogram> get_formatted_histograms(const std::vector<std::shared_ptr<ProcessHistograms> > & hsources, const std::string & hname);
 };
 
 #endif

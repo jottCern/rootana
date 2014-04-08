@@ -34,7 +34,9 @@ public:
     template<typename T>
     void declare_event_input(const char * branchname, const identifier & event_member_name){
         event.set<T>(event_member_name, T());
-        declare_input(branchname, &(event.get<T>(event_member_name)), typeid(T));
+        void * addr = &(event.get<T>(event_member_name));
+        event.unset<T>(event_member_name);
+        declare_input(branchname, event_member_name, addr, typeid(T));
     }
     
     template<typename T>
@@ -43,7 +45,7 @@ public:
     }
     
     // "low-level" access; addr has to point to a structure of type ti (not necessarily in the Event container).
-    virtual void declare_input(const char * name, void * addr, const std::type_info & ti) = 0;
+    virtual void declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti) = 0;
     
 protected:
     explicit InputManager(Event & event_): event(event_){}
@@ -55,7 +57,7 @@ protected:
 // This is the actual InputDeclaration class used in the framework: TODO: remove from here?
 class TTreeInputManager: public InputManager{
 public:
-    virtual void declare_input(const char * name, void * addr, const std::type_info & ti);
+    virtual void declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti);
     
     explicit TTreeInputManager(Event & event_): InputManager(event_), nentries(0){}
     
@@ -72,9 +74,10 @@ private:
     struct branchinfo {
         TBranch * branch;
         const std::type_info & ti; // this is always a non-pointer type.
-        void * addr; // address of an object of type ti.
+        identifier name; // name of the data member in the event container
+        void * addr; // address of an object of type ti, into the event container
         
-        branchinfo(TBranch * branch_, const std::type_info & ti_, void * addr_): branch(branch_), ti(ti_), addr(addr_){}
+        branchinfo(TBranch * branch_, const std::type_info & ti_, const identifier & name_, void * addr_): branch(branch_), ti(ti_), name(name_), addr(addr_){}
     };
     
     size_t nentries;
