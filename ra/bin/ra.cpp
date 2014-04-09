@@ -28,11 +28,13 @@ void run(const s_config & config){
     std::vector<std::string> module_names;
     for(auto & module_cfg : config.modules_cfg){
         const string & name = module_cfg.first;
-        string type = ra::get<string>(module_cfg.second, "type");
+        string type = get<string>(module_cfg.second, "type");
         std::unique_ptr<AnalysisModule> module = AnalysisModuleRegistry::build(type, module_cfg.second);
         modules.emplace_back(move(module));
         module_names.push_back(name);
     }
+    
+    ID(stop);
     
     // nested loops to run over all datasets -> files -> events
     for(const auto & dataset : config.datasets){
@@ -84,6 +86,9 @@ void run(const s_config & config){
                     catch(...){
                         cerr << endl << "Exception caught while calling 'process' method of module " << module_names[i] << " for entry " << ientry << " of file " << f.path << "; re-throwing. " << endl;
                         throw;
+                    }
+                    if(event.present<bool>(stop) && event.get<bool>(stop)){
+                        break;
                     }
                 }
                 ievent++;

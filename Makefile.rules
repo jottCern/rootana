@@ -59,12 +59,12 @@ endif
 
 
 # stick together all flags:
-CXXFLAGS := -std=c++0x -O3 -Wall -g -fPIC -I.. -Iinclude -pipe $(USERCXXFLAGS)
+CXXFLAGS := -std=c++0x -O3 -Wall -g -fPIC -I.. -Iinclude -pipe $(BOOST_CFLAGS) $(USERCXXFLAGS)
 LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../lib $(USERLDFLAGS)
 
 # compile commands, to be used in cubdirectory makefiles:
 SHARED_CMD = @echo creating $@; $(CXX) $+ -shared $(LDFLAGS) -o $@ 
-EXE_CMD = $(CXX) $(LDFLAGS) -o $@ $+ $(USERLDFLAGS)
+EXE_CMD = @echo creating $@; $(CXX) $(LDFLAGS) -o $@ $+ $(USERLDFLAGS)
 
 .bin/%.o: src/%.cpp
 	@echo compiling $<

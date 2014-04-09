@@ -21,8 +21,8 @@ OutputManager::~OutputManager(){}
 InputManager::~InputManager(){}
 
 
-void TTreeInputManager::declare_input(const char * name, void * addr, const std::type_info & ti){
-    bname2bi.insert(pair<string, branchinfo>(name, branchinfo(0, ti, addr)));
+void TTreeInputManager::declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti){
+    bname2bi.insert(pair<string, branchinfo>(bname, branchinfo(0, ti, event_member_name, addr)));
 }
 
 namespace{
@@ -94,9 +94,11 @@ void TTreeInputManager::setup_tree(TTree * tree){
 
 
 void TTreeInputManager::read_entry(size_t ientry){
+    event.unset_all();
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
     for(auto & name_bi : bname2bi){
         name_bi.second.branch->GetEntry(ientry);
+        event.set_present(name_bi.second.ti, name_bi.second.name);
     }
 }
 

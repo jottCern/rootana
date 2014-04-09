@@ -11,22 +11,6 @@
 using namespace std;
 using namespace ra;
 
-namespace boost {
-    template<> 
-    bool lexical_cast<bool, std::string>(const std::string& arg) {
-        std::istringstream ss(arg);
-        bool b;
-        ss >> std::boolalpha >> b;
-        return b;
-    }
-
-    template<>
-    std::string lexical_cast<std::string, bool>(const bool& b) {
-        std::ostringstream ss;
-        ss << std::boolalpha << b;
-        return ss.str();
-    }
-}
 
 namespace{
     
@@ -64,6 +48,7 @@ std::list<std::string> & nc_search_paths(){
     if(!init){
         // add some standard paths:
         sa.push_back(get_self_path());
+        sa.push_back(get_self_path() + "../");
         sa.push_back(get_self_path() + "../lib/");
         init = true;
     }
@@ -131,12 +116,10 @@ double dt(const timespec & t0, const timespec & t1){
 }
 }
 
-progress_bar::progress_bar(const std::string & pattern, double autoprint_dt_): chars_written(0), autoprint_dt(autoprint_dt_), rtime("rtime") {
+progress_bar::progress_bar(const std::string & pattern, double autoprint_dt_): chars_written(0), next_update(0), autoprint_dt(autoprint_dt_), rtime("rtime") {
     tty = isatty(1);
     gettime(start);
-    
     size_t p = 0;
-    
     while(p < pattern.size()){
         // first find literal:
         size_t nextp = pattern.find('%', p);
@@ -206,8 +189,8 @@ progress_bar::progress_bar(const std::string & pattern, double autoprint_dt_): c
 }
 
 progress_bar::~progress_bar(){
-    //print();
-    //cout << endl;
+    print();
+    cout << endl;
 }
 
 

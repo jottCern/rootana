@@ -10,6 +10,7 @@
 
 #include "base/include/registry.hpp"
 #include "base/include/log.hpp"
+#include "base/include/ptree-utils.hpp"
 #include "fwd.hpp"
 #include "utils.hpp" // for bool conversion
 
@@ -24,41 +25,6 @@ using boost::property_tree::ptree;
 // allow construction when they are needed.
 
 namespace ra {
-
-
-// try a lexical cast, adding some useful debug info in case of failure by including "what" in the exception string
-template<typename T>
-T try_cast(const std::string & what, const std::string & s){
-    try{
-        return boost::lexical_cast<T>(s);
-    }
-    catch(boost::bad_lexical_cast & ex){
-        throw std::runtime_error(what + ": error casting '" + s + "' to type " + typeid(T).name());
-    }
-}
-
-template<typename T>
-T get(const boost::property_tree::ptree & cfg, const std::string & path){
-    try{
-        std::string rawvalue = cfg.get<std::string>(path);
-        return try_cast<T>(path, std::move(rawvalue));
-    }
-    catch(const boost::property_tree::ptree_bad_path &){
-        throw std::runtime_error("did not find path '" + path + "'");
-    }
-}
-
-// get with default
-template<typename T>
-T get(const boost::property_tree::ptree & cfg, const std::string & path, const T & def){
-    boost::optional<std::string> rawvalue = cfg.get_optional<std::string>(path);
-    if(rawvalue){
-        return try_cast<T>(path, std::move(*rawvalue));
-    }
-    else{
-        return def;
-    }
-}
 
 
 struct s_options{
