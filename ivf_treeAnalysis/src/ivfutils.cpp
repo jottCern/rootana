@@ -31,6 +31,26 @@ namespace{
 	
     } cat_ids;
     
+    struct new_cat_id {
+	
+	vector<identifier> id;
+	
+	unsigned int size;
+	
+	new_cat_id() {
+	    for (int i = GEANT_ARRAY_SIZE; i < CAT_ARRAY_SIZE; ++i)
+	    {
+		if (i != 19)
+		{
+		    identifier id_(categories[i]);
+		    id.push_back(id_);
+		}
+	    }
+	    
+	    size = id.size();
+	}
+	
+    } new_cat_ids;
 }
 
 const char* ivf::cattostr(ivf::Category cat) {
@@ -61,19 +81,32 @@ const char* ivf::cattostr(int cat) {
 
 ivf::Category ivf::strtocat(std::string str) {
     
+    identifier str_id(str);
+    
     for (unsigned int i = 0; i < cat_ids.size; ++i)
     {
-	identifier str_id(str);
 	if (str_id == cat_ids.id[i])
 	    return static_cast<Category>(i);
     }
     
-    std::cout << "WARNING: no valid category, return Fake!" << std::endl;
+    std::cout << "WARNING: " << str << " is no valid category, return Fake!" << std::endl;
     return Fake;
 	    
 }
 
-// std::string listcat(std::string instr, std::string & outstr)
-// {
-//     return "TEST";
-// }
+newcat::DecayCategory newcat::strtocat(std::string str) {
+    
+    identifier str_id(str);
+    
+    for (unsigned int i = 0; i < new_cat_ids.size; ++i)
+    {
+	if (str_id == new_cat_ids.id[i])
+	    return static_cast<DecayCategory>(i);
+    }
+    
+    std::cout << "WARNING: " << str << " is no valid category, return Fake!" << std::endl;
+    return newcat::Fake;
+	    
+}
+
+

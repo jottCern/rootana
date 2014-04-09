@@ -6,6 +6,51 @@
 #define CAT_ARRAY_SIZE 33
 #define GEANT_ARRAY_SIZE 18
 
+namespace newcat
+{
+    enum GeantCategory
+    {
+	  Hadronic = 0,
+	  Unknown,
+	  Undefined,
+	  GeantPrimary,
+	  GeantDecay,
+	  Compton,
+	  Annihilation,
+	  EIoni,
+	  HIoni,
+	  MuIoni,
+	  Photon,
+	  MuPairProd,
+	  Conversions,
+	  EBrem,
+	  SynchrotronRadiation,
+	  MuBrem,
+	  MuNucl
+    };
+    
+    enum DecayCategory
+    {
+	  PrimaryDecay = 0,
+	  BWeak,
+	  CWeak,
+	  FromBWeakDecayMuon,
+	  FromCWeakDecayMuon,
+	  ChargePion,
+	  ChargeKaon,
+	  Tau,
+	  Ks,
+	  Lambda,
+	  Jpsi,
+	  Xi,
+	  SigmaPlus,
+	  SigmaMinus,
+	  Fake
+    };
+    
+    DecayCategory strtocat(std::string str);
+}
+
 namespace ivf
 {
     
@@ -30,7 +75,7 @@ namespace ivf
 	  SynchrotronRadiation,
 	  MuBrem,
 	  MuNucl,
-	  Primary,
+	  PrimaryDecay,
 	  Proton,
 	  BWeak,
 	  CWeak,
