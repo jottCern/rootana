@@ -7,12 +7,12 @@ using namespace std;
 using namespace ra;
 
 int main(){
-    shared_ptr<ProcessHistograms> ttbar(new ProcessHistogramsTFile("../ttbar.root", "ttbar"));
-    shared_ptr<ProcessHistograms> dy(new ProcessHistogramsTFile("../dy.root", "dy"));
-    shared_ptr<ProcessHistograms> dyexcl(new ProcessHistogramsTFile({"../dy1jets.root", "../dy2jets.root", "../dy3jets.root", "../dy4jets.root"}, "dyexcl"));
+    shared_ptr<ProcessHistograms> ttbar(new ProcessHistogramsTFile("../zsvanalysis/ttbar.root", "ttbar"));
+    shared_ptr<ProcessHistograms> dy(new ProcessHistogramsTFile("../zsvanalysis/dy.root", "dy"));
+    shared_ptr<ProcessHistograms> dyexcl(new ProcessHistogramsTFile({"../zsvanalysis/dy1jets.root", "../zsvanalysis/dy2jets.root", "../zsvanalysis/dy3jets.root", "../zsvanalysis/dy4jets.root"}, "dyexcl"));
     //shared_ptr<ProcessHistograms> dymix(new ProcessHistogramsTFile({"../dy1jets.root", "../dy2jets.root", "../dy3jets.root", "../dy4jets.root", "../dy.root"}, "dymix"));
-    shared_ptr<ProcessHistograms> data_old(new ProcessHistogramsTFile("../dmu.root", "data_old"));
-    shared_ptr<ProcessHistograms> data(new ProcessHistogramsTFile({"../dmu_runa.root", "../dmu_runb.root", "../dmu_runc.root", "../dmu_rund.root"}, "data"));
+//     shared_ptr<ProcessHistograms> data_old(new ProcessHistogramsTFile("../zsvanalysis/dmu.root", "data_old"));
+    shared_ptr<ProcessHistograms> data(new ProcessHistogramsTFile({"../zsvanalysis/dmu_runa.root", "../zsvanalysis/dmu_runb.root", "../zsvanalysis/dmu_runc.root", "../zsvanalysis/dmu_rund.root"}, "data"));
     
     Formatters formatters;
     formatters.add("*", SetLineColor(1));

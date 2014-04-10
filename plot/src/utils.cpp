@@ -727,7 +727,7 @@ void Plotter::stackplots(const std::initializer_list<identifier> & processes_to_
             histos_for_draw.emplace_back(move(h));
         }
         
-        string outfilename = outdir + hname + "_stacked.eps";
+        string outfilename = outdir + hname + "_stacked.pdf";
         create_dir(outfilename);
         draw_histos(histos_for_draw, outfilename);
     }
@@ -751,7 +751,7 @@ void Plotter::shapeplots(const std::initializer_list<ra::identifier> & processes
             h.histo->SetLineWidth(2.0);
             h.histo->SetFillColor(0);
         }
-        string outfilename = outdir + hname + suffix + "_shape.eps";
+        string outfilename = outdir + hname + suffix + "_shape.pdf";
         draw_histos(histograms, outfilename);
     }
 }

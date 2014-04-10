@@ -1,6 +1,10 @@
 Makefile.local
+ivf_treeAnalysis/*
 *.root
 *.eps
 lib/*
 */test.exe
 */.bin
+*~
+ra/ra
+plot/*
