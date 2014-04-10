@@ -60,6 +60,12 @@ public:
         return *(reinterpret_cast<const T*>(get_raw2(typeid(T), name, true)));
     }
     
+    // get a reference to the allocated (but not necessarily present) data member. Fails if it's not allocated.
+    template<typename T>
+    T & get_allocated(const identifier & name){
+        return *(reinterpret_cast<T*>(get_raw2(typeid(T), name, false)));
+    }
+    
     void * get_raw(const std::type_info & ti, const identifier & name){
         return get_raw2(ti, name, false);
     }

@@ -79,6 +79,8 @@ void ra::add_searchpath(const std::string & path, int index){
 
 std::string ra::resolve_file(const std::string & path){
     if(path.empty()) return "";
+    // absolute path:
+    if(path[0]=='/') return path;
     const std::list<std::string> & sa = search_paths();
     for(const string & p : sa){
         if(file_exists(p + path)){

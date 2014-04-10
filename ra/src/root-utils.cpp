@@ -3,6 +3,7 @@
 #include "TDirectory.h"
 #include "TFile.h"
 #include "TTree.h"
+#include "TH1.h"
 #include "TMethodCall.h"
 
 #include "base/include/log.hpp"
@@ -15,6 +16,14 @@ using namespace ra;
 
 
 namespace{
+
+struct sdummy{
+  sdummy(){
+      TH1::AddDirectory(false);
+  }
+};
+sdummy d;
+    
 
 void merge(TDirectory * lhs, TDirectory * rhs){
     Logger & logger = Logger::get("root-utils.merge");

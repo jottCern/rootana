@@ -40,8 +40,13 @@ void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, Output
     
         in.declare_event_input<vector<Bcand>>("selected_bcands");
         //in.declare_event_input<vector<Bcand>>("additional_bcands");
+        
+        in.declare_event_input<vector<mcparticle>>("mc_leptons");
+        in.declare_event_input<vector<mcparticle>>("mc_bs");
+        in.declare_event_input<bool>("passed_reco_selection");
     
         in.declare_event_input<int>("mc_n_me_finalstate");
+        in.declare_event_input<float>("mc_true_pileup");
     
         //in.declare_event_input<vector<jet>>("jets");
     }
