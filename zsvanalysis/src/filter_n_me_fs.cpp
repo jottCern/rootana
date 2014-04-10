@@ -4,6 +4,7 @@
 #include "ra/include/context.hpp"
 
 #include "zsvtree.hpp"
+#include "eventids.hpp"
 
 #include <list>
 
@@ -45,7 +46,6 @@ void filter_n_me_fs::process(Event & event){
     if(nmin < 0 and nmax < 0){
         return;
     }
-    ID(mc_n_me_finalstate);
     ID(stop);
     int n = event.get<int>(mc_n_me_finalstate);
     bool passed = (nmin < 0 || n >= nmin) && (nmax < 0 || n <= nmax);

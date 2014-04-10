@@ -7,9 +7,21 @@
 #include "TTree.h"
 #include "Cintex/Cintex.h"
 
+#include <signal.h>
 
 using namespace ra;
 using namespace std;
+
+namespace{
+    
+volatile sig_atomic_t interrupted = 0;
+
+void sigint_handler(int){
+    interrupted = 1;
+}
+    
+}
+
 
 void run(const s_config & config){
     Logger & logger = Logger::get("dra_local.run");
@@ -94,7 +106,9 @@ void run(const s_config & config){
                 ievent++;
                 progress.set(events, ievent);
                 progress.check_autoprint();
+                if(interrupted) break;
             }
+            if(interrupted) break;
             if(config.options.maxevents_hint > 0){
                 if(ievent >= (size_t)config.options.maxevents_hint) break;
             }
@@ -106,6 +120,10 @@ void run(const s_config & config){
         outfile->Write();
         outfile->Close();
         delete outfile;
+        if(interrupted){
+            cout << "Interrupted by SIGINT" << endl;
+            return;
+        }
     }
 }
 
@@ -114,6 +132,16 @@ int main(int argc, char ** argv){
         cerr << "Usage: " << argv[0] << " <config file>" << endl;
         exit(1);
     }
+    struct sigaction sa;
+    sa.sa_handler = &sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sa.sa_restorer = 0;
+    int res = sigaction(SIGINT, &sa, 0);
+    if(res != 0){
+        cout << "error establishing signal handler (iognoring ...)" << endl;
+    }
+    
     try{
         s_config config(argv[1]);
         ROOT::Cintex::Cintex::Enable();

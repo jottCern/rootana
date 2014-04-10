@@ -65,7 +65,6 @@ private:
 template<typename T, typename... cargs>
 T * Hists::book(const identifier & id, cargs... parameters){
     static_assert(std::is_base_of<TH1,T>::value, "book is only allowed for histograms; T must derive from TH1");
-    TH1::AddDirectory(false);
     std::string name = id.name();
     T * result = new T(name.c_str(), name.c_str(), parameters...);
     result->Sumw2();

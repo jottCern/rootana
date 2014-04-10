@@ -9,7 +9,7 @@
 
 
 // see cmssw: DataFormats/Math/interface/deltaR.h
-// from 0 to +pi
+// from -pi to +pi
 template<typename T1, typename T2>
 inline auto deltaPhi(const T1 & t1, const T2 & t2) -> decltype(t1.phi()){
     typedef decltype(t1.phi()) Float;
