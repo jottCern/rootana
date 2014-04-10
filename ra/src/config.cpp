@@ -114,9 +114,9 @@ s_options::s_options(): blocksize(5000), maxevents_hint(-1), output_dir("."), ke
 }
     
 s_dataset::s_file::s_file(const ptree & cfg){
-    path = get<string>(cfg, "path");
-    nevents = get<int>(cfg, "nevents", -1);
-    skip = get<unsigned int>(cfg, "skip", 0);
+    path = ptree_get<string>(cfg, "path");
+    nevents = ptree_get<int>(cfg, "nevents", -1);
+    skip = ptree_get<unsigned int>(cfg, "skip", 0);
 }
 
 s_dataset::s_file::s_file(string s): path(std::move(s)), nevents(-1), skip(0) {}
@@ -132,8 +132,8 @@ s_dataset::s_tags::s_tags(const boost::property_tree::ptree & tree){
 
 s_dataset::s_dataset(const ptree & cfg){
     Logger & logger = Logger::get("config.dataset");
-    name = get<string>(cfg, "name");
-    treename = get<string>(cfg, "treename");
+    name = ptree_get<string>(cfg, "name");
+    treename = ptree_get<string>(cfg, "treename");
     for(const auto & it : cfg){
         if(it.first == "file"){
             files.emplace_back(it.second);

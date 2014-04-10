@@ -8,8 +8,8 @@ using namespace std;
 class NBCandSelection: public Selection{
 public:
     NBCandSelection(const ptree & cfg, OutputManager &){
-        nmin = get<int>(cfg, "nmin", -1);
-        nmax = get<int>(cfg, "nmax", -1);
+        nmin = ptree_get<int>(cfg, "nmin", -1);
+        nmax = ptree_get<int>(cfg, "nmax", -1);
     }
     
     bool operator()(const Event & event){
@@ -29,8 +29,8 @@ REGISTER_SELECTION(NBCandSelection)
 class PtZSelection: public Selection{
 public:
     PtZSelection(const ptree & cfg, OutputManager &){
-        ptmin = get<double>(cfg, "ptmin", -1.0);
-        ptmax = get<double>(cfg, "ptmax", -1.0);
+        ptmin = ptree_get<double>(cfg, "ptmin", -1.0);
+        ptmax = ptree_get<double>(cfg, "ptmax", -1.0);
     }
     
     bool operator()(const Event & event){
@@ -49,8 +49,8 @@ REGISTER_SELECTION(PtZSelection)
 class MllSelection: public Selection{
 public:
     MllSelection(const ptree & cfg, OutputManager &){
-        mllmin = get<double>(cfg, "mllmin");
-        mllmax = get<double>(cfg, "mllmax");
+        mllmin = ptree_get<double>(cfg, "mllmin");
+        mllmax = ptree_get<double>(cfg, "mllmax");
     }
     
     bool operator()(const Event & event){
@@ -67,8 +67,8 @@ REGISTER_SELECTION(MllSelection)
 class MetSelection: public Selection{
 public:
     MetSelection(const ptree & cfg, OutputManager &){
-        metmin = get<float>(cfg, "metmin");
-        metmax = get<float>(cfg, "metmax");
+        metmin = ptree_get<float>(cfg, "metmin");
+        metmax = ptree_get<float>(cfg, "metmax");
     }
     
     bool operator()(const Event & event){

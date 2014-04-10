@@ -57,7 +57,7 @@ void HistFiller::begin_dataset(const s_dataset & dataset, InputManager &, Output
                 std::string type;
                 if(it2.second.size() > 0){ // it's a group of settings:
                     hists_cfg = it2.second;
-                    type = get<string>(hists_cfg, "type");
+                    type = ptree_get<string>(hists_cfg, "type");
                 }
                 else{
                     type = it2.second.data();

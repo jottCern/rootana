@@ -51,7 +51,7 @@ private:
 };
 
 dcheck::dcheck(const ptree & cfg): ndup(0){
-    verbose = get<bool>(cfg, "verbose", false);
+    verbose = ptree_get<bool>(cfg, "verbose", false);
     for(auto & setting : cfg){
         if(setting.first == "dataset"){
             datasets.insert(setting.second.data());

@@ -26,7 +26,35 @@ typedef ::Registry<Selection, std::string, const ptree &, OutputManager &> Selec
 #define REGISTER_SELECTION(T) namespace { int dummy##T = ::ra::SelectionRegistry::register_<T>(#T); }
 
 
-// AnalysisModule running a number of selection modules previously registered
+
+/** \brief AnalysisModule running a given set of Selection modules
+ *
+ * Example configuration:
+ * \code
+ * sels {
+ *   type Selections
+ *   all { ; user-defined name
+ *       type PassallSelection ; Selection class name
+ *   }
+ *   bcand2 { ; user-defined name
+ *       type NBCandSelection
+ *       nmin 2
+ *       nmax 2
+ *   }
+ *   final_selection {
+ *      type AndSelection
+ *      selections "all bcand2"
+ *   }
+ * }
+ * \endcode
+ * 
+ * The configuration contains settings for \c Selection modules; see the respective \c Selection classes
+ * for a description.
+ * 
+ * The module runs all configured \c Selections in the order given in the configuration (from top to bottom)
+ * on the event and saves the result as a boolean value of the user-defined name ("all", "bcand2", and "final_selection"
+ * in the above example). Note that order is important if selections refer to each other as for the \c AndSelection.
+ */
 class Selections: public AnalysisModule{
 public:
     Selections(const ptree & cfg);

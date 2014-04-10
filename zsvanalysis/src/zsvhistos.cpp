@@ -44,6 +44,8 @@ public:
         book_1d_autofill([=](Event & e){return e.get<float>(met);}, "met", 200, 0, 200);
         book_1d_autofill([=](Event & e){return e.get<vector<Bcand> >(selected_bcands).size();}, "nbcands", 10, 0, 10);
         book_1d_autofill([=](Event & e){return e.get<int>(mc_n_me_finalstate);}, "mc_n_me_finalstate", 10, 0, 10);
+        
+        book_1d_autofill([=](Event & e){return e.get<int>(npv);}, "npv", 60, 0, 60);
     }
 };
 
@@ -79,9 +81,6 @@ public:
     }
     
     virtual void process(Event & e){
-        ID(selected_bcands);
-        ID(zp4);
-        
         ID(Bmass);
         ID(Bpt);
         ID(Beta);

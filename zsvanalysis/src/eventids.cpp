@@ -10,3 +10,6 @@ DEFINE_ID(mc_n_me_finalstate);
 DEFINE_ID(lepton_plus);
 DEFINE_ID(lepton_minus);
 
+DEFINE_ID(mc_true_pileup);
+DEFINE_ID(npv);
+

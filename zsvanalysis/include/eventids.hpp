@@ -13,8 +13,9 @@ DECLARE_ID(mc_n_me_finalstate);
 DECLARE_ID(lepton_plus);
 DECLARE_ID(lepton_minus);
 
+DECLARE_ID(mc_true_pileup);
+DECLARE_ID(npv);
+
 #undef DECLARE_ID
 
 #endif
-       
-        
