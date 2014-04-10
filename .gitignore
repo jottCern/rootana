@@ -6,3 +6,5 @@ lib/*
 */test.exe
 */.bin
 *~
+ra/ra
+plot/*

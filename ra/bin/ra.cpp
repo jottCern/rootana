@@ -28,7 +28,7 @@ void run(const s_config & config){
     std::vector<std::string> module_names;
     for(auto & module_cfg : config.modules_cfg){
         const string & name = module_cfg.first;
-        string type = get<string>(module_cfg.second, "type");
+        string type = ptree_get<string>(module_cfg.second, "type");
         std::unique_ptr<AnalysisModule> module = AnalysisModuleRegistry::build(type, module_cfg.second);
         modules.emplace_back(move(module));
         module_names.push_back(name);

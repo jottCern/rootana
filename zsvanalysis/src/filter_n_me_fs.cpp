@@ -27,8 +27,8 @@ filter_n_me_fs::filter_n_me_fs(const ptree & cfg){
     nmin = nmax = -1;
     for(auto & setting : cfg){
         if(setting.first=="type") continue;
-        int nmin = get<int>(setting.second, "nmin");
-        int nmax = get<int>(setting.second, "nmax");
+        int nmin = ptree_get<int>(setting.second, "nmin");
+        int nmax = ptree_get<int>(setting.second, "nmax");
         dset_mm[setting.first] = make_tuple(nmin, nmax);
     }
 }

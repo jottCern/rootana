@@ -18,7 +18,7 @@ private:
 };
 
 mcweight::mcweight(const ptree & cfg){
-    target_lumi = get<double>(cfg, "target_lumi");
+    target_lumi = ptree_get<double>(cfg, "target_lumi");
 }
 
 void mcweight::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
