@@ -51,7 +51,7 @@ void select_mcparticles::process(Event & event){
     const auto & input_particles = event.get<vector<mcparticle> >(input);
     vector<mcparticle> output_particles;
     for(const auto & p : input_particles){
-        if(fabs(p.p4.eta()) < etamax && p.p4.pt() > ptmin){
+        if(p.p4.pt() > ptmin && fabs(p.p4.eta()) < etamax){
             output_particles.push_back(p);
         }
     }

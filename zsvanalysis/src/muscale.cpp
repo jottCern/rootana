@@ -68,8 +68,14 @@ void muscale::correct_lepton(lepton & lep){
 }
 
 void muscale::process(Event & event){
-    correct_lepton(event.get<lepton>(lepton_plus));
-    correct_lepton(event.get<lepton>(lepton_minus));
+    auto & l1 = event.get<lepton>(lepton_plus);
+    if(abs(l1.pdgid) == 13){
+        correct_lepton(l1);
+    }
+    auto & l2 = event.get<lepton>(lepton_minus);
+    if(abs(l2.pdgid) == 13){
+        correct_lepton(l2);
+    }
 }
 
 REGISTER_ANALYSIS_MODULE(muscale)

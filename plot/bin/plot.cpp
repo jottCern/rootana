@@ -8,10 +8,7 @@ using namespace ra;
 
 int main(){
     shared_ptr<ProcessHistograms> ttbar(new ProcessHistogramsTFile("../ttbar.root", "ttbar"));
-    shared_ptr<ProcessHistograms> dy(new ProcessHistogramsTFile("../dy.root", "dy"));
-    shared_ptr<ProcessHistograms> dyexcl(new ProcessHistogramsTFile({"../dy1jets.root", "../dy2jets.root", "../dy3jets.root", "../dy4jets.root"}, "dyexcl"));
-    //shared_ptr<ProcessHistograms> dymix(new ProcessHistogramsTFile({"../dy1jets.root", "../dy2jets.root", "../dy3jets.root", "../dy4jets.root", "../dy.root"}, "dymix"));
-    shared_ptr<ProcessHistograms> data_old(new ProcessHistogramsTFile("../dmu.root", "data_old"));
+    shared_ptr<ProcessHistograms> dy(new ProcessHistogramsTFile({"../dy1jets.root", "../dy2jets.root", "../dy3jets.root", "../dy4jets.root", "../dy.root"}, "dy"));
     shared_ptr<ProcessHistograms> data(new ProcessHistogramsTFile({"../dmu_runa.root", "../dmu_runb.root", "../dmu_runc.root", "../dmu_rund.root"}, "data"));
     
     Formatters formatters;
@@ -38,10 +35,10 @@ int main(){
     //formatters.add<Ignore>("")("all/mc_n_me_finalstate", false);
     //formatters.add<Scale>("dyexcl:", 1.197);
     
-    Plotter p("eps", {ttbar, dy, dyexcl, data}, formatters);
+    Plotter p("eps", {ttbar, dy, data}, formatters);
     //Plotter p("eps", {data, data_old}, formatters);
     
-    p.stackplots({"dy", "dyexcl", "ttbar"});
+    p.stackplots({"dy", "ttbar"});
     p.cutflow("cutflow", "cutflow.tex");
     
     //p.shapeplots({"dy", "dyexcl"});
