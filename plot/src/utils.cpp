@@ -564,6 +564,27 @@ std::vector<std::string> ProcessHistogramsTFile::get_histogram_names(){
     return result;
 }
 
+namespace {
+    
+// returns the name of the last directory, e.g.
+// lastdirname("a/b/c/d") is "c"
+// returns an empty string if no such directory name exists, e.g.
+// lastdirname("b") is ""
+string lastdirname(const string & fullname){
+    auto lastsl = fullname.rfind('/');
+    if(lastsl == string::npos || lastsl == 0) return "";
+    auto prelast = fullname.rfind('/', lastsl-1);
+    if(prelast == string::npos){
+        return fullname.substr(0, lastsl);
+    }
+    else{
+        assert(prelast < lastsl);
+        return fullname.substr(prelast+1, lastsl - prelast - 1);
+    }
+}
+
+}
+
 Histogram ProcessHistogramsTFile::get_histogram(const std::string & name){
     Histogram result;
     for(size_t i=0; i<files.size(); ++i){
@@ -573,7 +594,7 @@ Histogram ProcessHistogramsTFile::get_histogram(const std::string & name){
         }
         if(!result.histo){
             result.process = id_;
-            result.selection = histo->GetDirectory()->GetName();
+            result.selection = lastdirname(name);
             result.hname = histo->GetName();
             result.histo.reset((TH1*)histo->Clone());
             result.histo->SetDirectory(0);

@@ -49,8 +49,8 @@ REGISTER_SELECTION(PtZSelection)
 class MllSelection: public Selection{
 public:
     MllSelection(const ptree & cfg, OutputManager &){
-        mllmin = ptree_get<double>(cfg, "mllmin");
-        mllmax = ptree_get<double>(cfg, "mllmax");
+        mllmin = ptree_get<double>(cfg, "mllmin", -1.0);
+        mllmax = ptree_get<double>(cfg, "mllmax", -1.0);
     }
     
     bool operator()(const Event & event){

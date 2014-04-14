@@ -37,6 +37,8 @@ void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, Output
     
         in.declare_event_input<lepton>("lepton_plus");
         in.declare_event_input<lepton>("lepton_minus");
+        
+        in.declare_event_input<int>("npv");
     
         in.declare_event_input<vector<Bcand>>("selected_bcands");
         //in.declare_event_input<vector<Bcand>>("additional_bcands");

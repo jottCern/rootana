@@ -38,10 +38,10 @@ int main(){
     //formatters.add<Ignore>("")("all/mc_n_me_finalstate", false);
     //formatters.add<Scale>("dyexcl:", 1.197);
     
-    Plotter p("eps", {ttbar, dy, dyexcl, data}, formatters);
+    Plotter p("eps", {ttbar, dy, data}, formatters);
     //Plotter p("eps", {data, data_old}, formatters);
     
-    p.stackplots({"dy", "dyexcl", "ttbar"});
+    p.stackplots({"dy", "ttbar"});
     p.cutflow("cutflow", "cutflow.tex");
     
     //p.shapeplots({"dy", "dyexcl"});
