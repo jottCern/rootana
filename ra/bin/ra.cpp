@@ -93,6 +93,7 @@ void run(const s_config & config){
                 in.read_entry(ientry);
                 for(size_t i=0; i<modules.size(); ++i){
                     try{
+                        //cout << "module " << module_names[i] << endl;
                         modules[i]->process(event);
                     }
                     catch(...){
