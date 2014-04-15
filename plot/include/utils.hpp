@@ -31,6 +31,8 @@ struct Histogram {
 
 void draw_histos(const std::vector<Histogram> & histos, const std::string & filename);
 
+void create_dir(const std::string & filename);
+
 void get_names_of_type(std::vector<std::string> & result, TDirectory * dir, const char * type, const std::string & prefix = "");
 
 class ProcessHistograms {
