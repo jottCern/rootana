@@ -44,20 +44,20 @@ namespace{
 //         return sqrt(deta*deta + dphi*dphi);
 //     }
     
-    double get_dr_mcb_bcand(const mcparticle & mcb, const Bcand & bcand) {
-        Vector mcb_flightdir = mcb.p4.Vect();
-        Vector bcand_flightdir = bcand.flightdir;
-        
-        return deltaR(mcb_flightdir, bcand_flightdir);
-    }
+//     double get_dr_mcb_bcand(const mcparticle & mcb, const Bcand & bcand) {
+//         Vector mcb_flightdir = mcb.p4.Vect();
+//         Vector bcand_flightdir = bcand.flightdir;
+//         
+//         return deltaR(mcb_flightdir, bcand_flightdir);
+//     }
     
-    int matching_bcands(const mcparticle & mcb, const vector<Bcand> & bcands){
+    int matching_bcands(const mcparticle & mcb, const vector<Bcand> & bcands, float maxdr){
         
 //         double result = 0.;
         int found_matches = 0;
         
         for (auto & bcand : bcands){
-            if (get_dr_mcb_bcand(mcb, bcand) < 0.10){
+            if (deltaR(mcb.p4, bcand.flightdir) < maxdr){
                 found_matches++;
 //                 break;
             }
@@ -127,9 +127,13 @@ public:
         book<TH1D>("A_ZBB", 50, 0, 1);
 	
 	// b efficiency plot
-	book<TH2D>("sin_b_eff_pt", 20, 0, 200, 20, 0, 1);
-        book<TH1D>("mcbs_pt", 20, 0, 200);
-        book<TH1D>("matched_bcands_pt", 20, 0, 200);
+// 	book<TH2D>("sin_b_eff_pt", 20, 0, 200, 20, 0, 1);
+        book<TH1D>("mcbs_pt", 40, 0, 200);
+        book<TH1D>("matched_bcands_pt_010", 40, 0, 200);
+        book<TH1D>("matched_bcands_pt_001", 40, 0, 200);
+        book<TH1D>("found_bcand_matches_010", 10, 0, 10);
+        book<TH1D>("found_bcand_matches_001", 10, 0, 10);
+//         book<TH1D>("sing_b_eff_pt", 40, 0, 200);
     }
     
     void fill(const identifier & id, double value){
@@ -138,6 +142,10 @@ public:
     
     void fill(const identifier & id, double xvalue, double yvalue){
         ((TH2*)get(id))->Fill(xvalue, yvalue, current_weight);
+    }
+    
+    void divide(const identifier & id_new, const identifier & id_num, const identifier & id_den){
+        get(id_new)->Divide(get(id_num), get(id_den));
     }
     
     virtual void process(Event & e){
@@ -165,7 +173,11 @@ public:
 	
 	ID(sin_b_eff_pt);
         ID(mcbs_pt);
-        ID(matched_bcands_pt);
+        ID(matched_bcands_pt_010);
+        ID(matched_bcands_pt_001);
+        ID(found_bcand_matches_010);
+        ID(found_bcand_matches_001);
+//         ID(sing_b_eff_pt);
         
         current_weight = e.weight();
 
@@ -209,25 +221,33 @@ public:
             fill(A_ZBB, (max_dr - min_dr) / (max_dr + min_dr));
         }
         
-        int mcb_count = 0;
-        int matched_bcand_count = 0;
-        double mcb_maxpt = 0.;
+//         int mcb_count = 0;
+//         int matched_bcand_count = 0;
+//         double mcb_maxpt = 0.;
         
         for (auto & mc_b : mc_bhads){
             if (mc_b.p4.eta() < 2.4 && mc_b.p4.pt() > 0){
                 fill(mcbs_pt, mc_b.p4.pt());
-                mcb_count++;
-                if (mc_b.p4.pt() > mcb_maxpt) mcb_maxpt = mc_b.p4.pt();
-                if (matching_bcands(mc_b, bcands) >= 1){
-                    matched_bcand_count++;
-                    fill(matched_bcands_pt, mc_b.p4.pt());
+                fill(found_bcand_matches_010, matching_bcands(mc_b, bcands, 0.10));
+                fill(found_bcand_matches_001, matching_bcands(mc_b, bcands, 0.01));
+//                 mcb_count++;
+//                 if (mc_b.p4.pt() > mcb_maxpt) mcb_maxpt = mc_b.p4.pt();
+                if (matching_bcands(mc_b, bcands, 0.10) >= 1){
+//                     matched_bcand_count++;
+                    fill(matched_bcands_pt_010, mc_b.p4.pt());
+                }
+                if (matching_bcands(mc_b, bcands, 0.01) >= 1){
+//                     matched_bcand_count++;
+                    fill(matched_bcands_pt_001, mc_b.p4.pt());
                 }
             }
         }
         
-        if (mcb_count > 0){
-            fill(sin_b_eff_pt, mcb_maxpt, (double)matched_bcand_count/mcb_count);
-        }
+//         divide(sing_b_eff_pt,matched_bcands_pt, mcbs_pt);
+        
+//         if (mcb_count > 0){
+//             fill(sin_b_eff_pt, mcb_maxpt, (double)matched_bcand_count/mcb_count);
+//         }
         
     }
     
