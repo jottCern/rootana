@@ -8,3 +8,5 @@ ra/ra
 *.exe
 /plot/
 *.NOT
+lib/*
+ivf_treeAnalysis/plot_ivf/plot
