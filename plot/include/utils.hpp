@@ -101,14 +101,15 @@ private:
     struct fspec {
         ra::identifier proc;
         ra::identifier sel;
-        bool hname_use_prefix; // if true, hname_prefix is used to match the histogram name; otherwise, hname is compared directly
-        std::string hname_prefix;
+        
+        int hname_mode; // 0 = use hname equality (including if hname is wildcard); 1 = match hname_substring as prefix; 2 = match hname_substring as suffix
+        std::string hname_substr;
         ra::identifier hname;
         
         formatter_type formatter;
         
-        fspec(const ra::identifier & proc_, const ra::identifier & sel_, bool prefix, const std::string & hname_, const formatter_type & formatter_):
-            proc(proc_), sel(sel_), hname_use_prefix(prefix), hname_prefix(hname_), hname(prefix ? "" : hname_), formatter(formatter_){}
+        fspec(const ra::identifier & proc_, const ra::identifier & sel_, int hname_mode_, const std::string & hname_, const formatter_type & formatter_):
+            proc(proc_), sel(sel_), hname_mode(hname_mode_), hname_substr(hname_), hname(hname_mode == 0 ? hname_ : ""), formatter(formatter_){}
     };
     
     std::vector<fspec> formatters;

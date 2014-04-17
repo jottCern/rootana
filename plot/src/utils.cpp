@@ -626,7 +626,6 @@ Formatters::Formatters(): all("*"){
 void Formatters::add(const std::string & histos_, const formatter_type & formatter){
     identifier proc = all, sel = all;
     string hname = "*";
-    bool hname_use_prefix = false;
     std::string histos(histos_);
     // try to interpret string as
     // proc:sel/hname
@@ -645,16 +644,23 @@ void Formatters::add(const std::string & histos_, const formatter_type & formatt
         } // itherwise, leave it at sel = all
         histos = histos.substr(psl + 1);
     }
+    int hname_mode = 0;
     if(!histos.empty()){
-        hname_use_prefix = histos[histos.size()-1] == '*' && histos.size() != 1;
-        if(hname_use_prefix){
+        if(histos[histos.size()-1] == '*' && histos.size() != 1){
+            // match prefix:
+            hname_mode = 1;
             hname = histos.substr(0, histos.size()-1);
         }
-        else{
+        else if(histos[0]=='*' && histos.size() != 1){
+            // match suffix
+            hname_mode = 2;
+            hname = histos.substr(1);
+        }
+        else{ // match all
             hname = histos;
         }
     }
-    formatters.emplace_back(proc, sel, hname_use_prefix, hname, formatter);
+    formatters.emplace_back(proc, sel, hname_mode, hname, formatter);
 }
 
 
@@ -664,11 +670,17 @@ void Formatters::operator()(Histogram & h) const{
         if(f.sel != all and f.sel != h.selection) continue;
         if(f.hname != all){
             bool matches;
-            if(f.hname_use_prefix){
-                matches = f.hname_prefix.compare(0, f.hname_prefix.size(), h.hname.name(), 0, f.hname_prefix.size()) == 0;
-            }
-            else{
+            if(f.hname_mode == 0){
                 matches = h.hname == f.hname;
+            }
+            else if(f.hname_mode == 1){
+                matches = f.hname_substr.compare(0, f.hname_substr.size(), h.hname.name(), 0, f.hname_substr.size()) == 0;
+            }
+            else{ // hname_mode == 2
+                string hname = h.hname.name();
+                matches = hname.size() >= f.hname_substr.size() &&
+                     // compare all of "this"=f.hname_substr to last part of "that" = hname
+                     f.hname_substr.compare(0, f.hname_substr.size(), hname, hname.size() - f.hname_substr.size(), f.hname_substr.size()) == 0;
             }
             if(!matches) continue;
         }
