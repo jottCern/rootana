@@ -25,10 +25,20 @@ int main(){
        ("*", "ratio_ymax", "1.5")
        ("bb_lepm12", "xtext", "m_{ee} [GeV]")
        //("bb_lepm12", "ylabel_factor", "1.3")
+       ("*", "xlabel_factor", "1.1")
        ("bb_lepm12", "ylog", "1")
        ("bb_*", "title_ul", "BB phase space")
+       ("zbb_*", "title_ul", "ZBB phase space")
+       ("zbbvis_*", "title_ul", "ZBB_vis phase space")
+       ("zbbjet_*", "title_ul", "ZBB_jet phase space")
+       ("*_bh_pt1", "xtext", "p_{T}^{B1} [GeV]")
+       ("*_bh_pt2", "xtext", "p_{T}^{B2} [GeV]")
+       ("*_bh_eta1", "xtext", "#eta^{B1}")
+       ("*_bh_eta2", "xtext", "#eta^{B2}")
        ;
-    //formatters.add<RebinFactor>("mll", 4)("ptz", 4)("Bpt",4)("Beta",4)("DPhi_BB", 2)("DR_BB", 2)("m_BB", 4);
+       
+       
+    formatters.add<RebinFactor>("zbbvis_*", 4);
     
     formatters.add<Scale>("mgz2j:", 0.9635);
     formatters.add<Scale>("mg4fs:", 0.0294);
