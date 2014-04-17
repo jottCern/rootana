@@ -10,10 +10,8 @@ using boost::property_tree::ptree;
 using namespace std;
 using namespace ra;
 
-namespace{
-
 // note: glob is sorted!
-std::vector<std::string> myglob(const std::string& pattern){
+std::vector<std::string> ra::glob(const std::string& pattern){
     glob_t glob_result;
     int res = glob(pattern.c_str(), GLOB_TILDE | GLOB_BRACE | GLOB_ERR | GLOB_MARK, NULL, &glob_result);
     if(res != 0){
@@ -33,6 +31,7 @@ std::vector<std::string> myglob(const std::string& pattern){
     return ret;
 }
 
+namespace{
 
 // 'parse' sframe xml file for all filenames. Note that this is *not* a full-fledged xml parsing;
 // rather, it is assumed that each line contains exactly one statement of the form
@@ -139,7 +138,7 @@ s_dataset::s_dataset(const ptree & cfg){
             files.emplace_back(it.second);
         }
         else if(it.first == "file-pattern"){
-            vector<string> filenames = myglob(it.second.data());
+            vector<string> filenames = glob(it.second.data());
             LOG_INFO("glob pattern '" << it.second.data() << "' matched " << filenames.size() << " files");
             if(filenames.empty()){
                 throw runtime_error("file pattern '" + it.second.data() + "' did not match anything");
