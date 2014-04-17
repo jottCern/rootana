@@ -8,3 +8,5 @@ lib/*
 *~
 ra/ra
 plot/*
+*.pdf
+*.tex
