@@ -20,6 +20,8 @@
 
 #include <boost/lexical_cast.hpp>
 
+#include "ra/include/config.hpp"
+
 using namespace std;
 using namespace ra;
 
@@ -528,12 +530,16 @@ ProcessHistogramsTFile::ProcessHistogramsTFile(const std::initializer_list<std::
 
 
 void ProcessHistogramsTFile::init_files(const std::initializer_list<std::string> & filenames){
-    for(const auto & filename : filenames){
-        TFile * file = new TFile(filename.c_str(), "read");
-        if(!file->IsOpen()){
-            throw runtime_error("could not open file '" + filename + "'");
+    for(const auto & pattern : filenames){
+        auto filenames_matched = ra::glob(pattern);
+        if(filenames_matched.size() != 1) cout << "Note in ProcessHistogramsTFile: pattern '" << pattern << "' matched " << filenames_matched.size() << " files." << endl;
+        for(const auto & filename : filenames_matched){
+            TFile * file = new TFile(filename.c_str(), "read");
+            if(!file->IsOpen()){
+                throw runtime_error("could not open file '" + filename + "'");
+            }
+            files.push_back(file);
         }
-        files.push_back(file);
     }
     if(files.empty()){
         throw runtime_error("ProcessHistogramsTFile: no files given");
@@ -618,7 +624,9 @@ Formatters::Formatters(): all("*"){
 }
 
 void Formatters::add(const std::string & histos_, const formatter_type & formatter){
-    identifier proc = all, sel = all, hname = all;
+    identifier proc = all, sel = all;
+    string hname = "*";
+    bool hname_use_prefix = false;
     std::string histos(histos_);
     // try to interpret string as
     // proc:sel/hname
@@ -638,10 +646,15 @@ void Formatters::add(const std::string & histos_, const formatter_type & formatt
         histos = histos.substr(psl + 1);
     }
     if(!histos.empty()){
-        hname = histos;
+        hname_use_prefix = histos[histos.size()-1] == '*' && histos.size() != 1;
+        if(hname_use_prefix){
+            hname = histos.substr(0, histos.size()-1);
+        }
+        else{
+            hname = histos;
+        }
     }
-    //cout << "histos=" << histos_ << " translated to (proc, sel, hname) = (" << proc.name() << ", " << sel.name() << ", " << hname.name() << ")" << endl;
-    formatters.emplace_back(proc, sel, hname, formatter);
+    formatters.emplace_back(proc, sel, hname_use_prefix, hname, formatter);
 }
 
 
@@ -649,7 +662,16 @@ void Formatters::operator()(Histogram & h) const{
     for(const auto & f : formatters){
         if(f.proc != all and f.proc != h.process) continue;
         if(f.sel != all and f.sel != h.selection) continue;
-        if(f.hname != all and f.hname != h.hname) continue;
+        if(f.hname != all){
+            bool matches;
+            if(f.hname_use_prefix){
+                matches = f.hname_prefix.compare(0, f.hname_prefix.size(), h.hname.name(), 0, f.hname_prefix.size()) == 0;
+            }
+            else{
+                matches = h.hname == f.hname;
+            }
+            if(!matches) continue;
+        }
         f.formatter(h);
     }
 }
@@ -752,6 +774,16 @@ void Plotter::stackplots(const std::initializer_list<identifier> & processes_to_
         create_dir(outfilename);
         draw_histos(histos_for_draw, outfilename);
     }
+}
+
+void Plotter::print_integrals(const std::string & hname, const std::string & filename, const std::string & title, bool append){
+    ofstream out(filename.c_str(), append ? ios_base::app : ios_base::trunc);
+    out << title << endl;
+    auto histograms = get_formatted_histograms(histos, hname);
+    for(auto & h : histograms){
+        out << h.latex_legend << ": " << h.histo->Integral(0, h.histo->GetNbinsX() + 1) << "  (N_MC: " << h.histo->GetEntries() << ")" << endl;
+    }
+    out << endl;
 }
 
 void Plotter::shapeplots(const std::initializer_list<ra::identifier> & processes_to_compare, const string & suffix){
