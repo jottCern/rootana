@@ -94,11 +94,11 @@ void TTreeInputManager::setup_tree(TTree * tree){
 
 
 void TTreeInputManager::read_entry(size_t ientry){
-    event.unset_all();
+    event.reset_all();
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
     for(auto & name_bi : bname2bi){
         name_bi.second.branch->GetEntry(ientry);
-        event.set_present(name_bi.second.ti, name_bi.second.name);
+        event.set_presence(name_bi.second.ti, name_bi.second.name, Event::presence::present);
     }
 }
 

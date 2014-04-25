@@ -41,8 +41,7 @@ BOOST_AUTO_TEST_SUITE(event)
 
 BOOST_AUTO_TEST_CASE(simple){
     Event e;
-    BOOST_CHECK(!e.present<int>("test"));
-    BOOST_CHECK(!e.allocated<int>("test"));
+    BOOST_CHECK(e.get_presence<int>("test") == Event::presence::nonexistent);
     BOOST_CHECK_THROW(e.get<int>("test"), std::runtime_error);
     
     e.set<int>("test", 5);
@@ -51,7 +50,7 @@ BOOST_AUTO_TEST_CASE(simple){
     e.get<int>("test") = 10;
     BOOST_CHECK_EQUAL(e.get<int>("test"), 10);
     
-    e.erase<int>("test");
+    e.set_presence<int>("test", Event::presence::nonexistent);
     BOOST_CHECK_THROW(e.get<int>("test"), std::runtime_error);
 }
 
@@ -71,41 +70,36 @@ BOOST_AUTO_TEST_CASE(addresses){
 
 BOOST_AUTO_TEST_CASE(unset){
     Event e;
-    BOOST_CHECK(not e.present<int>("itest"));
-    BOOST_CHECK(not e.allocated<int>("itest"));
+    BOOST_CHECK_EQUAL(e.get_presence<int>("itest"), Event::presence::nonexistent);
     
     e.set<int>("itest", 17);
-    BOOST_CHECK(e.present<int>("itest"));
-    BOOST_CHECK(e.allocated<int>("itest"));
+    BOOST_CHECK_EQUAL(e.get_presence<int>("itest"), Event::presence::present);
     BOOST_REQUIRE_EQUAL(e.get<int>("itest"), 17);
     const void * itestptr0 = e.get_raw(typeid(int), "itest");
     
     // unsetting makes present and allocated and 'get' behave as expected:
-    e.unset<int>("itest");
-    BOOST_CHECK(not e.present<int>("itest"));
-    BOOST_CHECK(e.allocated<int>("itest"));
+    e.set_presence<int>("itest", Event::presence::allocated);
+    BOOST_CHECK_EQUAL(e.get_presence<int>("itest"), Event::presence::allocated);
     BOOST_CHECK_THROW(e.get<int>("itest"), std::runtime_error);
     
     // unsetting twice does not harm:
-    e.unset<int>("itest");
-    BOOST_CHECK(not e.present<int>("itest"));
-    BOOST_CHECK(e.allocated<int>("itest"));
+    e.set_presence<int>("itest", Event::presence::allocated);
+    BOOST_CHECK_EQUAL(e.get_presence<int>("itest"), Event::presence::allocated);
     
     e.set<int>("itest", 23);
     BOOST_REQUIRE_EQUAL(e.get<int>("itest"), 23);
     const void * itestptr1 = e.get_raw(typeid(int), "itest");
     BOOST_CHECK_EQUAL(itestptr0, itestptr1);
     
-    e.erase<int>("itest");
-    BOOST_CHECK(not e.present<int>("itest"));
-    BOOST_CHECK(not e.allocated<int>("itest"));
-    BOOST_CHECK_THROW(e.get<int>("itest"), std::runtime_error);
+    e.set_presence<int>("itest", Event::presence::nonexistent);
+    BOOST_CHECK_THROW(e.get<int>("itest", false), std::runtime_error);
 }
 
 
 
 BOOST_AUTO_TEST_CASE(read){
     TFile f("tree.root", "read");
+    BOOST_REQUIRE(f.IsOpen());
     TTree * tree = dynamic_cast<TTree*>(f.Get("test"));
     BOOST_REQUIRE(tree);
     
@@ -124,7 +118,6 @@ BOOST_AUTO_TEST_CASE(read){
         BOOST_CHECK_EQUAL(idata, i+1);
     }
     BOOST_CHECK_THROW(event.get<double>("doubledata"), std::runtime_error);
-   
 }
 
 BOOST_AUTO_TEST_CASE(read_wrong_type){

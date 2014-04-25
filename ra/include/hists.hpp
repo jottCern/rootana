@@ -3,6 +3,7 @@
 
 #include "TH1.h"
 #include "context.hpp"
+#include "analysis.hpp"
 
 #include "base/include/registry.hpp"
 

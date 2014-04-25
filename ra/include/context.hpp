@@ -35,7 +35,7 @@ public:
     void declare_event_input(const char * branchname, const identifier & event_member_name){
         event.set<T>(event_member_name, T());
         void * addr = &(event.get<T>(event_member_name));
-        event.unset<T>(event_member_name);
+        event.set_presence<T>(event_member_name, Event::presence::allocated);
         declare_input(branchname, event_member_name, addr, typeid(T));
     }
     

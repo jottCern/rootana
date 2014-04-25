@@ -45,7 +45,6 @@ void run(const s_config & config){
         modules.emplace_back(move(module));
         module_names.push_back(name);
     }
-    
     ID(stop);
     
     // nested loops to run over all datasets -> files -> events
@@ -100,7 +99,7 @@ void run(const s_config & config){
                         cerr << endl << "Exception caught while calling 'process' method of module " << module_names[i] << " for entry " << ientry << " of file " << f.path << "; re-throwing. " << endl;
                         throw;
                     }
-                    if(event.present<bool>(stop) && event.get<bool>(stop)){
+                    if(event.get_presence<bool>(stop) == Event::presence::present && event.get<bool>(stop)){
                         break;
                     }
                 }

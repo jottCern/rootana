@@ -3,7 +3,6 @@
 
 namespace ra{
     // event.hpp:
-    class EventBase;
     class Event;
     
     // context.hpp:
