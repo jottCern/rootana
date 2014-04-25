@@ -87,7 +87,7 @@ clean-subdir:
 	rm -rf .bin
 
 .bin/%.d: %.cpp 
-	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
+	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst src/%.cpp,.bin/%.o,$<)' $< > $@
 
 .bin/%.d: src/%.cpp
-	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
+	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst src/%.cpp,.bin/%.o,$<)' $< > $@
