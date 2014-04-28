@@ -1,1 +1,1 @@
-DIRS += ivf_treeAnalysis
+DIRS += ivf_treeAnalysis zsvanalysis

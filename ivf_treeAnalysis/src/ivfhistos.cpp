@@ -73,9 +73,9 @@ REGISTER_HISTS(IvfPosHists)
 class IvfCatHists: public Hists{
 public:
     IvfCatHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
-	discriminator_ = ra::get<float>(cfg, "discriminator", 0.);
-	std::string catstr = ra::get<std::string>(cfg, "categories", "AllGeant");
-	debug = ra::get<bool>(cfg, "debug", false);
+	discriminator_ = ptree_get<float>(cfg, "discriminator", 0.);
+	std::string catstr = ptree_get<std::string>(cfg, "categories", "AllGeant");
+	debug = ptree_get<bool>(cfg, "debug", false);
 	cat_name = dirname;
 	stringstream disc_str;
 	disc_str << discriminator_;

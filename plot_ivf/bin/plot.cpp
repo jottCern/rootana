@@ -1,5 +1,5 @@
 #include "TROOT.h"
-#include "utils.hpp"
+#include "plot/include/utils.hpp"
 
 #include <iostream>
 
@@ -8,8 +8,8 @@ using namespace ra;
 
 
 namespace {
-string outputdir = "eps/full_eff_presel";
-string inputdir = "../zsvanalysis/rootfiles/full_weird_eff/";
+string outputdir = "eps/ivf_hist_mcttbar_new_9_full";
+string inputdir = "../ivf_treeAnalysis/rootfiles/";
 }
 
 void plot_eff(ProcessHistograms & input, const string & numerator, const string & denom, const Formatters & format){
@@ -30,15 +30,13 @@ void plot_eff(ProcessHistograms & input, const string & numerator, const string 
 
 
 int main(){
-    shared_ptr<ProcessHistograms> ttbar(new ProcessHistogramsTFile(inputdir+"ttbar.root", "ttbar"));
-    shared_ptr<ProcessHistograms> dy(new ProcessHistogramsTFile({inputdir+"dy1jets.root", inputdir+"dy2jets.root", inputdir+"dy3jets.root", inputdir+"dy4jets.root", inputdir+"dy.root"}, "dy"));
-    shared_ptr<ProcessHistograms> data(new ProcessHistogramsTFile({inputdir+"dmu_runa.root", inputdir+"dmu_runb.root", inputdir+"dmu_runc.root", inputdir+"dmu_rund.root"}, "data"));
+    shared_ptr<ProcessHistograms> mcttbar_full(new ProcessHistogramsTFile(inputdir+"ivf_hist_mcttbar_new_9_addhists_test.root", "mcttbar_full"));
     
     Formatters formatters;
     formatters.add("*", SetLineColor(1));
-    formatters.add<SetFillColor>("ttbar:", 810)  ("dymix:", 414) ("dyexcl:", kMagenta) ("dy:", kBlue);
-    //formatters.add<SetLineColor>("ttbar:", 810)  ("dy:", 414) ("dyexcl:", kMagenta);
-    formatters.add<SetLegends>("ttbar:", "t#bar{t}+Jets", "$\\ttbar$") ("dy:", "Z/#gamma*+Jets (MG)", "$Z/\\gamma^*$+Jets") ("data:", "Data") ("dyexcl:", "Z/#gamma*+Jets (excl)")("dymix:", "Z/#gamma*+Jets");
+    formatters.add<SetFillColor>("mcttbar_full:", 810);
+    //formatters.add<SetLineColor>("mcttbar_full:", 810)  ("dy:", 414) ("dyexcl:", kMagenta);
+    formatters.add<SetLegends>("mcttbar_full:", "t#bar{t}+Jets", "$\\mcttbar_full$");
     formatters.add<SetOption>
        ("*", "title_ur", "19.7 fb^{-1}, #sqrt{s}=8TeV")
        ("*", "draw_ratio", "1")
@@ -60,20 +58,14 @@ int main(){
        ("DR_BB", "ratio_ymax", "1.5")
        ;
     formatters.add<RebinFactor>("mll", 4)("ptz", 4)("Bpt",4)("Beta",4)("DPhi_BB", 2)("DR_BB", 2)("m_BB", 4);
-
-    
-    plot_eff(*ttbar, "presel/matched_bcands_pt", "presel/mcbs_pt", formatters);
-    plot_eff(*dy, "presel/matched_bcands_pt", "presel/mcbs_pt", formatters);
-    plot_eff(*ttbar, "final/matched_bcands_pt", "final/mcbs_pt", formatters);
-    plot_eff(*dy, "final/matched_bcands_pt", "final/mcbs_pt", formatters);
     
     // scale final selection by 0.92**2 (IVF data/MC eficiency factor):
     /*formatters.add<Scale>("final/dy:", 0.92 * 0.92);
-    formatters.add<Scale>("final/ttbar:", 0.92 * 0.92);*/
+    formatters.add<Scale>("final/mcttbar_full:", 0.92 * 0.92);*/
     
-     Plotter p(outputdir, {ttbar, dy, data}, formatters);
+     Plotter p(outputdir, {mcttbar_full}, formatters);
      
-     p.stackplots({}/*{"dy", "ttbar"}*/);
+     p.stackplots({}/*{"dy", "mcttbar_full"}*/);
      p.cutflow("cutflow", "cutflow.tex");
     
     //p.shapeplots({"dy", "dyexcl"});

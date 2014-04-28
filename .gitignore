@@ -5,7 +5,6 @@ lib/*
 */.bin
 *~
 ra/ra
-plot/*
 *.pdf
 *.tex
 *dict__.cpp
@@ -14,3 +13,4 @@ plot/*
 *.exe
 *.NOT
 ivf_treeAnalysis/plot_ivf/plot
+*/plot

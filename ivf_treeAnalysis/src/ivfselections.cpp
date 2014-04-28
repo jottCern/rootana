@@ -11,7 +11,7 @@ using namespace ivf;
 class MinTvQualSelection: public Selection{
 public:
     MinTvQualSelection(const ptree & cfg, OutputManager &){
-        disc = get<float>(cfg, "disc", .0);
+        disc = ptree_get<float>(cfg, "disc", .0);
     }
     
     bool operator()(const Event & event){
@@ -32,7 +32,7 @@ REGISTER_SELECTION(MinTvQualSelection)
 class GeneralDecaySelection: public Selection{
 public:
     GeneralDecaySelection(const ptree & cfg, OutputManager &){
-        disc = get<float>(cfg, "disc", .0);
+        disc = ptree_get<float>(cfg, "disc", .0);
     }
     
     bool operator()(const Event & event){
@@ -56,8 +56,8 @@ REGISTER_SELECTION(GeneralDecaySelection)
 class ZPosSelection: public Selection{
 public:
     ZPosSelection(const ptree & cfg, OutputManager &){
-	minz = get<float>(cfg, "minz", -100.);
-	maxz = get<float>(cfg, "maxz", 100.);
+	minz = ptree_get<float>(cfg, "minz", -100.);
+	maxz = ptree_get<float>(cfg, "maxz", 100.);
     }
         
     bool operator()(const Event & event){
@@ -81,12 +81,12 @@ REGISTER_SELECTION(ZPosSelection)
 class ProcessOrSelection: public Selection{
 public:
     ProcessOrSelection(const ptree & cfg, OutputManager &){
-	std::string catstr = get<std::string>(cfg, "categories");
+	std::string catstr = ptree_get<std::string>(cfg, "categories");
 	boost::split(catstrings, catstr, boost::algorithm::is_space(), boost::algorithm::token_compress_on);
 	for(const string & str : catstrings){
 	    cats.push_back(strtocat(str));
 	}
-	discriminator = get<float>(cfg, "discriminator", .0);
+	discriminator = ptree_get<float>(cfg, "discriminator", .0);
     }
         
     bool operator()(const Event & event){
@@ -121,8 +121,8 @@ REGISTER_SELECTION(ProcessOrSelection)
 class ProcessAndSelection: public Selection{
 public:
     ProcessAndSelection(const ptree & cfg, OutputManager &){
-	discriminator = get<float>(cfg, "discriminator", .0);
-	std::string catstr = get<std::string>(cfg, "categories");
+	discriminator = ptree_get<float>(cfg, "discriminator", .0);
+	std::string catstr = ptree_get<std::string>(cfg, "categories");
 	boost::split(catstrings, catstr, boost::algorithm::is_space(), boost::algorithm::token_compress_on);
 	for(const string & str : catstrings){
 	    cats.push_back(strtocat(str));
@@ -161,7 +161,7 @@ REGISTER_SELECTION(ProcessAndSelection)
 class DecaySelection: public Selection{
 public:
     DecaySelection(const ptree & cfg, OutputManager &){
-	catstr = get<std::string>(cfg, "categories");
+	catstr = ptree_get<std::string>(cfg, "categories");
 	boost::split(catstrings, catstr, boost::algorithm::is_space(), boost::algorithm::token_compress_on);
 	for(const string & str : catstrings){
 	    cats.push_back(newcat::strtocat(str));
@@ -217,7 +217,7 @@ REGISTER_SELECTION(DecaySelection)
 class DecayNotSelection: public Selection{
 public:
     DecayNotSelection(const ptree & cfg, OutputManager &){
-	std::string catstr = get<std::string>(cfg, "categories");
+	std::string catstr = ptree_get<std::string>(cfg, "categories");
 	boost::split(catstrings, catstr, boost::algorithm::is_space(), boost::algorithm::token_compress_on);
 	for(const string & str : catstrings){
 	    cats.push_back(strtocat(str));
