@@ -26,6 +26,8 @@ using boost::property_tree::ptree;
 
 namespace ra {
 
+// expand glob pattern
+std::vector<std::string> glob(const std::string& pattern);
 
 struct s_options{
     int blocksize;
