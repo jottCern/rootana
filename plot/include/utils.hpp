@@ -101,10 +101,15 @@ private:
     struct fspec {
         ra::identifier proc;
         ra::identifier sel;
+        
+        int hname_mode; // 0 = use hname equality (including if hname is wildcard); 1 = match hname_substring as prefix; 2 = match hname_substring as suffix
+        std::string hname_substr;
         ra::identifier hname;
+        
         formatter_type formatter;
         
-        fspec(const ra::identifier & proc_, const ra::identifier & sel_, const ra::identifier & hname_, const formatter_type & formatter_): proc(proc_), sel(sel_), hname(hname_), formatter(formatter_){}
+        fspec(const ra::identifier & proc_, const ra::identifier & sel_, int hname_mode_, const std::string & hname_, const formatter_type & formatter_):
+            proc(proc_), sel(sel_), hname_mode(hname_mode_), hname_substr(hname_), hname(hname_mode == 0 ? hname_ : ""), formatter(formatter_){}
     };
     
     std::vector<fspec> formatters;
@@ -216,6 +221,10 @@ public:
     void stackplots(const std::initializer_list<ra::identifier> & processes_to_stack);
     
     void shapeplots(const std::initializer_list<ra::identifier> & processes_to_compare, const std::string & filenamesuffix = "");
+    
+    // print the integral (including underflow and overflow) of the given histogram name of all processes into the file of name filename.
+    // if append is true, this will be appended to the file, otherwise the file is overwritten.
+    void print_integrals(const std::string & hname, const std::string & filename, const std::string & title, bool append = true);
     
     // make a latex cutflow table:
     void cutflow(const std::string & cutflow_hname, const std::string & outname);
