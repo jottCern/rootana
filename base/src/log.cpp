@@ -21,14 +21,18 @@ namespace{
     }
 }
 
-ostream & operator<<(ostream & out, loglevel s){
+void print(ostream & out, loglevel s, bool with_color){
     switch(s){
         case loglevel::debug:   out << "[DEBUG]  "; break;
         case loglevel::info:    out << "[INFO]   "; break;
         case loglevel::warning: out << "[WARNING]"; break;
-        case loglevel::error:   out << red("[ERROR]  "); break;
+        case loglevel::error:
+            if(with_color)
+                out << red("[ERROR]  ");
+            else
+                out << "[ERROR]  ";
+            break;
     }
-    return out;
 }
 
 std::shared_ptr<LogSink> LogSink::get_default_sink(){
@@ -52,6 +56,10 @@ void LogSinkOstream::append(const LogMessage & m){
 }
 
 LogSinkOstream::LogSinkOstream(std::ostream & out_): out(out_){
+    term = false;
+    if(&out == &cout){
+        term = isatty(1);
+    }
 }
 
 LogFile::LogFile(const char * fname, size_t maxsize, int circular_): filename(fname), msize(maxsize), circular(circular_), current_file(-1), dropped(0){
@@ -193,6 +201,10 @@ Logger & Logger::get(const string & name){
             else if(string("ERROR") == ll){
                 result.set_threshold(loglevel::error);
             }
+            else{
+                // the default:
+                result.set_threshold(loglevel::debug);
+            }
         }
         return result;
     }
@@ -204,7 +216,8 @@ void Logger::log(loglevel l, const LogMessage & m){
     timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
     stringstream ss;
-    ss << l << " (" << logger_name << "[" << index << "]) p" << getpid() << " " 
+    print(ss, l, sink->is_terminal());
+    ss << " (" << logger_name << "[" << index << "]) p" << getpid() << " " 
        << t.tv_sec << "." << setw(3) << setfill('0') << t.tv_nsec / 1000000 << ": " << m.message << "\n";
     sink->append(LogMessage(ss.str()));
 }

@@ -24,6 +24,7 @@ class LogSink{
 public:
     static std::shared_ptr<LogSink> get_default_sink();
     virtual void append(const LogMessage & m) = 0;
+    virtual bool is_terminal() { return false; }
     virtual ~LogSink(){}
 };
 
@@ -32,9 +33,11 @@ public:
     // note: out has to live longer than this.
     LogSinkOstream(std::ostream & out);
     virtual void append(const LogMessage & m);
+    virtual bool is_terminal(){ return term; }
     
 private:
     std::ostream & out;
+    bool term;
 };
 
 class LogFile: public LogSink {
