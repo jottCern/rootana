@@ -1,5 +1,5 @@
-#ifndef HISTS_HPP
-#define HISTS_HPP
+#ifndef RA_HISTS_HPP
+#define RA_HISTS_HPP
 
 #include "TH1.h"
 #include "context.hpp"

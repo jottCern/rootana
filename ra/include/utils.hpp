@@ -1,5 +1,5 @@
-#ifndef UTILS_HPP
-#define UTILS_HPP
+#ifndef RA_UTILS_HPP
+#define RA_UTILS_HPP
 
 #include <string>
 #include <map>

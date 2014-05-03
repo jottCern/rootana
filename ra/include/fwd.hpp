@@ -1,5 +1,5 @@
-#ifndef DRA_FWD_HPP
-#define DRA_FWD_HPP
+#ifndef RA_FWD_HPP
+#define RA_FWD_HPP
 
 namespace ra{
     // event.hpp:
@@ -9,6 +9,11 @@ namespace ra{
     class Configuration;
     class OutputManager;
     class InputManager;
+    
+    class TFileOutputManager;
+    class TTreeInputManager;
+    
+    class AnalysisModule;
     
     // identifier:
     class identifier;

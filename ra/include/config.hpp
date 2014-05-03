@@ -1,5 +1,5 @@
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#ifndef RA_CONFIG_HPP
+#define RA_CONFIG_HPP
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/lexical_cast.hpp>
@@ -92,6 +92,7 @@ struct s_dataset{
     std::string treename;
     s_tags tags;
     std::vector<s_file> files;
+    size_t filenames_hash;
     
     explicit s_dataset(const ptree & cfg);
 };

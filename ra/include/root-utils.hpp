@@ -1,5 +1,5 @@
-#ifndef ROOT_UTILS_HPP
-#define ROOT_UTILS_HPP
+#ifndef RA_ROOT_UTILS_HPP
+#define RA_ROOT_UTILS_HPP
 
 #include <string>
 #include <memory>

@@ -8,5 +8,5 @@ all: ../lib/libra.so test.exe ra
 
 include ../Makefile.rules
 
-ra: .bin/ra.o
+ra: .bin/ra.o ../lib/libra.so
 	$(EXE_CMD) -lra

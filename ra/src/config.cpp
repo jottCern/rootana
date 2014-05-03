@@ -84,6 +84,9 @@ s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint
     for(const auto & cfg : options_cfg){
         if(cfg.first == "blocksize"){
             blocksize = try_cast<int>("options.blocksize", cfg.second.data());
+            if(blocksize <= 0){
+                LOG_THROW("blocksize <= 0 invalid");
+            }
         }
         else if(cfg.first == "output_dir"){
             output_dir = cfg.second.data();
@@ -166,6 +169,11 @@ s_dataset::s_dataset(const ptree & cfg){
     }
     if(files.empty()){
         LOG_THROW("no files in dataset '" << name << "'");
+    }
+    filenames_hash = 0;
+    std::hash<string> hasher;
+    for(const auto & f : files){
+        filenames_hash ^=  hasher(f.path) + 0x9e3779b9 + (filenames_hash << 6) + (filenames_hash >> 2);
     }
 }
 

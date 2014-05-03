@@ -1,5 +1,5 @@
-#ifndef DRA_CONTEXT_HPP
-#define DRA_CONTEXT_HPP
+#ifndef RA_CONTEXT_HPP
+#define RA_CONTEXT_HPP
 
 #include <map>
 #include <list>
@@ -64,7 +64,8 @@ public:
     // call SetBranchAddress for all input previously declared.
     void setup_tree(TTree * tree);
     
-    void read_entry(size_t ientry);
+    // returns the number of read bytes
+    size_t read_entry(size_t ientry);
     
     size_t entries() const{
         return nentries;

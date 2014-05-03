@@ -1,5 +1,5 @@
-#ifndef DRA_ANALYSIS_HPP
-#define DRA_ANALYSIS_HPP
+#ifndef RA_ANALYSIS_HPP
+#define RA_ANALYSIS_HPP
 
 #include "fwd.hpp"
 #include "base/include/registry.hpp"
