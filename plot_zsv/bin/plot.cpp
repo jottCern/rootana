@@ -8,8 +8,8 @@ using namespace ra;
 
 
 namespace {
-string outputdir = "eps/full_eff_presel";
-string inputdir = "../zsvanalysis/rootfiles/full_weird_eff/";
+string outputdir = "eps/full_new1";
+string inputdir = "../zsvanalysis/rootfiles/full_dat_ttbar_dy/";
 }
 
 void plot_eff(ProcessHistograms & input, const string & numerator, const string & denom, const Formatters & format){
@@ -68,12 +68,12 @@ int main(){
     plot_eff(*dy, "final/matched_bcands_pt", "final/mcbs_pt", formatters);
     
     // scale final selection by 0.92**2 (IVF data/MC eficiency factor):
-    /*formatters.add<Scale>("dy:final/", 0.92 * 0.92);
-    formatters.add<Scale>("ttbar:final/", 0.92 * 0.92);*/
+    formatters.add<Scale>("dy:final/", 0.92 * 0.92);
+    formatters.add<Scale>("ttbar:final/", 0.92 * 0.92);
     
      Plotter p(outputdir, {ttbar, dy, data}, formatters);
      
-     p.stackplots({}/*{"dy", "ttbar"}*/);
+     p.stackplots({"dy", "ttbar"});
      p.cutflow("cutflow", "cutflow.tex");
     
     //p.shapeplots({"dy", "dyexcl"});

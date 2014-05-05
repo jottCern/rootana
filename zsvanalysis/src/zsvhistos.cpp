@@ -129,10 +129,8 @@ public:
 	// b efficiency plot
 // 	book<TH2D>("sin_b_eff_pt", 20, 0, 200, 20, 0, 1);
         book<TH1D>("mcbs_pt", 40, 0, 200);
-        book<TH1D>("matched_bcands_pt_010", 40, 0, 200);
-        book<TH1D>("matched_bcands_pt_001", 40, 0, 200);
-        book<TH1D>("found_bcand_matches_010", 10, 0, 10);
-        book<TH1D>("found_bcand_matches_001", 10, 0, 10);
+        book<TH1D>("matched_bcands_pt", 40, 0, 200);
+        book<TH1D>("found_bcand_matches", 10, 0, 10);
 //         book<TH1D>("sing_b_eff_pt", 40, 0, 200);
     }
     
@@ -173,10 +171,8 @@ public:
 	
 	ID(sin_b_eff_pt);
         ID(mcbs_pt);
-        ID(matched_bcands_pt_010);
-        ID(matched_bcands_pt_001);
-        ID(found_bcand_matches_010);
-        ID(found_bcand_matches_001);
+        ID(matched_bcands_pt);
+        ID(found_bcand_matches);
 //         ID(sing_b_eff_pt);
         
         current_weight = e.weight();
@@ -228,17 +224,12 @@ public:
         for (auto & mc_b : mc_bhads){
             if (mc_b.p4.eta() < 2.4 && mc_b.p4.pt() > 0){
                 fill(mcbs_pt, mc_b.p4.pt());
-                fill(found_bcand_matches_010, matching_bcands(mc_b, bcands, 0.10));
-                fill(found_bcand_matches_001, matching_bcands(mc_b, bcands, 0.01));
+                fill(found_bcand_matches, matching_bcands(mc_b, bcands, 0.10));
 //                 mcb_count++;
 //                 if (mc_b.p4.pt() > mcb_maxpt) mcb_maxpt = mc_b.p4.pt();
                 if (matching_bcands(mc_b, bcands, 0.10) >= 1){
 //                     matched_bcand_count++;
-                    fill(matched_bcands_pt_010, mc_b.p4.pt());
-                }
-                if (matching_bcands(mc_b, bcands, 0.01) >= 1){
-//                     matched_bcand_count++;
-                    fill(matched_bcands_pt_001, mc_b.p4.pt());
+                    fill(matched_bcands_pt, mc_b.p4.pt());
                 }
             }
         }

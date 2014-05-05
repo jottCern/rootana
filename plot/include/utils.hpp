@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 struct Histogram {
     std::unique_ptr<TH1> histo;// the actual root histogram
@@ -38,9 +39,12 @@ void get_names_of_type(std::vector<std::string> & result, TDirectory * dir, cons
 class ProcessHistograms {
 public:
     virtual std::vector<std::string> get_histogram_names() = 0; // all histograms names available
+//     virtual std::vector<std::string> get_histogram_names(const std::string &) = 0;
     virtual Histogram get_histogram(const std::string & name) = 0; // get a copy of the histogram named
     virtual ra::identifier id() = 0; // unique name for this process; data should be called data or DATA
     virtual ~ProcessHistograms();
+    
+    virtual std::set<ra::identifier> get_plot_types() = 0;
 };
 
 
@@ -50,11 +54,14 @@ public:
     ProcessHistogramsTFile(const std::initializer_list<std::string> & filenames, const ra::identifier & id);
     
     virtual std::vector<std::string> get_histogram_names(); // including subdirectories ...
+//     virtual std::vector<std::string> get_histogram_names(const std::string &);
     virtual Histogram get_histogram(const std::string & name);
     virtual ra::identifier id(){
         return id_;
     }
     virtual ~ProcessHistogramsTFile();
+    
+    virtual std::set<ra::identifier> get_plot_types();
     
 private:
     void init_files(const std::initializer_list<std::string> & filenames);
@@ -222,6 +229,8 @@ public:
     
     void shapeplots(const std::initializer_list<ra::identifier> & processes_to_compare, const std::string & filenamesuffix = "");
     
+    void selcomp_plots(const std::initializer_list<ra::identifier> & selections_to_compare, const std::initializer_list<ra::identifier> & plots_to_compare, const std::string & outputname);
+    
     // print the integral (including underflow and overflow) of the given histogram name of all processes into the file of name filename.
     // if append is true, this will be appended to the file, otherwise the file is overwritten.
     void print_integrals(const std::string & hname, const std::string & filename, const std::string & title, bool append = true);
@@ -234,6 +243,8 @@ private:
     const Formatters & formatters;
     
     std::vector<Histogram> get_formatted_histograms(const std::vector<std::shared_ptr<ProcessHistograms> > & hsources, const std::string & hname);
+    
+    std::vector<Histogram> get_selection_histogram(const std::shared_ptr<ProcessHistograms> & hsource, const std::initializer_list<ra::identifier> & selections_to_compare, const ra::identifier & plot_type);
 };
 
 #endif

@@ -76,6 +76,120 @@ private:
 REGISTER_SELECTION(ZPosSelection)
 
 
+class NTrackSelection: public Selection{
+public:
+    NTrackSelection(const ptree & cfg, OutputManager &){
+        minnt = ptree_get<int>(cfg, "minnt", 0);
+        maxnt = ptree_get<int>(cfg, "maxnt", 200);
+    }
+        
+    bool operator()(const Event & event){
+        ID(numberTracks);
+        int numTracks = event.get<int>(numberTracks);
+        return (minnt <= numTracks && numTracks <= maxnt );
+    }
+                
+private:
+    int minnt;
+    int maxnt;
+};
+
+
+REGISTER_SELECTION(NTrackSelection)
+
+
+class MassSelection: public Selection{
+public:
+    MassSelection(const ptree & cfg, OutputManager &){
+        minm = ptree_get<float>(cfg, "minm", 0.);
+        maxm = ptree_get<float>(cfg, "maxm", 200.);
+    }
+        
+    bool operator()(const Event & event){
+        ID(p4daughters);
+        LorentzVector p4 = event.get<LorentzVector>(p4daughters);
+        float mass = p4.mass();
+        return (minm < mass && mass < maxm );
+    }
+                
+private:
+    float minm;
+    float maxm;
+};
+
+
+REGISTER_SELECTION(MassSelection)
+
+
+class PtSelection: public Selection{
+public:
+    PtSelection(const ptree & cfg, OutputManager &){
+        minpt = ptree_get<float>(cfg, "minpt", 0.);
+        maxpt = ptree_get<float>(cfg, "maxpt", 1000.);
+    }
+        
+    bool operator()(const Event & event){
+        ID(p4daughters);
+        LorentzVector p4 = event.get<LorentzVector>(p4daughters);
+        float pt = p4.Pt();
+        return (minpt < pt && pt < maxpt );
+    }
+                
+private:
+    float minpt;
+    float maxpt;
+};
+
+
+REGISTER_SELECTION(PtSelection)
+
+
+class EtaSelection : public Selection{
+public:
+    EtaSelection(const ptree & cfg, OutputManager &){
+        mineta = ptree_get<float>(cfg, "mineta", -100.);
+        maxeta = ptree_get<float>(cfg, "maxeta", 100.);
+    }
+        
+    bool operator()(const Event & event){
+        ID(p4daughters);
+        LorentzVector p4 = event.get<LorentzVector>(p4daughters);
+        float eta = p4.Eta();
+        return (mineta < eta && eta < maxeta );
+    }
+                
+private:
+    float mineta;
+    float maxeta;
+};
+
+
+REGISTER_SELECTION(EtaSelection)
+
+
+//===========CALCULATE ERRORS FIRST, BUT HAVE ONLY THE ONE FROM SV!!!=============     
+
+// class FLengthSigSelection: public Selection{
+// public:
+//     FLengthSigSelection(const ptree & cfg, OutputManager &){
+//         minnt = ptree_get<float>(cfg, "minnt", 0);
+//         maxnt = ptree_get<float>(cfg, "maxnt", 200);
+//     }
+//         
+//     bool operator()(const Event & event){
+//         ID(numberTracks);
+//         int numTracks = event.get<int>(numberTracks);
+//         return (minz <= numTracks && numTracks <= maxz );
+//     }
+//                 
+// private:
+//     float minnt;
+//     float maxnt;
+// };
+// 
+// 
+// REGISTER_SELECTION(FLengthSigSelection)
+
 
 
 class ProcessOrSelection: public Selection{
