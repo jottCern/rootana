@@ -97,14 +97,37 @@ struct s_dataset{
     explicit s_dataset(const ptree & cfg);
 };
 
+struct s_logger {
+    struct s_logconfig {
+        std::string loggername_prefix;
+        std::string threshold; // empty = inherit
+        std::string logfile;
+        
+        explicit s_logconfig(const std::string & key, const ptree & cfg);
+    };
+    
+    std::string logfile_dir;
+    std::vector<s_logconfig> configs;
+    
+    explicit s_logger(const ptree & cfg);
+    s_logger() = default;
+    
+    // apply the current configuration to the global Logger. outdir is the base directory to use in case
+    // of relative logfile_dir (typically set to s_options::output_dir).
+    void apply(const std::string & outdir) const;
+};
+
 // the representation of a complete config file:
 struct s_config {
+    s_logger logger;
     s_options options;
     std::vector<s_dataset> datasets;
     ptree modules_cfg;
     
     explicit s_config(const std::string & filename);
 };
+
+
 
 }
 

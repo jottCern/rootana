@@ -2,7 +2,6 @@
 
 #include "config.hpp"
 #include "analysis.hpp"
-//#include "context.hpp"
 #include "controller.hpp"
 #include "Cintex/Cintex.h"
 
@@ -23,8 +22,6 @@ void sigint_handler(int){
 
 
 void run(const s_config & config){
-    //Logger & logger = Logger::get("dra_local.run");
-    
     AnalysisController controller(config);
     
     bool do_stop = false;
@@ -43,13 +40,13 @@ void run(const s_config & config){
         progress.print();
         size_t nevents_done = 0;
         for(size_t ifile=0; ifile < dataset.files.size(); ++ifile){
-            if(do_stop) break;
             controller.start_file(ifile);
             size_t nevents = controller.get_file_size();
             size_t imin = 0;
-            size_t imax = min<size_t>(config.options.blocksize, nevents);
-            while(imax - imin > 0){
-                if(do_stop) break;
+            while(true){
+                if(do_stop || interrupted) break;
+                size_t imax = min<size_t>(imin + config.options.blocksize, nevents);
+                if(imin == imax) break;
                 controller.process(imin, imax);
                 nevents_done += imax - imin;
                 progress.set("events", nevents_done);
@@ -60,10 +57,8 @@ void run(const s_config & config){
                     }
                 }
                 imin = imax;
-                imax = min(imin + config.options.blocksize, nevents);
-                if(interrupted) break;
             }
-            if(do_stop) break;
+            if(do_stop || interrupted) break;
             progress.set("files", ifile + 1);
             progress.print();
         }
@@ -94,6 +89,7 @@ int main(int argc, char ** argv){
     
     try{
         s_config config(argv[1]);
+        config.logger.apply(config.options.output_dir);
         ROOT::Cintex::Cintex::Enable();
         // TODO: set up logging.
         run(config);

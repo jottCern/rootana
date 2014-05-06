@@ -177,14 +177,61 @@ s_dataset::s_dataset(const ptree & cfg){
     }
 }
 
+s_logger::s_logconfig::s_logconfig(const std::string & key, const ptree & cfg): loggername_prefix(key){
+    threshold = ptree_get<string>(cfg, "threshold", "");
+    logfile = ptree_get<string>(cfg, "logfile", "");
+}
+
+s_logger::s_logger(const ptree & cfg){
+    logfile_dir = ptree_get<string>(cfg, "logfile_dir", "");
+    for(const auto & it : cfg){
+        if(it.first == "logfile_dir") continue;
+        configs.emplace_back(it.first, it.second);
+    }
+}
+
+void s_logger::apply(const std::string & base_dir) const{
+    std::vector<LoggerConfiguration> logger_configs;
+    for(auto const & this_cfg : configs){
+        if(!this_cfg.logfile.empty()){
+            logger_configs.emplace_back();
+            LoggerConfiguration & cfg = logger_configs.back();
+            cfg.logger_name_prefix = this_cfg.loggername_prefix;
+            cfg.command = LoggerConfiguration::set_outfile;
+            if(this_cfg.logfile == "-"){
+                cfg.value = "-";
+            }
+            else{
+                cfg.value = this_cfg.logfile;
+                if(cfg.value[0]!='/' && !logfile_dir.empty()){
+                    cfg.value = logfile_dir + '/' + cfg.value;
+                }
+                if(cfg.value[0]!='/' && !base_dir.empty()){
+                    cfg.value = base_dir + '/' + cfg.value;
+                    // can still be relative, but we allow that.
+                }
+            }
+        }
+        if(!this_cfg.threshold.empty()){
+            logger_configs.emplace_back();
+            LoggerConfiguration & cfg = logger_configs.back();
+            cfg.logger_name_prefix = this_cfg.loggername_prefix;
+            cfg.command = LoggerConfiguration::set_threshold;
+            cfg.value = this_cfg.threshold;
+        }
+    }
+    Logger::configure(logger_configs);
+}
 
 s_config::s_config(const std::string & filename) {
-    Logger & logger = Logger::get("config");
+    // note: make an effort to iniliaze logging soon:
     ptree cfg;
-    LOG_DEBUG("reading file '" << filename << "' into ptree");
     boost::property_tree::read_info(filename.c_str(), cfg);
-    LOG_DEBUG("done reading file '" << filename << "' into ptree");
+    if(cfg.count("logger") > 0){
+        logger = s_logger(cfg.get_child("logger"));
+    }
     options = s_options(cfg.get_child("options"));
+    Logger & logger = Logger::get("config");
     modules_cfg = cfg.get_child("modules");
     for(const auto & it : cfg){
         //if(it.first == "options" or it.first == "modules" or it.first == "input_tree") continue;

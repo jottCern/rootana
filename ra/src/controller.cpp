@@ -14,8 +14,8 @@ namespace {
 ra::identifier id_stop("stop");
 }
 
-AnalysisController::AnalysisController(const s_config & config_): logger(Logger::get("dra.AnalysisController")),
-  config(config_), current_idataset(-1), current_ifile(-1), infile_nevents(0), n_read(0){
+AnalysisController::AnalysisController(const s_config & config_): logger(Logger::get("ra.AnalysisController")),
+  config(config_), current_idataset(-1), current_ifile(-1), infile_nevents(0) {
     for(const string & sp : config.options.searchpaths){
         add_searchpath(sp, -1);
     }
@@ -34,16 +34,11 @@ AnalysisController::AnalysisController(const s_config & config_): logger(Logger:
 }
 
 void AnalysisController::start_dataset(size_t idataset, const string & new_outfile_path){
-    bool cleanup_file = true;
-    if(current_idataset == idataset){
-        if(outfile_path == new_outfile_path) return;
-        cleanup_file = false;
-    }
+    if(current_idataset == idataset && outfile_path == new_outfile_path) return;
+    LOG_DEBUG("start dataset, outfile = " << new_outfile_path);
     // cleanup previous per-file info:
-    if(cleanup_file){
-       current_ifile = -1;
-       infile.reset();
-    }
+    current_ifile = -1;
+    infile.reset();
     // cleanup previous per-dataset info, in reverse order of construction:
     in.reset();
     event.reset();
@@ -56,21 +51,21 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
         outfile.reset();
     }
     
+    current_idataset = idataset;
     if(idataset == size_t(-1)) return;
     
     if(idataset >= config.datasets.size()){
         LOG_THROW("start_dataset ( idataset = " << idataset << "): idataset out of range");
     }
     // initialize all per-dataset infos:
-    current_idataset = idataset;
     outfile.reset(new TFile(new_outfile_path.c_str(), "recreate"));
     if(!outfile->IsOpen()){
         LOG_THROW("could not open output file '" + new_outfile_path + "'");
     }
     outfile_path = new_outfile_path;
     const s_dataset & dataset = config.datasets[current_idataset];
-    out.reset(new TFileOutputManager(outfile.get(), dataset.treename));
     event.reset(new Event());
+    out.reset(new TFileOutputManager(outfile.get(), dataset.treename, *event));
     in.reset(new TTreeInputManager(*event));
     for(auto & m : modules){
         m->begin_dataset(dataset, *in, *out);
@@ -97,9 +92,12 @@ void AnalysisController::check_file() const{
 }
 
 void AnalysisController::start_file(size_t ifile){
+    LOG_DEBUG("start_file " << ifile);
     if(current_ifile == ifile) return;
-    check_dataset();
     const s_dataset & dataset = current_dataset();
+    if(ifile >= dataset.files.size()){
+        throw invalid_argument("no such file in current dataset");
+    }
     const auto & f = dataset.files[ifile];
     infile.reset(new TFile(f.path.c_str(), "read"));
     if(!infile->IsOpen()){
@@ -113,6 +111,7 @@ void AnalysisController::start_file(size_t ifile){
         LOG_THROW("start_file: did not find input tree '" << dataset.treename << "' in input file '" << f.path << "'");
     }
     in->setup_tree(tree);
+    current_ifile = ifile;
     infile_nevents = tree->GetEntries();
 }
 
@@ -121,7 +120,8 @@ size_t AnalysisController::get_file_size() const{
     return infile_nevents;
 }
 
-void AnalysisController::process(size_t imin, size_t imax){
+void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * stats){
+    LOG_DEBUG("process events " << imin << " -- " << imax);
     check_file();
     if(infile_nevents == 0) return;
     if(imin >= infile_nevents){
@@ -135,8 +135,12 @@ void AnalysisController::process(size_t imin, size_t imax){
     if(imax < imin){
         LOG_THROW("process called with imax < imin");
     }
+    size_t dummy;
+    size_t & n_read = stats ? stats->nbytes_read : dummy;
+    n_read = 0;
     for(size_t ientry = imin; ientry < imax; ++ientry){
         n_read += in->read_entry(ientry);
+        bool event_selected = true;
         for(size_t i=0; i<modules.size(); ++i){
             try{
                 modules[i]->process(*event);
@@ -148,19 +152,14 @@ void AnalysisController::process(size_t imin, size_t imax){
                 throw;
             }
             if(event->get_presence<bool>(id_stop) == Event::presence::present && event->get<bool>(id_stop)){
+                event_selected = false;
                 break;
             }
         }
+        if(event_selected) out->write_event();
     }
 }
 
 AnalysisController::~AnalysisController(){
     start_dataset(-1, "");
 }
-
-size_t AnalysisController::nbytes_read(){
-    size_t result = n_read;
-    n_read = 0;
-    return result;
-}
-

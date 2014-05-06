@@ -37,13 +37,16 @@ public:
     // get the number of events in the file last initialized with start_file
     size_t get_file_size() const;
     
+    
+    struct ProcessStatistics {
+        size_t nbytes_read;
+    };
+    
     // run over the given range [ifirst, ilast) of events in the current file.
     // ifirst must be smaller than the current file size, ilast can be larger (in which
     // case it is truncated to that length).
-    void process(size_t ifirst, size_t ilast);
-    
-    // get the number of bytes read in process since the last call to nbytes_read
-    size_t nbytes_read();
+    // s can be NULL.
+    void process(size_t ifirst, size_t ilast, ProcessStatistics * s = 0);
     
     ~AnalysisController();
     

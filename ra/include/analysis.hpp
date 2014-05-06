@@ -12,14 +12,9 @@ namespace ra {
     
 /** \brief Abstract base class for all analysis modules
  *
- * Using it comprises two parts: implementing the analysis logic and calling it within the event loop to do the actual work.
- *
- * For the first part, derive from this class and implement the 'begin_dataset' and 'process' methods.
- *
- * Calling 'begin_dataset' or 'process' can be done either
- * - "manually" from another AnalysisModule or from a SFrame cycle
- * - "automatically" by using the AnalysisModuleRunner SFrame cycle which does nothing but call these
- * methods in the correct order, after setting up the input.
+ * Derive from this class and implement the 'begin_dataset' and 'process' methods. Make sure
+ * to use the REGISTER_ANALYSIS_MODULE macro to make your module known to the plugin system.
+ * Then name it in the configuration to execute it.
  */
 class AnalysisModule {
 public:

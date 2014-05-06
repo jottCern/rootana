@@ -136,14 +136,14 @@ BOOST_AUTO_TEST_CASE(read_wrong_type){
 
 BOOST_AUTO_TEST_CASE(outtree){
     TFile * outfile = new TFile("out.root", "recreate");
-    TFileOutputManager fout(outfile, "eventtree");
+    Event event;
+    TFileOutputManager fout(outfile, "eventtree", event);
     OutputManager & out = fout;    
     
-    Event event;
-    BOOST_CHECK_THROW(out.declare_output<int>(event, "my_int"), std::runtime_error);
+    //BOOST_CHECK_THROW(out.declare_output<int>(event, "my_int"), std::runtime_error);
     
-    event.set<int>("my_int", 5);
-    out.declare_output<int>(event, "my_int");
+    //event.set<int>("my_int", 5);
+    out.declare_event_output<int>("my_int");
     for(int i=0; i<100; ++i){
         event.get<int>("my_int") = i;
         fout.write_event();
@@ -172,7 +172,8 @@ BOOST_AUTO_TEST_CASE(outtree){
 
 BOOST_AUTO_TEST_CASE(outhist){
     TFile * outfile = new TFile("outhist.root", "recreate");
-    TFileOutputManager fout(outfile, "eventtree");
+    Event event;
+    TFileOutputManager fout(outfile, "eventtree", event);
     
     TH1D * histo = new TH1D("h1", "h1", 100, 0, 1);
     fout.put("histname", histo);
@@ -191,7 +192,8 @@ BOOST_AUTO_TEST_CASE(outhist){
 
 BOOST_AUTO_TEST_CASE(outhist_dir){
     TFile * outfile = new TFile("outhist_dir.root", "recreate");
-    TFileOutputManager fout(outfile, "eventtree");
+    Event event;
+    TFileOutputManager fout(outfile, "eventtree", event);
     
     TH1D * histo = new TH1D("h1", "h1", 100, 0, 1);
     fout.put("dir1/dir2/dir3/histname", histo);

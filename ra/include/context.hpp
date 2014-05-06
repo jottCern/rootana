@@ -113,15 +113,18 @@ public:
      * The variable has to exist in the Event before calling this method.
      */
     template<typename T>
-    void declare_output(const Event & event, const char * event_member_name, const char * branchname){
-        const T & t = event.get<T>(event_member_name);
+    void declare_event_output(const char * event_member_name, const char * branchname){
+        if(event.get_presence<T>(event_member_name) == Event::presence::nonexistent){
+            event.set<T>(event_member_name, T());
+        }
+        const T & t = event.get<T>(event_member_name, false);
         declare_event_output(branchname, static_cast<const void*>(&t), typeid(T));
     }
     
     // shortcut if branchname and member name are the same
     template<typename T>
-    void declare_output(const Event & event, const char * name){
-        declare_output<T>(event, name, name);
+    void declare_event_output(const char * name){
+        declare_event_output<T>(name, name);
     }
     
     /** \brief Declare a non-event variable which should be written to the tree identified by tree_id instead.
@@ -143,6 +146,10 @@ public:
     // low-level access:
     virtual void declare_event_output(const char * branchname, const void * addr, const std::type_info & ti) = 0;
     virtual void declare_output(const identifier & tree_id, const char * branchname, const void * t, const std::type_info & ti) = 0;
+    
+protected:
+    explicit OutputManager(Event & event_): event(event_){}
+    Event & event;
 };
 
 
@@ -156,7 +163,7 @@ public:
     
     void write_event();
     
-    TFileOutputManager(TFile * outfile, const std::string & event_treename);
+    TFileOutputManager(TFile * outfile, const std::string & event_treename, Event & event);
     
 private:
     TFile * outfile;

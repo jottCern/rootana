@@ -220,7 +220,7 @@ void TFileOutputManager::put(const char * name_, TH1 * histo){
 }
 
 void TFileOutputManager::declare_event_output(const char * name, const void * caddr, const std::type_info & ti){
-    if(event_tree==0){
+    if(!event_tree){
         TDirectory * dir = gDirectory;
         outfile->cd();
         event_tree = new TTree(event_treename.c_str(), event_treename.c_str());
@@ -256,9 +256,11 @@ void TFileOutputManager::write_output(const identifier & tree_id){
 }
 
 void TFileOutputManager::write_event(){
-    event_tree->Fill();
+    if(event_tree){
+        event_tree->Fill();
+    }
 }
     
-TFileOutputManager::TFileOutputManager(TFile * outfile_, const string & event_treename_): outfile(outfile_), event_treename(event_treename_),event_tree(0){
+TFileOutputManager::TFileOutputManager(TFile * outfile_, const string & event_treename_, Event & event_): OutputManager(event_), outfile(outfile_), event_treename(event_treename_),event_tree(0){
 }
 

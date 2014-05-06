@@ -26,7 +26,8 @@ sdummy d;
     
 
 void merge(TDirectory * lhs, TDirectory * rhs){
-    Logger & logger = Logger::get("root-utils.merge");
+    Logger & logger = Logger::get("ra.root-utils.merge");
+    LOG_DEBUG("entering merge for directories " << lhs->GetName() << " and " << rhs->GetName());
     map<string, TKey*> lhs_keys;
     map<string, TKey*> rhs_keys;
     
@@ -49,6 +50,7 @@ void merge(TDirectory * lhs, TDirectory * rhs){
         }
     }
     
+    LOG_DEBUG("Found " << lhs_keys.size() << " objects in left TDirectory and " << rhs_keys.size() << " in right TDirectory");
     if(lhs_keys.size() != rhs_keys.size()) throw runtime_error("merge: directories have not the same number of entries!");
     
     lhs->cd();
@@ -70,6 +72,7 @@ void merge(TDirectory * lhs, TDirectory * rhs){
             assert(right_tdir);
             LOG_DEBUG("recursively merging directory " << left_tdir->GetName());
             merge(left_tdir, right_tdir);
+            lhs->cd();
             continue;
         }
         else{
@@ -90,12 +93,13 @@ void merge(TDirectory * lhs, TDirectory * rhs){
             TList l;
             l.Add(rit->second->ReadObj());
             mergeMethod.SetParam((Long_t)&l);
+            LOG_DEBUG("about to merge '" << left_object->GetName() << "' (class: " << l_class << ")");
             mergeMethod.Execute(left_object);
-            LOG_DEBUG("just merged '" << left_object->GetName() << "' (class: " << l_class << ")");
             
             // remove the original TKey in the output file:
             lit.second->Delete();
             delete lit.second;
+            left_object->Write();
             
             if(tree){
                 if(tree->GetEntries() != nentries_expected){

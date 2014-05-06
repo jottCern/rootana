@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <sstream>
+#include <vector>
 
 enum class loglevel {
     debug, info, warning, error
@@ -20,11 +21,19 @@ public:
     LogMessage(std::string msg_): message(move(msg_)){}
 };
 
+
+// abstract base class for the target of a log stream
 class LogSink{
 public:
-    static std::shared_ptr<LogSink> get_default_sink();
+    // get the sink for the given outfile. outfile = '-' and empty outfile both corresponds to LogSinkOStream(cout)
+    // other values correspond to LogFile(outfile).
+    // To have more control of LogFile options, specify options with colons, e.g. use outfile = "log;1;-1"
+    // for creating the log file "log" with maxsize = 1MB and circular = -1
+    static std::shared_ptr<LogSink> get_sink(const std::string & outfile);
+    
     virtual void append(const LogMessage & m) = 0;
     virtual bool is_terminal() { return false; }
+    virtual void handle_fork(int new_pid) {}
     virtual ~LogSink(){}
 };
 
@@ -50,13 +59,15 @@ public:
     // log messages will be directed to fname (but see circular below), which wil grow up to maxsize.
     //
     // circular governs what happens after maxsize has been reached:
-    // * circular < 0: open new log files fname + ".1", fname + ".2", etc.
+    // * circular < 0: open new log files fname + ".1", fname + ".2", etc. without end
     // * circular = 0: overwrite the file fname from the beginning if reaching its end
     // * circular > 0: write up to fname + ".<circular>" and then start at the beginning (=fname) again
     //
     // the default circular = 1 writes to fname, then to fname + ".1", then to fname, etc. and
     // is probably appropriate for many use cases, but discards old messages at some point.
     explicit LogFile(const char * fname, size_t maxsize = 20 * MB, int circular = 1);
+    
+    virtual void handle_fork(int new_pid);
     
     ~LogFile();
     
@@ -72,7 +83,7 @@ private:
     void close_file(const std::string & filename);
     
     // constructor arguments:
-    const std::string filename;
+    std::string filename;
     size_t msize;
     const int circular;
     
@@ -86,12 +97,24 @@ private:
 };
 
 
+struct LoggerConfiguration {
+    enum e_command { set_threshold, set_outfile };
+    
+    std::string logger_name_prefix; // to which loggers to apply this configuration: prefix = "a" matches loggers names exactly "a" or starting with "a."
+    e_command command;
+    std::string value; // for set_threshold: use "DEBUG", "INFO", "WARNING", "ERROR" only. For outfile: see LogSink::get_sink
+};
 
+
+// a specific logger with a name; also factory for loggers
 class Logger {
 public:
     Logger(const Logger &) = delete;
     Logger(Logger &&) = default;
 
+    // overwrite any previous configuration. The configuration applied to both
+    // current and future loggers. configurations are applied in the given order(!).
+    static void configure(const std::vector<LoggerConfiguration> & conf);
     static Logger & get(const std::string & name);
 
     bool enabled(loglevel l) const{
@@ -102,23 +125,27 @@ public:
         l_threshold = l;
     }
     
-    void set_sink(const std::shared_ptr<LogSink> & sink);
-    
-    // write the message m to the underlying LogSink; the current
-    // hard-wired formatting is:
-    // <severity> (p<pid> t<time> logger_name[index]): <message>
+    // write the message m to the underlying LogSink; right now, a hard-wired formatting is used
     void log(loglevel s, const LogMessage & m);
 
-    // write the message s directly to the log sink; should usually not be needed.
-    //void log_raw(const LogMessage & m);
-
 private:
-    explicit Logger(const std::string & name, const std::shared_ptr<LogSink> & ls): logger_name(name), l_threshold(loglevel::debug), sink(ls), next_index(0){}
+    
+    // create a logger with the given name, respecting the current configuration.
+    // If the configuration does not specify a LogSink, uses the default log sink.
+    explicit Logger(const std::string & name): logger_name(name), l_threshold(loglevel::warning), next_index(0){
+        apply_configuration();
+    }
+    
+    void apply_configuration();
+    static std::map<std::string, Logger> & all_loggers();
+    static std::vector<LoggerConfiguration> & configurations();
     
     std::string logger_name;
     loglevel l_threshold;
     std::shared_ptr<LogSink> sink;
     int next_index;
+    
+    static int init_pid;
 };
 
 #define LOG(li, sev, expr) \

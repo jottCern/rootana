@@ -195,13 +195,15 @@ progress_bar::~progress_bar(){
     cout << endl;
 }
 
+double progress_bar::get_dt() const{
+    timespec now;
+    gettime(now);
+    return dt(now, start);
+}
 
 void progress_bar::print(bool update_time) {
     if(update_time){
-        timespec now;
-        gettime(now);
-        double total_time = dt(now, start);
-        set(rtime, total_time);
+        set(rtime, get_dt());
     }
     cout << "\033[" << chars_written << "D";
     
