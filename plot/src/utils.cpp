@@ -812,8 +812,8 @@ void Plotter::shapeplots(const std::initializer_list<ra::identifier> & processes
         // normalize all and set line color to fill color:
         for(auto & h: histograms){
             h.histo->Scale(1.0 / h.histo->Integral());
-            h.histo->SetLineColor(h.histo->GetFillColor());
-            h.histo->SetLineWidth(2.0);
+            //h.histo->SetLineColor(h.histo->GetFillColor());
+            //h.histo->SetLineWidth(2.0);
             h.histo->SetFillColor(0);
         }
         string outfilename = outdir + hname + suffix + "_shape.pdf";

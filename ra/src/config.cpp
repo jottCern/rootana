@@ -38,7 +38,7 @@ namespace{
 // <In FileName="..." />
 // which is parsed here.
 vector<string> parse_sframe_xml(const string & path){
-    Logger & logger = Logger::get("config.dataset.sframe_xml");
+    auto logger = Logger::get("ra.config.dataset.sframe_xml");
     ifstream in(path);
     if(!in.good()){
         LOG_THROW("error opening xml file '" << path << "'");
@@ -79,11 +79,14 @@ vector<string> parse_sframe_xml(const string & path){
 }
 
 s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint(-1), output_dir("."), keep_unmerged(false){
-    Logger & logger = Logger::get("config.options");
+    auto logger = Logger::get("ra.config.options");
     std::string verb("info");
     for(const auto & cfg : options_cfg){
         if(cfg.first == "blocksize"){
             blocksize = try_cast<int>("options.blocksize", cfg.second.data());
+            if(blocksize <= 0){
+                LOG_THROW("blocksize <= 0 invalid");
+            }
         }
         else if(cfg.first == "output_dir"){
             output_dir = cfg.second.data();
@@ -130,7 +133,7 @@ s_dataset::s_tags::s_tags(const boost::property_tree::ptree & tree){
 }
 
 s_dataset::s_dataset(const ptree & cfg){
-    Logger & logger = Logger::get("config.dataset");
+    auto logger = Logger::get("ra.config.dataset");
     name = ptree_get<string>(cfg, "name");
     treename = ptree_get<string>(cfg, "treename");
     for(const auto & it : cfg){
@@ -167,16 +170,62 @@ s_dataset::s_dataset(const ptree & cfg){
     if(files.empty()){
         LOG_THROW("no files in dataset '" << name << "'");
     }
+    filenames_hash = 0;
+    std::hash<string> hasher;
+    for(const auto & f : files){
+        filenames_hash ^=  hasher(f.path) + 0x9e3779b9 + (filenames_hash << 6) + (filenames_hash >> 2);
+    }
 }
 
+s_logger::s_logconfig::s_logconfig(const std::string & key, const ptree & cfg): loggername_prefix(key){
+    threshold = ptree_get<string>(cfg, "threshold", "");
+    logfile = ptree_get<string>(cfg, "logfile", "");
+}
+
+s_logger::s_logger(const ptree & cfg){
+    logfile_dir = ptree_get<string>(cfg, "logfile_dir", "");
+    for(const auto & it : cfg){
+        if(it.first == "logfile_dir") continue;
+        configs.emplace_back(it.first, it.second);
+    }
+}
+
+void s_logger::apply(const std::string & base_dir) const{
+    std::list<LoggerConfiguration> logger_configs;
+    for(auto const & this_cfg : configs){
+        if(!this_cfg.logfile.empty()){
+            string outfile;
+            if(this_cfg.logfile == "-"){
+                outfile = "-";
+            }
+            else{
+                outfile = this_cfg.logfile;
+                if(outfile[0]!='/' && !logfile_dir.empty()){
+                    outfile = logfile_dir + '/' + outfile;
+                }
+                if(outfile[0]!='/' && !base_dir.empty()){
+                    outfile = base_dir + '/' + outfile;
+                    // can still be relative, but we allow that.
+                }
+            }
+            logger_configs.emplace_back(this_cfg.loggername_prefix, LoggerConfiguration::set_outfile, outfile);
+        }
+        if(!this_cfg.threshold.empty()){
+            logger_configs.emplace_back(this_cfg.loggername_prefix, LoggerConfiguration::set_threshold, this_cfg.threshold);
+        }
+    }
+    Logger::set_configuration(logger_configs);
+}
 
 s_config::s_config(const std::string & filename) {
-    Logger & logger = Logger::get("config");
+    // note: make an effort to iniliaze logging soon:
     ptree cfg;
-    LOG_DEBUG("reading file '" << filename << "' into ptree");
     boost::property_tree::read_info(filename.c_str(), cfg);
-    LOG_DEBUG("done reading file '" << filename << "' into ptree");
+    if(cfg.count("logger") > 0){
+        logger = s_logger(cfg.get_child("logger"));
+    }
     options = s_options(cfg.get_child("options"));
+    auto logger = Logger::get("ra.config");
     modules_cfg = cfg.get_child("modules");
     for(const auto & it : cfg){
         //if(it.first == "options" or it.first == "modules" or it.first == "input_tree") continue;

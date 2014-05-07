@@ -93,13 +93,15 @@ void TTreeInputManager::setup_tree(TTree * tree){
 }
 
 
-void TTreeInputManager::read_entry(size_t ientry){
-    event.unset_all();
+size_t TTreeInputManager::read_entry(size_t ientry){
+    event.reset_all();
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
+    size_t result = 0;
     for(auto & name_bi : bname2bi){
-        name_bi.second.branch->GetEntry(ientry);
-        event.set_present(name_bi.second.ti, name_bi.second.name);
+        result += name_bi.second.branch->GetEntry(ientry);
+        event.set_presence(name_bi.second.ti, name_bi.second.name, Event::presence::present);
     }
+    return result;
 }
 
 
@@ -218,7 +220,7 @@ void TFileOutputManager::put(const char * name_, TH1 * histo){
 }
 
 void TFileOutputManager::declare_event_output(const char * name, const void * caddr, const std::type_info & ti){
-    if(event_tree==0){
+    if(!event_tree){
         TDirectory * dir = gDirectory;
         outfile->cd();
         event_tree = new TTree(event_treename.c_str(), event_treename.c_str());
@@ -254,9 +256,11 @@ void TFileOutputManager::write_output(const identifier & tree_id){
 }
 
 void TFileOutputManager::write_event(){
-    event_tree->Fill();
+    if(event_tree){
+        event_tree->Fill();
+    }
 }
     
-TFileOutputManager::TFileOutputManager(TFile * outfile_, const string & event_treename_): outfile(outfile_), event_treename(event_treename_),event_tree(0){
+TFileOutputManager::TFileOutputManager(TFile * outfile_, const string & event_treename_, Event & event_): OutputManager(event_), outfile(outfile_), event_treename(event_treename_),event_tree(0){
 }
 

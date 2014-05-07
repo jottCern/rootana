@@ -1,5 +1,5 @@
-#ifndef IDENTIFIER_HPP
-#define IDENTIFIER_HPP
+#ifndef RA_IDENTIFIER_HPP
+#define RA_IDENTIFIER_HPP
 
 #include <string>
 #include <unordered_map>
@@ -58,7 +58,7 @@ struct hash< ra::identifier>{
     typedef ra::identifier argument_type;
     typedef size_t result_type;
     
-    std::hash<int> hasher;
+    std::hash<ssize_t> hasher;
     
     result_type operator()(const ra::identifier & id) const{
         return hasher(id.id());

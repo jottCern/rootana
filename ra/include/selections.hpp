@@ -1,5 +1,5 @@
-#ifndef SELECTIONS_HPP
-#define SELECTIONS_HPP
+#ifndef RA_SELECTIONS_HPP
+#define RA_SELECTIONS_HPP
 
 #include "event.hpp"
 #include "analysis.hpp"

@@ -23,10 +23,13 @@ ifneq ($(TEST),)
 all: $(TEST)
 testsrc := $(wildcard test/*.cpp)
 testobj := $(patsubst test/%.cpp,.bin/%.o,$(testsrc))
+testdeps := $(patsubst test/%.cpp,.bin/%.d,$(testsrc))
+
+-include $(testdeps)                                                                                                                                                                                                                                              
+
 $(TEST): $(testobj)
 	$(EXE_CMD) -l$(LIB)
 
--include $(deps)                                                                                                                                                                                                                                              
 endif
 
 # slightly more complicated: the dictionary target:
@@ -58,8 +61,9 @@ ifeq ($(BOOST_CFLAGS),)
 endif
 
 
-# stick together all flags:
-CXXFLAGS := -std=c++0x -O3 -Wall -g -fPIC -I.. -Iinclude -pipe $(BOOST_CFLAGS) $(USERCXXFLAGS)
+# stick together all flags.
+# NOTE: unused-local-typedefs warnings appear a lot for gcc 4.8 in boost
+CXXFLAGS := -std=c++0x -O3 -Wall -Wfatal-errors -g -fPIC -Wno-unused-local-typedefs -I.. -Iinclude -pipe $(BOOST_CFLAGS) $(USERCXXFLAGS)
 LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../lib $(USERLDFLAGS)
 
 # compile commands, to be used in cubdirectory makefiles:
@@ -85,8 +89,11 @@ EXE_CMD = @echo creating $@; $(CXX) $(LDFLAGS) -o $@ $+ $(USERLDFLAGS)
 clean-subdir:
 	rm -rf .bin
 
-.bin/%.d: %.cpp 
-	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
+.bin/%.d: bin/%.cpp 
+	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst bin/%.cpp,.bin/%.o,$<)' $< > $@
 
 .bin/%.d: src/%.cpp
-	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
+	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst src/%.cpp,.bin/%.o,$<)' $< > $@
+
+.bin/%.d: test/%.cpp
+	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst test/%.cpp,.bin/%.o,$<)' $< > $@

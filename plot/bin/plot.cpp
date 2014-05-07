@@ -76,7 +76,6 @@ int main(){
      p.stackplots({}/*{"dy", "ttbar"}*/);
      p.cutflow("cutflow", "cutflow.tex");
     
-    //p.shapeplots({"dy", "dyexcl"});
     
     //Plotter p("eps", {dy, dyexcl}, formatters);
     //p.stackplots({});

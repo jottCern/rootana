@@ -91,7 +91,7 @@ std::string ra::resolve_file(const std::string & path){
 }
 
 void ra::load_lib(const string & path){
-    Logger & logger = Logger::get("dra.utils");
+    auto logger = Logger::get("ra.utils");
     string actual_path = resolve_file(path);
     if(actual_path.empty()){
         throw runtime_error("did not find library '" + path + "'");
@@ -195,13 +195,15 @@ progress_bar::~progress_bar(){
     cout << endl;
 }
 
+double progress_bar::get_dt() const{
+    timespec now;
+    gettime(now);
+    return dt(now, start);
+}
 
 void progress_bar::print(bool update_time) {
     if(update_time){
-        timespec now;
-        gettime(now);
-        double total_time = dt(now, start);
-        set(rtime, total_time);
+        set(rtime, get_dt());
     }
     cout << "\033[" << chars_written << "D";
     
