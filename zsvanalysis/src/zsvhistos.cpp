@@ -127,11 +127,31 @@ public:
         book<TH1D>("A_ZBB", 50, 0, 1);
 	
 	// b efficiency plot
-// 	book<TH2D>("sin_b_eff_pt", 20, 0, 200, 20, 0, 1);
-        book<TH1D>("mcbs_pt", 40, 0, 200);
-        book<TH1D>("matched_bcands_pt", 40, 0, 200);
+        book<TH1D>("number_mcbs", 10, 0, 10);
+        
+        book<TH1D>("mcbs_pt", 200, 0, 200);
+        book<TH1D>("mcbs_eta", 100, -3, 3);
+//         book<TH1D>("mcbs_dist3d", 100, 0, 10);
+//         book<TH1D>("mcbs_dist2d", 100, 0, 10);
+//         book<TH1D>("mcbs_dist3dsig", 100, 0, 200);
+//         book<TH1D>("mcbs_dist2dsig", 100, 0, 200);
+        
+        book<TH1D>("matched_bcands_pt", 200, 0, 200);
+        book<TH1D>("matched_bcands_eta", 100, -3, 3);
+//         book<TH1D>("matched_bcands_dist3d", 100, 0, 10);
+//         book<TH1D>("matched_bcands_dist2d", 100, 0, 10);
+//         book<TH1D>("matched_bcands_dist3dsig", 100, 0, 200);
+//         book<TH1D>("matched_bcands_dist2dsig", 100, 0, 200);
         book<TH1D>("found_bcand_matches", 10, 0, 10);
-//         book<TH1D>("sing_b_eff_pt", 40, 0, 200);
+        
+        book<TH1D>("double_mcb_lower_pt", 200, 0, 200);
+        book<TH1D>("double_mcb_higher_pt", 200, 0, 200);
+        book<TH1D>("double_mcb_dPhi", 32, 0, 3.2);
+        book<TH1D>("double_mcb_dR", 50, 0, 5);
+        book<TH1D>("double_matchedb_lower_pt", 200, 0, 200);
+        book<TH1D>("double_matchedb_higher_pt", 200, 0, 200);
+        book<TH1D>("double_matchedb_dPhi", 32, 0, 3.2);
+        book<TH1D>("double_matchedb_dR", 50, 0, 5);
     }
     
     void fill(const identifier & id, double value){
@@ -170,10 +190,32 @@ public:
         ID(A_ZBB);
 	
 	ID(sin_b_eff_pt);
+        
         ID(mcbs_pt);
+        ID(mcbs_eta);
+//         ID(mcbs_dist3d);
+//         ID(mcbs_dist2d);
+//         ID(mcbs_dist3dsig);
+//         ID(mcbs_dist2dsig);
+        
         ID(matched_bcands_pt);
+        ID(matched_bcands_eta);
+//         ID(matched_bcands_dist3d);
+//         ID(matched_bcands_dist2d);
+//         ID(matched_bcands_dist3dsig);
+//         ID(matched_bcands_dist2dsig);
         ID(found_bcand_matches);
-//         ID(sing_b_eff_pt);
+        
+        ID(number_mcbs);
+        
+        ID(double_mcb_lower_pt);
+        ID(double_mcb_higher_pt);
+        ID(double_mcb_dPhi);
+        ID(double_mcb_dR);
+        ID(double_matchedb_lower_pt);
+        ID(double_matchedb_higher_pt);
+        ID(double_matchedb_dPhi);
+        ID(double_matchedb_dR);
         
         current_weight = e.weight();
 
@@ -221,24 +263,57 @@ public:
 //         int matched_bcand_count = 0;
 //         double mcb_maxpt = 0.;
         
+        int num_mcbs = 0;
         for (auto & mc_b : mc_bhads){
             if (mc_b.p4.eta() < 2.4 && mc_b.p4.pt() > 0){
+                num_mcbs++;
                 fill(mcbs_pt, mc_b.p4.pt());
+                fill(mcbs_eta, mc_b.p4.eta());
                 fill(found_bcand_matches, matching_bcands(mc_b, bcands, 0.10));
 //                 mcb_count++;
 //                 if (mc_b.p4.pt() > mcb_maxpt) mcb_maxpt = mc_b.p4.pt();
                 if (matching_bcands(mc_b, bcands, 0.10) >= 1){
 //                     matched_bcand_count++;
                     fill(matched_bcands_pt, mc_b.p4.pt());
+                    fill(matched_bcands_eta, mc_b.p4.eta());
                 }
             }
         }
         
-//         divide(sing_b_eff_pt,matched_bcands_pt, mcbs_pt);
+        fill(number_mcbs, num_mcbs);
         
-//         if (mcb_count > 0){
-//             fill(sin_b_eff_pt, mcb_maxpt, (double)matched_bcand_count/mcb_count);
-//         }
+        if (mc_bhads.size() == 2){
+            const mcparticle & Mc_b0 = mc_bhads[0];
+            const mcparticle & Mc_b1 = mc_bhads[1];
+            
+            double lower_pt, higher_pt;
+            
+            if (Mc_b0.p4.pt() >= Mc_b1.p4.pt()) {
+                lower_pt = Mc_b1.p4.pt();
+                higher_pt = Mc_b0.p4.pt();
+            } else {
+                lower_pt = Mc_b0.p4.pt();
+                higher_pt = Mc_b1.p4.pt();
+            }
+            
+            double dPhi_mcb, dR_mcb;
+            
+            dPhi_mcb = deltaPhi(Mc_b0.p4, Mc_b1.p4);
+            dR_mcb = deltaR(Mc_b0.p4, Mc_b1.p4);
+            
+            fill(double_mcb_lower_pt, lower_pt);
+            fill(double_mcb_higher_pt, higher_pt);
+            fill(double_mcb_dPhi, dPhi_mcb);
+            fill(double_mcb_dR, dR_mcb);
+            
+            if (matching_bcands(Mc_b0, bcands, 0.10) >= 1 && matching_bcands(Mc_b1, bcands, 0.10) >= 1) {
+                fill(double_matchedb_lower_pt, lower_pt);
+                fill(double_matchedb_higher_pt, higher_pt);
+                fill(double_matchedb_dPhi, dPhi_mcb);
+                fill(double_matchedb_dR, dR_mcb);
+            }
+        }
+        
         
     }
     

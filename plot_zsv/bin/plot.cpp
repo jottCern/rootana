@@ -8,8 +8,8 @@ using namespace ra;
 
 
 namespace {
-string outputdir = "eps/full_new1";
-string inputdir = "../zsvanalysis/rootfiles/full_dat_ttbar_dy/";
+string outputdir = "eps/full_more_eff0";
+string inputdir = "../zsvanalysis/rootfiles/full_more_eff/";
 }
 
 void plot_eff(ProcessHistograms & input, const string & numerator, const string & denom, const Formatters & format){
@@ -63,9 +63,30 @@ int main(){
 
     
     plot_eff(*ttbar, "presel/matched_bcands_pt", "presel/mcbs_pt", formatters);
+    plot_eff(*ttbar, "presel/matched_bcands_eta", "presel/mcbs_eta", formatters);
+    plot_eff(*ttbar, "presel/double_matchedb_lower_pt", "presel/double_mcb_lower_pt", formatters);
+    plot_eff(*ttbar, "presel/double_matchedb_higher_pt", "presel/double_mcb_higher_pt", formatters);
+    plot_eff(*ttbar, "presel/double_matchedb_dPhi", "presel/double_mcb_dPhi", formatters);
+    plot_eff(*ttbar, "presel/double_matchedb_dR", "presel/double_mcb_dR", formatters);
     plot_eff(*dy, "presel/matched_bcands_pt", "presel/mcbs_pt", formatters);
+    plot_eff(*dy, "presel/matched_bcands_eta", "presel/mcbs_eta", formatters);
+    plot_eff(*dy, "presel/double_matchedb_lower_pt", "presel/double_mcb_lower_pt", formatters);
+    plot_eff(*dy, "presel/double_matchedb_higher_pt", "presel/double_mcb_higher_pt", formatters);
+    plot_eff(*dy, "presel/double_matchedb_dPhi", "presel/double_mcb_dPhi", formatters);
+    plot_eff(*dy, "presel/double_matchedb_dR", "presel/double_mcb_dR", formatters);
+    
     plot_eff(*ttbar, "final/matched_bcands_pt", "final/mcbs_pt", formatters);
+    plot_eff(*ttbar, "final/matched_bcands_eta", "final/mcbs_eta", formatters);
+    plot_eff(*ttbar, "final/double_matchedb_lower_pt", "final/double_mcb_lower_pt", formatters);
+    plot_eff(*ttbar, "final/double_matchedb_higher_pt", "final/double_mcb_higher_pt", formatters);
+    plot_eff(*ttbar, "final/double_matchedb_dPhi", "final/double_mcb_dPhi", formatters);
+    plot_eff(*ttbar, "final/double_matchedb_dR", "final/double_mcb_dR", formatters);
     plot_eff(*dy, "final/matched_bcands_pt", "final/mcbs_pt", formatters);
+    plot_eff(*dy, "final/matched_bcands_eta", "final/mcbs_eta", formatters);
+    plot_eff(*dy, "final/double_matchedb_lower_pt", "final/double_mcb_lower_pt", formatters);
+    plot_eff(*dy, "final/double_matchedb_higher_pt", "final/double_mcb_higher_pt", formatters);
+    plot_eff(*dy, "final/double_matchedb_dPhi", "final/double_mcb_dPhi", formatters);
+    plot_eff(*dy, "final/double_matchedb_dR", "final/double_mcb_dR", formatters);
     
     // scale final selection by 0.92**2 (IVF data/MC eficiency factor):
     formatters.add<Scale>("dy:final/", 0.92 * 0.92);
