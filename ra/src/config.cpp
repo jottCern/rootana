@@ -38,7 +38,7 @@ namespace{
 // <In FileName="..." />
 // which is parsed here.
 vector<string> parse_sframe_xml(const string & path){
-    Logger & logger = Logger::get("config.dataset.sframe_xml");
+    auto logger = Logger::get("ra.config.dataset.sframe_xml");
     ifstream in(path);
     if(!in.good()){
         LOG_THROW("error opening xml file '" << path << "'");
@@ -79,7 +79,7 @@ vector<string> parse_sframe_xml(const string & path){
 }
 
 s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint(-1), output_dir("."), keep_unmerged(false){
-    Logger & logger = Logger::get("config.options");
+    auto logger = Logger::get("ra.config.options");
     std::string verb("info");
     for(const auto & cfg : options_cfg){
         if(cfg.first == "blocksize"){
@@ -133,7 +133,7 @@ s_dataset::s_tags::s_tags(const boost::property_tree::ptree & tree){
 }
 
 s_dataset::s_dataset(const ptree & cfg){
-    Logger & logger = Logger::get("config.dataset");
+    auto logger = Logger::get("ra.config.dataset");
     name = ptree_get<string>(cfg, "name");
     treename = ptree_get<string>(cfg, "treename");
     for(const auto & it : cfg){
@@ -191,36 +191,30 @@ s_logger::s_logger(const ptree & cfg){
 }
 
 void s_logger::apply(const std::string & base_dir) const{
-    std::vector<LoggerConfiguration> logger_configs;
+    std::list<LoggerConfiguration> logger_configs;
     for(auto const & this_cfg : configs){
         if(!this_cfg.logfile.empty()){
-            logger_configs.emplace_back();
-            LoggerConfiguration & cfg = logger_configs.back();
-            cfg.logger_name_prefix = this_cfg.loggername_prefix;
-            cfg.command = LoggerConfiguration::set_outfile;
+            string outfile;
             if(this_cfg.logfile == "-"){
-                cfg.value = "-";
+                outfile = "-";
             }
             else{
-                cfg.value = this_cfg.logfile;
-                if(cfg.value[0]!='/' && !logfile_dir.empty()){
-                    cfg.value = logfile_dir + '/' + cfg.value;
+                outfile = this_cfg.logfile;
+                if(outfile[0]!='/' && !logfile_dir.empty()){
+                    outfile = logfile_dir + '/' + outfile;
                 }
-                if(cfg.value[0]!='/' && !base_dir.empty()){
-                    cfg.value = base_dir + '/' + cfg.value;
+                if(outfile[0]!='/' && !base_dir.empty()){
+                    outfile = base_dir + '/' + outfile;
                     // can still be relative, but we allow that.
                 }
             }
+            logger_configs.emplace_back(this_cfg.loggername_prefix, LoggerConfiguration::set_outfile, outfile);
         }
         if(!this_cfg.threshold.empty()){
-            logger_configs.emplace_back();
-            LoggerConfiguration & cfg = logger_configs.back();
-            cfg.logger_name_prefix = this_cfg.loggername_prefix;
-            cfg.command = LoggerConfiguration::set_threshold;
-            cfg.value = this_cfg.threshold;
+            logger_configs.emplace_back(this_cfg.loggername_prefix, LoggerConfiguration::set_threshold, this_cfg.threshold);
         }
     }
-    Logger::configure(logger_configs);
+    Logger::set_configuration(logger_configs);
 }
 
 s_config::s_config(const std::string & filename) {
@@ -231,7 +225,7 @@ s_config::s_config(const std::string & filename) {
         logger = s_logger(cfg.get_child("logger"));
     }
     options = s_options(cfg.get_child("options"));
-    Logger & logger = Logger::get("config");
+    auto logger = Logger::get("ra.config");
     modules_cfg = cfg.get_child("modules");
     for(const auto & it : cfg){
         //if(it.first == "options" or it.first == "modules" or it.first == "input_tree") continue;

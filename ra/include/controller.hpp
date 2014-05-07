@@ -56,7 +56,7 @@ private:
     void check_dataset() const;
     void check_file() const;
     
-    Logger & logger;
+    std::shared_ptr<Logger> logger;
     
     const s_config & config;
     std::vector<std::unique_ptr<AnalysisModule>> modules;

@@ -91,7 +91,7 @@ std::string ra::resolve_file(const std::string & path){
 }
 
 void ra::load_lib(const string & path){
-    Logger & logger = Logger::get("dra.utils");
+    auto logger = Logger::get("ra.utils");
     string actual_path = resolve_file(path);
     if(actual_path.empty()){
         throw runtime_error("did not find library '" + path + "'");

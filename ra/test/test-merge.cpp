@@ -59,7 +59,6 @@ void create_test_hfile(const string & filename, const std::vector<std::string> &
 
 }
 
-
 BOOST_AUTO_TEST_SUITE(merge)
 
 BOOST_AUTO_TEST_CASE(tree){
@@ -77,6 +76,47 @@ BOOST_AUTO_TEST_CASE(tree){
     }
 }
 
+
+BOOST_AUTO_TEST_CASE(large_tree){
+    const int nevents = 1000000;
+    create_test_tree("test0.root", 23, nevents);
+    create_test_tree("test1.root", 5728, nevents);
+    
+    merge_rootfiles("test0.root", "test1.root");
+    
+    // check output:
+    vector<int> merged_data = get_tree_intdata("test0.root", "intdata");
+    BOOST_REQUIRE_EQUAL(merged_data.size(), 2 * nevents);
+    for(int i=0; i<nevents; ++i){
+        BOOST_REQUIRE_EQUAL(merged_data[i], 23 + i);
+        BOOST_REQUIRE_EQUAL(merged_data[i + nevents], 5728 + i);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(many_trees){
+    const int nevents = 100000; // per file
+    const int nfiles = 20;
+    const int offset0 = 57;
+    for(int ifile = 0; ifile < nfiles; ++ifile){
+        stringstream ss;
+        ss << "test" << ifile << ".root";
+        create_test_tree(ss.str(), offset0 + ifile * nevents, nevents);
+    }
+    
+    // merge all into first:
+    for(int ifile = 1; ifile < nfiles; ++ifile){
+        stringstream ss;
+        ss << "test" << ifile << ".root";
+        merge_rootfiles("test0.root", ss.str());
+    }
+    
+    // check output:
+    vector<int> merged_data = get_tree_intdata("test0.root", "intdata");
+    BOOST_REQUIRE_EQUAL(merged_data.size(), nfiles * nevents);
+    for(int i=0; i<nevents * nfiles; ++i){
+        BOOST_REQUIRE_EQUAL(merged_data[i], offset0 + i);
+    }
+}
 
 BOOST_AUTO_TEST_CASE(histos){
     create_test_hfile("test0.root", {"h1", "h2"}, 0.0, 0.3);

@@ -30,7 +30,7 @@ sdummy d;
 
 // TODO: extend to merging more than two at once (?! memory?). OR: merge all on master ...
 void merge(TDirectory * lhs, TDirectory * rhs){
-    Logger & logger = Logger::get("ra.root-utils.merge");
+    auto logger = Logger::get("ra.root-utils.merge");
     LOG_DEBUG("entering merge for directories " << lhs->GetName() << " and " << rhs->GetName());
     map<string, TKey*> lhs_keys;
     map<string, TKey*> rhs_keys;
@@ -102,10 +102,15 @@ void merge(TDirectory * lhs, TDirectory * rhs){
             // remove the original TKey in the output file:
             lit.second->Delete();
             delete lit.second;
-            left_object->Write();
+            // most objects have to be written explicitly ... except TTrees apparently ...
+            if(!tree){
+                left_object->Write();
+            }
             
             if(tree){
-                if(tree->GetEntries() != nentries_expected){
+                // read in that tree again and see whether the number of entries match:
+                TTree * tree_merged = dynamic_cast<TTree*>(lhs->Get(lit.first.c_str()));
+                if(!tree_merged || tree_merged->GetEntries() != nentries_expected){
                     LOG_THROW("Merging TTree '" + lit.first + "': number of entries after merging is not the sum of entries before merging!");
                 }
             }

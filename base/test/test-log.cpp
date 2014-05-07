@@ -54,7 +54,8 @@ BOOST_AUTO_TEST_CASE(logger0){
     LOG_ERROR("my error message 1");
     LOG_ERROR("my error message 2");
     
-    logger.reset(); // this should close the logger and the underlying sink.
+    logger.reset();
+    Logger::remove("logger0test");
 
     ifstream in(fname);
     string s;
@@ -81,9 +82,12 @@ BOOST_AUTO_TEST_CASE(logger_before_fork){
     }
     LOG_ERROR("parent");
     check_child_success(pid);
-    logger.reset();
     
-    // there should be two files now: "logtest" and "logtest.p<childpid>", both with a single line:
+    
+    // there should be two files now: "logtest" and "logtest.p<childpid>", both with a single line.
+    // In the parent, however, the logger is not closed yet, so do that first:
+    logger.reset();
+    Logger::remove("logtest");
     ifstream in("logtest-out");
     BOOST_REQUIRE(in.good());
     std::string line;
@@ -120,13 +124,15 @@ BOOST_AUTO_TEST_CASE(logger_after_fork){
         //cout << "child pid: "<< getpid() << endl;
         auto logger = Logger::get("logtest2");
         LOG_ERROR("child");
-        logger.reset(); // FIXME: this should not be necessary
+        logger.reset();
         exit(0);
     }
     auto logger = Logger::get("logtest2");
     LOG_ERROR("parent");
     check_child_success(pid);
+
     logger.reset();
+    Logger::remove("logtest2");
     
     // see logging_before_fork; it should be the same here:
     ifstream in("logtest2-out");

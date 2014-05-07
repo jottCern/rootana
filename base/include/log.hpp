@@ -167,6 +167,19 @@ struct LoggerConfiguration {
  * given logger, all matching rules are applied in the order they appear in the list. The last value for the logger output and threshold
  * then apply. Changing the configuration affects both existing and new loggers(!). Existing loggers will have their LogSink re-set according to the
  * new configuration.
+ * 
+ * Logger lifetime: As logging might be required very early in the program (e.g. in initilization of static) and very late (e.g. in destruction of statics),
+ * the lifetime of Loggers is kept long: a Logger is constructed as soon as it is needed and only destructed as part of the static destruction. They are also kept
+ * around in case they are needed again, so doing this:
+ * \code
+ * auto logger = Logger::get("my_unique_logger_name");
+ * ...
+ * logger.reset();
+ * \endcode
+ * 
+ * Will NOT actually destroy the logger. This is on purpose, as it allows two unrelated methods to use the same logger without triggering opening
+ * the same logfile twice (which would overwrite the old messages). If you really have to delete a logger, use Logger::remove. This will
+ * only work if there are no more references to that logger around.
  */
 class Logger {
 public:
@@ -179,6 +192,11 @@ public:
     
     static void set_configuration(std::list<LoggerConfiguration> new_configuration);
     static std::shared_ptr<Logger> get(const std::string & name);
+    
+    // the "opposite" if get: removes the logger from the global logger list.
+    // remove only has an effect if there are no more references to that logger. Otherwise, the
+    // request to remove a logger is silently ignored.
+    static void remove(const std::string & name);
     
     bool enabled(loglevel l) const{
         return l_threshold <= l; 
@@ -203,7 +221,7 @@ private:
     void apply_configuration();
     
     // NOTE: pack static "members" into static getters to avoid problems of static intialization order.
-    static std::map<std::string, std::weak_ptr<Logger> > & all_loggers();
+    static std::map<std::string, std::shared_ptr<Logger> > & all_loggers();
     static std::list<LoggerConfiguration> & the_configuration();
     
     std::string logger_name;

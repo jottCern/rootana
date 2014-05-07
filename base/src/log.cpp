@@ -322,23 +322,32 @@ void Logger::set_configuration(std::list<LoggerConfiguration> conf){
     the_configuration() = move(conf);
     auto & loggers = all_loggers();
     for(auto & l : loggers){
-        if(!l.second.expired()) l.second.lock()->apply_configuration();
+        l.second->apply_configuration();
     }
 }
 
-std::map<std::string, std::weak_ptr<Logger> > & Logger::all_loggers(){
-    static map<string, std::weak_ptr<Logger> > loggers;
+std::map<std::string, std::shared_ptr<Logger> > & Logger::all_loggers(){
+    static map<string, std::shared_ptr<Logger> > loggers;
     return loggers;
 }
 
 std::shared_ptr<Logger> Logger::get(const string & name){
     auto & loggers = all_loggers();
     auto it = loggers.find(name);
-    if(it!=loggers.end()) return it->second.lock();
+    if(it!=loggers.end()) return it->second;
     else{
         std::shared_ptr<Logger> result(new Logger(name));
         loggers[name] = result;
         return result;
+    }
+}
+
+void Logger::remove(const std::string & name){
+    auto & loggers = all_loggers();
+    auto it = loggers.find(name);
+    if(it == loggers.end()) return;
+    if(it->second.use_count() == 1){
+        loggers.erase(it);
     }
 }
 
