@@ -58,7 +58,7 @@ void SwarmManager::set_failed(WorkerId wid){
     StateGraph::StateId last_state = w.state;
     w.state = graph.get_state("failed");
     for(auto & observer : observers){
-        observer->on_state_transition(wid, w.last_state, w.state);
+        observer->on_state_transition(wid, last_state, w.state);
     }
     failed_handler(wid, last_state);
 }

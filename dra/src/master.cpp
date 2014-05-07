@@ -233,6 +233,7 @@ void Master::init_dataset(size_t id){
     worker_ranges.clear();
     closed.clear();
     needs_merging.clear();
+    nbytes_read_ = 0;
     // NOTE: make sure to call the methods of sm. last, as they will call the generate_process methods and friends so
     // we need to make sure they see a consistent state ...
     if(last){
@@ -329,11 +330,11 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
         }
         // erase from the worker_ranges, which should only contain successfull runs in the end:
         worker_ranges.erase(wr);
-        // make sure processing is enabled, now that we have work:
-        sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("noprocess"));
         // no merging and closing needs to be done for that worker:
         assert(needs_merging.find(worker) == needs_merging.end());
         closed.erase(worker);
+        // make sure processing is enabled, now that we have work:
+        sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("noprocess"));
     }
     // otherwise, the state was start or configure or stop; in both cases, no events are lost ...
     else{
@@ -445,6 +446,7 @@ void Master::process_complete(const WorkerId & worker, std::unique_ptr<Message> 
     // update file info erm:
     assert(result);
     ProcessResponse & pr = dynamic_cast<ProcessResponse&>(*result);
+    nbytes_read_ += pr.nbytes;
     auto wr = worker_ranges.find(worker);
     assert(wr != worker_ranges.end());
     assert(!wr->second.empty());

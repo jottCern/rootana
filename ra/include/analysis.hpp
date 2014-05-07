@@ -49,13 +49,14 @@ public:
      * expect that anything done here has any effect after this method returns.
      */
     virtual void begin_in_file(TFile & input_file){}
+    
+    virtual bool is_parallel_safe() const { return true; }
 };
 
 
 typedef ::Registry<AnalysisModule, std::string, const ptree&> AnalysisModuleRegistry;
 
 }
-
 
 #define REGISTER_ANALYSIS_MODULE(T) namespace { int dummy##T = ::ra::AnalysisModuleRegistry::register_<T>(#T); }
 

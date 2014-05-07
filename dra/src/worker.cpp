@@ -25,7 +25,7 @@ std::unique_ptr<dc::Message> Worker::configure(const Configure & conf){
     config.reset();
     config.reset(new s_config(conf.cfgfile));
     config->logger.apply(config->options.output_dir);
-    controller.reset(new AnalysisController(*config));
+    controller.reset(new AnalysisController(*config, true));
     return unique_ptr<Message>();
 }
 
@@ -33,6 +33,10 @@ std::string Worker::get_outfilename(size_t idataset, int iw){
     stringstream outfilename;
     outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << iw << ".root";
     return outfilename.str();
+}
+
+bool Worker::stopped_successfully() const{
+    return wm.state() == wm.get_graph().get_state("stop");
 }
 
 void Worker::check_filenames_hash(size_t master_hash) const {

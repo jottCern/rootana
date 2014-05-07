@@ -124,8 +124,15 @@ public:
         return erm ? erm->nevents_total() : 0;
     }
     
+    // get the number of bytes read by all workers in the current dataset;
+    // Note that this is the number of bytes reported by TBranch::GetEntry
+    // which is the number of uncompressed bytes, so the actual number
+    // of bytes read from the file system is lower than this.
+    size_t nbytes_read() const {
+        return nbytes_read_;
+    }
+    
     bool all_done() const {
-        // TODO: maybe replace with nevents_left==0?
         return all_done_;
     }
     
@@ -162,6 +169,7 @@ private:
     
     // per-dataset information:
     int idataset;
+    size_t nbytes_read_;
     
     // per-dataset processing information:
     std::unique_ptr<detail::EventRangeManager> erm;

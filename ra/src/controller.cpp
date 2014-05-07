@@ -14,7 +14,7 @@ namespace {
 ra::identifier id_stop("stop");
 }
 
-AnalysisController::AnalysisController(const s_config & config_): logger(Logger::get("ra.AnalysisController")),
+AnalysisController::AnalysisController(const s_config & config_, bool parallel): logger(Logger::get("ra.AnalysisController")),
   config(config_), current_idataset(-1), current_ifile(-1), infile_nevents(0) {
     for(const string & sp : config.options.searchpaths){
         add_searchpath(sp, -1);
@@ -30,6 +30,9 @@ AnalysisController::AnalysisController(const s_config & config_): logger(Logger:
         string type = ptree_get<string>(module_cfg.second, "type");
         modules.emplace_back(AnalysisModuleRegistry::build(type, module_cfg.second));
         module_names.push_back(name);
+        if(parallel && !modules.back()->is_parallel_safe()){
+            LOG_THROW("Error: module " << module_names.back() << " is not parallel safe.");
+        }
     }
 }
 
@@ -139,7 +142,13 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
     size_t & n_read = stats ? stats->nbytes_read : dummy;
     n_read = 0;
     for(size_t ientry = imin; ientry < imax; ++ientry){
-        n_read += in->read_entry(ientry);
+        try{
+            n_read += in->read_entry(ientry);
+        }
+        catch(...){
+            LOG_ERROR("Exception caught in read_entry while reading entry " << ientry << " of file " << current_dataset().files[current_ifile].path << "; re-throwing.");
+            throw;
+        }
         bool event_selected = true;
         for(size_t i=0; i<modules.size(); ++i){
             try{

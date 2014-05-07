@@ -1,6 +1,6 @@
 MAKEFLAGS = --no-print-directory -r -s
 
-DIRS := base ra
+DIRS := base ra dc dra
 
 -include Makefile.local
 
