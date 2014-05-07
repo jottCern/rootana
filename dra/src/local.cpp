@@ -60,11 +60,6 @@ void ProgressPrinter::on_state_transition(const WorkerId & w1, const StateGraph:
     nworkers[to] += 1;
     
     if(pb){ // is false if dataset_start has not been called
-        ssize_t ntotal = master->nevents_total();
-        //if(ntotal == 0) return; // this happens in a state transition to a new dataset
-        size_t nevents_left = master->nevents_left();
-        pb->set("events", abs(ntotal) - nevents_left);
-        pb->set("mbytes", master->nbytes_read() * 1e-6);
         pb->set("start", nworkers[s_start]);
         pb->set("configure", nworkers[s_configure]);
         pb->set("process", nworkers[s_process]);
@@ -72,6 +67,15 @@ void ProgressPrinter::on_state_transition(const WorkerId & w1, const StateGraph:
         pb->set("merge", nworkers[s_merge]);
         pb->set("stop", nworkers[s_stop]);
         pb->set("failed", nworkers[s_failed]);
+        
+        ssize_t ntotal = master->nevents_total();
+        if(ntotal == 0){ // this happens in a state transition to a new dataset
+            pb->check_autoprint();
+            return; 
+        }
+        size_t nevents_left = master->nevents_left();
+        pb->set("events", abs(ntotal) - nevents_left);
+        pb->set("mbytes", master->nbytes_read() * 1e-6);
         pb->check_autoprint();
     }
 }
@@ -153,6 +157,9 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
                 exit(1);
             }
             if(w.stopped_successfully()){
+                LOG_INFO("Worker stopped successfully; exiting now via exit(0)");
+                // and cleanup the logger before ...
+                logger.reset();
                 exit(0);
             }
             else{
@@ -203,6 +210,9 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
     }
     if(!childs_successful){
         LOG_THROW("child processes did not exit successfully; check their logs.");
+    }
+    else{
+        LOG_INFO("all child processes exited successfully.")
     }
     if(!master.all_done()){
         LOG_THROW("dataset NOT processed completely.");

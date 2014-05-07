@@ -243,6 +243,7 @@ void Master::init_dataset(size_t id){
         sm.set_target_state(sm.get_graph().get_state("stop"));
     }
     else{
+        LOG_INFO("Start processing dataset " << config->datasets[idataset].name);
         erm.reset(new EventRangeManager(config->datasets[id].files.size(), config->options.blocksize));
         for(auto & observer : observers){
             observer->on_dataset_start(config->datasets[idataset]);
@@ -394,7 +395,7 @@ void Master::merge_complete(const WorkerId & worker, std::unique_ptr<Message> re
             }
         }
         if(merging_done){
-            LOG_INFO("Merge complete; moving on to the next dataset");
+            LOG_INFO("Merge complete for dataset " << config->datasets[idataset].name << "; moving on to the next dataset");
             finalize_dataset(WorkerId(merge.iworker1));
         }
     }
@@ -427,7 +428,7 @@ void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> re
     needs_merging[worker] = true;
     bool all_closed = all_of(closed.begin(), closed.end(), [](const pair<const WorkerId, bool> & wc){return wc.second;});
     if(all_closed){
-        LOG_INFO("Closing complete; merging all output files");
+        LOG_INFO("Closing complete for dataset " << config->datasets[idataset].name << "; merging all output files");
         // merge_status of all workers should be 'unmerged' now.
         auto n_unmerged = get_n_unmerged();
         assert(n_unmerged == needs_merging.size());
@@ -464,7 +465,7 @@ void Master::process_complete(const WorkerId & worker, std::unique_ptr<Message> 
         auto all_workers = sm.get_workers();
         bool all_idle = none_of(all_workers.begin(), all_workers.end(), [this](const WorkerId & w){return sm.state(w).second;});
         if(all_idle){
-            LOG_INFO("Processing complete; closing all output files");
+            LOG_INFO("Processing complete for dataset " << config->datasets[idataset].name << "; closing all output files");
             sm.set_target_state(sm.get_graph().get_state("close"));
         }
     }

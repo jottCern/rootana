@@ -1,6 +1,8 @@
 #include "local.hpp"
 #include "Cintex/Cintex.h"
 
+#include <thread>
+
 using namespace dra;
 using namespace std;
 
@@ -19,18 +21,18 @@ int main(int argc, char ** argv){
         }
     }
     else{
-        nworkers = 16; // TODO: read out hardware concurrency!
+        nworkers = std::thread::hardware_concurrency();
+        if(nworkers == 0)
+            nworkers = 16;
     }
     
     try{
         ROOT::Cintex::Cintex::Enable();
         std::shared_ptr<ProgressPrinter> pp(new ProgressPrinter());
         dra::local_run(argv[1], nworkers, pp);
-        // TODO: set up logging.
     }
     catch(std::runtime_error & ex){
         cerr << "main: runtime error ocurred: " << ex.what() << endl;
         exit(1);
     }
 }
-
