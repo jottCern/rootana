@@ -1,5 +1,5 @@
-#ifndef REGISTRY_HPP
-#define REGISTRY_HPP
+#ifndef BASE_REGISTRY_HPP
+#define BASE_REGISTRY_HPP
 
 #include <memory>
 #include <map>

@@ -1,5 +1,5 @@
-#ifndef UTILS_HPP
-#define UTILS_HPP
+#ifndef RA_UTILS_HPP
+#define RA_UTILS_HPP
 
 #include <string>
 #include <map>
@@ -110,6 +110,25 @@ public:
         set(id, static_cast<ssize_t>(value));
     }
     
+    double get_dt() const;
+    
+    ssize_t get_int(const identifier & id) const {
+        auto it = ldvals.find(id);
+        if(it == ldvals.end()) throw std::invalid_argument("not found");
+        else return it->second;
+    }
+    
+    double get_double(const identifier & id) const {
+        auto it = fvals.find(id);
+        if(it == fvals.end()) throw std::invalid_argument("not found");
+        else return it->second;
+    }
+    
+    std::string get_string(const identifier & id) const {
+        auto it = svals.find(id);
+        if(it == svals.end()) throw std::invalid_argument("not found");
+        else return it->second;
+    }
 
 private:
     enum etype{ type_f, type_ld, type_s};

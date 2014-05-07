@@ -2,9 +2,7 @@
 
 #include "config.hpp"
 #include "analysis.hpp"
-#include "context.hpp"
-#include "TFile.h"
-#include "TTree.h"
+#include "controller.hpp"
 #include "Cintex/Cintex.h"
 
 #include <signal.h>
@@ -24,44 +22,15 @@ void sigint_handler(int){
 
 
 void run(const s_config & config){
-    Logger & logger = Logger::get("dra_local.run");
+    AnalysisController controller(config);
     
-    // add searchpaths:
-    for(const string & sp : config.options.searchpaths){
-        add_searchpath(sp, -1);
-    }
-    // load libraries:
-    for(const string & lib : config.options.libraries){
-        load_lib(lib);
-    }
-    
-    // construct modules:
-    std::vector<std::unique_ptr<AnalysisModule>> modules;
-    std::vector<std::string> module_names;
-    for(auto & module_cfg : config.modules_cfg){
-        const string & name = module_cfg.first;
-        string type = ptree_get<string>(module_cfg.second, "type");
-        std::unique_ptr<AnalysisModule> module = AnalysisModuleRegistry::build(type, module_cfg.second);
-        modules.emplace_back(move(module));
-        module_names.push_back(name);
-    }
-    
-    ID(stop);
-    
+    bool do_stop = false;
     // nested loops to run over all datasets -> files -> events
-    for(const auto & dataset : config.datasets){
+    for(size_t idataset = 0; idataset < config.datasets.size(); idataset ++){
+        if(do_stop) break;
+        auto & dataset = config.datasets[idataset];
         string outfilename = config.options.output_dir + "/" + dataset.name + ".root";
-        TFile * outfile = new TFile(outfilename.c_str(), "recreate");
-        if(!outfile->IsOpen()){
-            LOG_THROW("could not open output file '" + outfilename + "'");
-        }
-        TFileOutputManager out(outfile, dataset.treename);
-        Event event;
-        TTreeInputManager in(event);
-        for(auto & m : modules){
-            m->begin_dataset(dataset, in, out);
-        }
-        
+        controller.start_dataset(idataset, outfilename);
         progress_bar progress("Progress for dataset '%(dataset)s': files: %(files)4ld / %(files_total)4ld; events: %(events)10ld (%(events)|rate|7.1f/s)");
         identifier events("events");
         progress.set("files_total", dataset.files.size());
@@ -69,61 +38,37 @@ void run(const s_config & config){
         progress.set("files", 0);
         progress.set("events", 0);
         progress.print();
-        size_t ifile = 0;
-        size_t ievent = 0;
-        for(auto & f : dataset.files){
-            TFile infile(f.path.c_str(), "read");
-            if(!infile.IsOpen()){
-                throw runtime_error("could not open '" + f.path + "' for reading");
-            }
-            for(auto & m : modules){
-                m->begin_in_file(infile);
-            }
-            TTree * tree = dynamic_cast<TTree*>(infile.Get(dataset.treename.c_str()));
-            if(!tree){
-                throw runtime_error("did not find input tree '" + dataset.treename + "' in input file '" + f.path + "'");
-            }
-            in.setup_tree(tree);
-            const size_t nentries = tree->GetEntries();
-            size_t max_ientry = nentries;
-            if(config.options.maxevents_hint > 0){
-                max_ientry = min<size_t>(nentries, f.skip + config.options.maxevents_hint);
-            }
-            for(size_t ientry=f.skip; ientry < max_ientry; ++ientry){
-                in.read_entry(ientry);
-                for(size_t i=0; i<modules.size(); ++i){
-                    try{
-                        //cout << "module " << module_names[i] << endl;
-                        modules[i]->process(event);
-                    }
-                    catch(...){
-                        cerr << endl << "Exception caught while calling 'process' method of module " << module_names[i] << " for entry " << ientry << " of file " << f.path << "; re-throwing. " << endl;
-                        throw;
-                    }
-                    if(event.present<bool>(stop) && event.get<bool>(stop)){
+        size_t nevents_done = 0;
+        for(size_t ifile=0; ifile < dataset.files.size(); ++ifile){
+            controller.start_file(ifile);
+            size_t nevents = controller.get_file_size();
+            size_t imin = 0;
+            while(true){
+                if(do_stop || interrupted) break;
+                size_t imax = min<size_t>(imin + config.options.blocksize, nevents);
+                if(imin == imax) break;
+                controller.process(imin, imax);
+                nevents_done += imax - imin;
+                progress.set("events", nevents_done);
+                progress.check_autoprint();
+                if(config.options.maxevents_hint > 0){
+                    if(nevents_done >= (size_t)config.options.maxevents_hint){
+                        do_stop = true;
                         break;
                     }
                 }
-                ievent++;
-                progress.set(events, ievent);
-                progress.check_autoprint();
-                if(interrupted) break;
+                imin = imax;
             }
-            if(interrupted) break;
-            if(config.options.maxevents_hint > 0){
-                if(ievent >= (size_t)config.options.maxevents_hint) break;
-            }
-            ifile++;
-            progress.set("files", ifile);
+            if(do_stop || interrupted) break;
+            progress.set("files", ifile + 1);
             progress.print();
         }
-        outfile->cd();
-        outfile->Write();
-        outfile->Close();
-        delete outfile;
+        if(do_stop){
+            break;
+        }
         if(interrupted){
             cout << "Interrupted by SIGINT" << endl;
-            return;
+            break;
         }
     }
 }
@@ -145,6 +90,7 @@ int main(int argc, char ** argv){
     
     try{
         s_config config(argv[1]);
+        config.logger.apply(config.options.output_dir);
         ROOT::Cintex::Cintex::Enable();
         // TODO: set up logging.
         run(config);
