@@ -5,6 +5,7 @@
 #include "TTree.h"
 #include "TH1.h"
 #include "TMethodCall.h"
+#include "TFileMerger.h"
 
 #include "base/include/log.hpp"
 
@@ -25,6 +26,9 @@ struct sdummy{
 sdummy d;
     
 
+
+
+// TODO: extend to merging more than two at once (?! memory?). OR: merge all on master ...
 void merge(TDirectory * lhs, TDirectory * rhs){
     Logger & logger = Logger::get("ra.root-utils.merge");
     LOG_DEBUG("entering merge for directories " << lhs->GetName() << " and " << rhs->GetName());
@@ -61,7 +65,7 @@ void merge(TDirectory * lhs, TDirectory * rhs){
         if(rit == rhs_keys.end()) throw runtime_error("merge: object '" + lit.first + "' not found in right list");
         // depending on the type, make different stuff now:
         string l_class = lit.second->GetClassName();
-        // but first checki that it is the same class:
+        // but first check that it is the same class:
         if(l_class != rit->second->GetClassName()) throw runtime_error("merge: object '" + lit.first + "' has different type in left and right hand of merge");
         // now try to call the "Merge" method of the left hand object:
         TObject * left_object = lit.second->ReadObj();
@@ -72,7 +76,6 @@ void merge(TDirectory * lhs, TDirectory * rhs){
             assert(right_tdir);
             LOG_DEBUG("recursively merging directory " << left_tdir->GetName());
             merge(left_tdir, right_tdir);
-            lhs->cd();
             continue;
         }
         else{
@@ -120,4 +123,19 @@ void ra::merge_rootfiles(const std::string & file1, const std::string & file2){
     f1.cd();
     f1.Write();
     f1.Close();
+    //merge_rootfiles({file1, file2});
+}
+
+
+void ra::merge_rootfiles(const std::vector<std::string> & files){
+    //if(files.size() < 2) return;
+    //TFile f1(files[0].c_str(), "update");
+    
+    //hm, TFileMerger seems to be the thing for it, but it does not work ...
+    /*TFileMerger fm;
+    fm.OutputFile(files[0].c_str(), "update");
+    for(size_t i=1; i<files.size(); ++i){
+        fm.AddFile(files[i].c_str());
+    }
+    fm.Merge();*/
 }

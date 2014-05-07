@@ -26,9 +26,9 @@ void run(const s_config & config){
     
     bool do_stop = false;
     // nested loops to run over all datasets -> files -> events
-    size_t idataset = 0;
-    for(const auto & dataset : config.datasets){
+    for(size_t idataset = 0; idataset < config.datasets.size(); idataset ++){
         if(do_stop) break;
+        auto & dataset = config.datasets[idataset];
         string outfilename = config.options.output_dir + "/" + dataset.name + ".root";
         controller.start_dataset(idataset, outfilename);
         progress_bar progress("Progress for dataset '%(dataset)s': files: %(files)4ld / %(files_total)4ld; events: %(events)10ld (%(events)|rate|7.1f/s)");
@@ -50,6 +50,7 @@ void run(const s_config & config){
                 controller.process(imin, imax);
                 nevents_done += imax - imin;
                 progress.set("events", nevents_done);
+                progress.check_autoprint();
                 if(config.options.maxevents_hint > 0){
                     if(nevents_done >= (size_t)config.options.maxevents_hint){
                         do_stop = true;
