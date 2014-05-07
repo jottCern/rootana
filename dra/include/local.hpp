@@ -27,7 +27,6 @@ public:
     virtual ~ProgressPrinter();
     
 private:
-    void print_summary();
     
     const Master * master;
     std::unique_ptr<ra::progress_bar> pb;

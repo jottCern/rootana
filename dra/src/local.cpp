@@ -53,11 +53,7 @@ void ProgressPrinter::on_state_transition(const WorkerId & w1, const StateGraph:
         ssize_t ntotal = master->nevents_total();
         if(ntotal == 0) return; // this happens in a state transition to a new dataset
         size_t nevents_left = master->nevents_left();
-        pb->set("events_left", nevents_left);
-        pb->set("events_total", abs(ntotal));
-        if(ntotal >=0){
-            pb->set("events_total_suff", "");
-        }
+        pb->set("events", abs(ntotal) - nevents_left);
         pb->set("start", nworkers[s_start]);
         pb->set("configure", nworkers[s_configure]);
         pb->set("process", nworkers[s_process]);
@@ -65,12 +61,7 @@ void ProgressPrinter::on_state_transition(const WorkerId & w1, const StateGraph:
         pb->set("merge", nworkers[s_merge]);
         pb->set("stop", nworkers[s_stop]);
         pb->set("failed", nworkers[s_failed]);
-        if(nevents_left > 0){
-            pb->check_autoprint();
-        }
-        else{
-            pb->print();
-        }
+        pb->check_autoprint();
     }
 }
 
@@ -78,30 +69,15 @@ void ProgressPrinter::on_idle(const WorkerId & w, const StateGraph::StateId & cu
 void ProgressPrinter::on_target_changed(const StateGraph::StateId & new_target){}
 void ProgressPrinter::on_restrictions_changed(const std::set<StateGraph::RestrictionSetId> & new_restrictions){}
 
-void ProgressPrinter::print_summary(){
-    if(pb){
-        auto nevents_total = pb->get_int("events_total");
-        auto time_total = pb->get_dt();
-        pb.reset();
-        cout << "Total time for dataset " << current_dataset << ": " << time_total << "s; " << nevents_total / time_total << " evt/s" << endl;
-    }
-}
-
-ProgressPrinter::~ProgressPrinter(){
-    print_summary();
-}
+ProgressPrinter::~ProgressPrinter(){}
 
 // MasterObserver:
 void ProgressPrinter::on_dataset_start(const ra::s_dataset & dataset){
-    print_summary();
     current_dataset = dataset.name;
-    pb.reset(new progress_bar("Processing dataset '" + dataset.name + "'. Events left: %(events_left)10ld / %(events_total)10ld%(events_total_suff)s"
-            " Workers:  %(start)ld S, %(configure)ld C, %(process)ld p,  %(close)ld c, %(merge)ld m,  %(stop)ld s,  %(failed)ld F"));
+    pb.reset(new progress_bar("Processing dataset '" + dataset.name + "': events: %(events)10ld (%(events)|rate|7.1f/s);"
+            " workers:  %(start)ld S, %(configure)ld C, %(process)ld p,  %(close)ld c, %(merge)ld m,  %(stop)ld s,  %(failed)ld F"));
     pb->set("dataset", dataset.name);
-    pb->set("events_left", master->nevents_left());
-    ssize_t ntotal = master->nevents_total();
-    pb->set("events_total", abs(ntotal));
-    pb->set("events_total_suff", "+");
+    pb->set("events", 0);
     pb->set("start", nworkers[s_start]);
     pb->set("configure", nworkers[s_configure]);
     pb->set("process", nworkers[s_process]);
