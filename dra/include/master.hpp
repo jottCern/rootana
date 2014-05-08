@@ -101,8 +101,8 @@ private:
 class Master;
 class MasterObserver: public dc::SwarmObserver {
 public:
-    virtual void set_master(Master * master) = 0; // called when added to master
-    virtual void on_dataset_start(const ra::s_dataset & dataset) = 0;
+    virtual void set_master(Master * master){} // called when added to master
+    virtual void on_dataset_start(const ra::s_dataset & dataset){}
 };
 
 
@@ -134,6 +134,10 @@ public:
     
     bool all_done() const {
         return all_done_;
+    }
+    
+    bool failed() const {
+        return failed_;
     }
     
     // note: the observer will also be added to the SwarmManager as SwarmObserver.
@@ -189,6 +193,7 @@ private:
     std::vector<std::shared_ptr<MasterObserver>> observers;
     
     bool stopping;
+    bool failed_;
 };
 
 

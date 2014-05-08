@@ -182,7 +182,7 @@ ssize_t EventRangeManager::nevents_total() const{
 Master::~Master(){}
 
 Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(dra::get_stategraph(), bind(&Master::worker_failed, this, ph::_1, ph::_2)), idataset(-1),
-  all_done_(false), stopping(false){
+  all_done_(false), stopping(false), failed_(false){
     unique_ptr<char[]> path(new char[PATH_MAX]);
     auto res = realpath(cfgfile_.c_str(), path.get());
     if(res == 0){
@@ -308,6 +308,7 @@ std::unique_ptr<Stop> Master::generate_stop(const WorkerId & wid){
 void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateId & last_state){
     LOG_WARNING("Worker " << worker.id() << " failed in state " << sm.get_graph().name(last_state));
     if(last_state == sm.get_graph().get_state("merge")){
+        failed_ = true;
         LOG_THROW("Worker " << worker.id() << " failed while merging; this is not recoverable");
         // TODO: better error handling / reporting: could re-start whole dataset (but: careful with endless loops ...)
     }
@@ -316,6 +317,7 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
             LOG_WARNING("Worker " << worker.id() << " failed while idling in close state; ignoring that");
         }
         else{
+            failed_ = true;
             LOG_THROW("Worker " << worker.id() << " failed while closing; this is not recoverable");
         }
     }
@@ -327,10 +329,13 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
         LOG_WARNING("Worker failed while processing events in file "
                     << last_er.ifile << " (" << config->datasets[idataset].files[last_er.ifile].path
                     << "): " << last_er.first << "--" << last_er.last);
+        size_t s_before = erm->nevents_left();
         // add all back to erm:
         for(auto & er : wr->second){
             erm->add(er);
         }
+        size_t s_after = erm->nevents_left();
+        LOG_INFO("Added the " << (s_after - s_before) << " events that the failing worker processed back to the pool to process");
         // erase from the worker_ranges, which should only contain successfull runs in the end:
         worker_ranges.erase(wr);
         // no merging and closing needs to be done for that worker:

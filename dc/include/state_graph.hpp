@@ -264,36 +264,6 @@ public:
         return it->second;
     }
     
-    // priority sets:
-    // the default priority for all states is 0.
-/*    PrioritySetId add_priority_set(const std::string & name){
-        return PrioritySetIds.create(name);
-    }
-    
-    PrioritySetId get_priority_set(const std::string & name)const {
-        return PrioritySetIds.get(name);
-    }
-    
-    std::string name(const PrioritySetId & pset) const{
-        return PrioritySetIds.name(pset);
-    }
-    
-    void set_priority(const PrioritySetId & pset, const StateId & s, int prio){
-        check_priority_set_id(pset);
-        check_state_id(s);
-        priority_set_priorities[pset][s] = prio;
-    }
-    
-    int priority(const PrioritySetId & pset, const StateId & s) const {
-        check_priority_set_id(pset);
-        check_state_id(s);
-        auto it = priority_set_priorities.find(pset);
-        if(it==priority_set_priorities.end()) return 0;
-        auto it2 = it->second.find(s);
-        if(it2 == it->second.end()) return 0;
-        return it2->second;
-    }*/
-    
 private:
     
     void check_state_id(const StateId & s) const{
@@ -307,12 +277,6 @@ private:
             throw std::invalid_argument("invalid restriction set id");
         }
     }
-    
-    /*void check_priority_set_id(const PrioritySetId & rset) const{
-        if(!PrioritySetIds.exists(rset)){
-            throw std::invalid_argument("invalid priority set id");
-        }
-    }*/
     
     //states:
     IdManager<StateId> StateIds;
@@ -333,10 +297,6 @@ private:
     // restrictions:
     IdManager<RestrictionSetId> RestrictionSetIds;
     std::map<RestrictionSetId, std::set<std::pair<StateId, StateId> > > restriction_set_restrictions;
-    
-    //priority sets:
-    //IdManager<PrioritySetId> PrioritySetIds;
-    //std::map<PrioritySetId, std::map<StateId, int> > priority_set_priorities;
 };
 
 }

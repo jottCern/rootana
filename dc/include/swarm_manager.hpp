@@ -20,10 +20,10 @@ class SwarmObserver {
 public:
     
     // notify of a state transitions, including transitions failure, i.e. to failed state and from invalid to start state for new workers
-    virtual void on_state_transition(const WorkerId & w1, const StateGraph::StateId & from, const StateGraph::StateId & to) = 0; 
-    virtual void on_idle(const WorkerId & w, const StateGraph::StateId & current_state) = 0;
-    virtual void on_target_changed(const StateGraph::StateId & new_target) = 0;
-    virtual void on_restrictions_changed(const std::set<StateGraph::RestrictionSetId> & new_restrictions) = 0;
+    virtual void on_state_transition(const WorkerId & w1, const StateGraph::StateId & from, const StateGraph::StateId & to){}
+    virtual void on_idle(const WorkerId & w, const StateGraph::StateId & current_state){}
+    virtual void on_target_changed(const StateGraph::StateId & new_target){}
+    virtual void on_restrictions_changed(const std::set<StateGraph::RestrictionSetId> & new_restrictions){}
     virtual ~SwarmObserver();
 };
 

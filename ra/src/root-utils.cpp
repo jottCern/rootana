@@ -8,6 +8,7 @@
 #include "TFileMerger.h"
 
 #include "base/include/log.hpp"
+#include "Cintex/Cintex.h"
 
 #include <stdexcept>
 #include <cassert>
@@ -24,10 +25,10 @@ namespace{
 struct sdummy{
   sdummy(){
       TH1::AddDirectory(false);
+      ROOT::Cintex::Cintex::Enable();
   }
 };
 sdummy d;
-    
 
 unordered_map<string, TKey*> get_keys(TDirectory * dir){
     assert(dir != 0);
