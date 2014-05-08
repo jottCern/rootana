@@ -11,6 +11,9 @@
 
 #include <stdexcept>
 #include <cassert>
+#include <unordered_map>
+#include <set>
+#include <limits.h>
 
 using namespace std;
 using namespace ra;
@@ -26,121 +29,155 @@ struct sdummy{
 sdummy d;
     
 
+unordered_map<string, TKey*> get_keys(TDirectory * dir){
+    assert(dir != 0);
+    unordered_map<string, TKey*> result;
+    TList * keys = dir->GetListOfKeys();
+    TIter next(keys);
+    while(TObject * key_ = next()){
+        TKey * key = static_cast<TKey*>(key_);
+        result[key->GetName()] = key;
+    }
+    return move(result);
+}
 
+struct s_info {
+    std::map<std::string, size_t> ttree_nentries_total;
+};
 
-// TODO: extend to merging more than two at once (?! memory?). OR: merge all on master ...
-void merge(TDirectory * lhs, TDirectory * rhs){
+void merge(TDirectory * lhs, const std::vector<TDirectory*> & rhs, const string & dirname, s_info & info){
     auto logger = Logger::get("ra.root-utils.merge");
-    LOG_DEBUG("entering merge for directories " << lhs->GetName() << " and " << rhs->GetName());
-    map<string, TKey*> lhs_keys;
-    map<string, TKey*> rhs_keys;
-    
-    {
-        TList * l_keys = lhs->GetListOfKeys();
-        TIter next(l_keys);
-        while(TObject * key_ = next()){
-            TKey * key = dynamic_cast<TKey*>(key_);
-            assert(key);
-            lhs_keys[key->GetName()] = key;
+    const size_t n = rhs.size();
+    LOG_DEBUG("entering merge for directory " << dirname << lhs->GetName() << " with " << n << " other directories");
+    unordered_map<string, TKey*> lhs_keys(get_keys(lhs));
+    std::vector<unordered_map<string, TKey*> > rhs_keys;
+    rhs_keys.reserve(n);
+    for(size_t i=0; i<n; ++i){
+        rhs_keys.emplace_back(get_keys(rhs[i]));
+        if(rhs_keys.back().size() != lhs_keys.size()){
+            LOG_THROW("Different number of keys in the directories to merge.");
         }
     }
-    {
-        TList * r_keys = rhs->GetListOfKeys();
-        TIter next(r_keys);
-        while(TObject * key_ = next()){
-            TKey * key = dynamic_cast<TKey*>(key_);
-            assert(key);
-            rhs_keys[key->GetName()] = key;
-        }
-    }
-    
-    LOG_DEBUG("Found " << lhs_keys.size() << " objects in left TDirectory and " << rhs_keys.size() << " in right TDirectory");
-    if(lhs_keys.size() != rhs_keys.size()) throw runtime_error("merge: directories have not the same number of entries!");
-    
-    lhs->cd();
     
     // iterate over lhs keys and merge each one with rhs:
     for(auto & lit : lhs_keys){
-        auto rit = rhs_keys.find(lit.first);
-        if(rit == rhs_keys.end()) throw runtime_error("merge: object '" + lit.first + "' not found in right list");
-        // depending on the type, make different stuff now:
         string l_class = lit.second->GetClassName();
-        // but first check that it is the same class:
-        if(l_class != rit->second->GetClassName()) throw runtime_error("merge: object '" + lit.first + "' has different type in left and right hand of merge");
-        // now try to call the "Merge" method of the left hand object:
+        std::vector<TKey*> current_rhs_keys(n);
+        for(size_t i=0; i<n; ++i){
+             auto rit = rhs_keys[i].find(lit.first);
+             if(rit == rhs_keys[i].end()){
+                 LOG_THROW("did not find object " << dirname << lit.first << " in all TDirectories to merge with");
+             }
+             if(l_class != rit->second->GetClassName()){
+                 LOG_THROW("object '" << dirname << lit.first << "' has different types in files to merge: left type: "
+                            << l_class << "; right type: " << rit->second->GetClassName());
+             }
+             current_rhs_keys[i] = rit->second;
+        }
+               
         TObject * left_object = lit.second->ReadObj();
-        if(!left_object) throw runtime_error("could not read object '" + lit.first + "'");
+        if(!left_object){
+            LOG_THROW("Could not read object for key '" << dirname << lit.first + "'");
+        }
         // if it is a TDirectory, merge recursively:
         if(TDirectory * left_tdir = dynamic_cast<TDirectory*>(left_object)){
-            TDirectory * right_tdir = dynamic_cast<TDirectory*>(rit->second->ReadObj());
-            assert(right_tdir);
-            LOG_DEBUG("recursively merging directory " << left_tdir->GetName());
-            merge(left_tdir, right_tdir);
+            std::vector<TDirectory*> rhs_dirs(n);
+            for(size_t i=0; i<n; ++i){
+                 rhs_dirs[i] = static_cast<TDirectory*>(current_rhs_keys[i]->ReadObj());
+            }
+            LOG_DEBUG("recursively merging directory " << dirname << lit.first);
+            merge(left_tdir, rhs_dirs, dirname + lit.first + '/', info);
             continue;
         }
         else{
-            // otherwise, call the 'merge' method:
+            // otherwise, call the 'merge' method with a TList of all rhs TObjects
+            TList rhs_object_list;
+            for(size_t i=0; i<n; ++i){
+                rhs_object_list.Add(current_rhs_keys[i]->ReadObj());
+            }
+            
             TTree * tree = dynamic_cast<TTree*>(left_object);
-            int nentries_expected = 0;
             if(tree){
-                tree->SetAutoSave(0); // if not doing it, large TTrees will autosave during merging
+                //tree->SetAutoSave(0); // if not doing it, large TTrees will autosave during merging
                 // and in the process write a new TKey to the old file already,
                 // but we want to delete it later in all cases ...
-                nentries_expected = tree->GetEntries() + dynamic_cast<TTree*>(rit->second->ReadObj())->GetEntries();
+                size_t & ntot = info.ttree_nentries_total[dirname + lit.first];
+                ntot = tree->GetEntries();
+                TIter next(&rhs_object_list);
+                for(size_t i=0; i<n; ++i){
+                    ntot += static_cast<TTree*>(next())->GetEntries();
+                }
+                LOG_DEBUG("expecting " << ntot << " entries for TTree " << dirname << lit.first << " after merging");
             }
             TMethodCall mergeMethod;
             mergeMethod.InitWithPrototype(left_object->IsA(), "Merge", "TCollection*" );
             if(!mergeMethod.IsValid()){
                 LOG_THROW("object '" + lit.first + "' (class '" + l_class + "') has no 'Merge' method");
             }
-            TList l;
-            l.Add(rit->second->ReadObj());
-            mergeMethod.SetParam((Long_t)&l);
-            LOG_DEBUG("about to merge '" << left_object->GetName() << "' (class: " << l_class << ")");
+            mergeMethod.SetParam((Long_t)&rhs_object_list);
+            LOG_DEBUG("about to merge '" << dirname << lit.first << "' (class: " << l_class << ")");
             mergeMethod.Execute(left_object);
-            
+                        
             // remove the original TKey in the output file:
             lit.second->Delete();
             delete lit.second;
             // most objects have to be written explicitly ... except TTrees apparently ...
             if(!tree){
+                lhs->cd();
                 left_object->Write();
-            }
-            
-            if(tree){
-                // read in that tree again and see whether the number of entries match:
-                TTree * tree_merged = dynamic_cast<TTree*>(lhs->Get(lit.first.c_str()));
-                if(!tree_merged || tree_merged->GetEntries() != nentries_expected){
-                    LOG_THROW("Merging TTree '" + lit.first + "': number of entries after merging is not the sum of entries before merging!");
-                }
             }
         }
     }
 }
 
+std::string get_realpath(const string & fname){
+    std::unique_ptr<char[]> path(new char[PATH_MAX]);
+    const char * res = realpath(fname.c_str(), path.get());
+    if(res == 0){
+        return "<unresolved>";
+    }
+    return path.get();
+}
+
 }
 
 
-void ra::merge_rootfiles(const std::string & file1, const std::string & file2){
+void ra::merge_rootfiles(const std::string & file1, const std::vector<std::string> & rhs_filenames){
+    auto logger = Logger::get("ra.root-utils.merge");
+    LOG_DEBUG("entering merge_rootfiles file1=" << file1 << " with " << rhs_filenames.size() << " other files");
+    if(rhs_filenames.empty()) return;
     TFile f1(file1.c_str(), "update");
-    TFile f2(file2.c_str(), "read");
-    merge(&f1, &f2);
+    if(!f1.IsOpen()){
+        LOG_THROW("could not open root file '" << file1 << "' for update");
+    }
+    
+    // keep a list of files to detect cases in which a file is merged more than once:
+    // (NOTE: originally, this was based on TFile::GetUUID, but it turns out that this is not always  unique(!)).
+    std::set<std::string> filenames;
+    filenames.insert(get_realpath(file1));
+    
+    std::vector<std::unique_ptr<TFile>> rhs_tfiles;
+    std::vector<TDirectory*> rhs_tdirs(rhs_filenames.size());
+    for(size_t i=0; i<rhs_filenames.size(); ++i){
+        rhs_tfiles.emplace_back(new TFile(rhs_filenames[i].c_str(), "read"));
+        if(!rhs_tfiles.back()->IsOpen()){
+            LOG_THROW("could not open root file '" << rhs_filenames[i] << "' for reading");
+        }
+        auto res = filenames.insert(get_realpath(rhs_filenames[i]));
+        if(!res.second){
+            LOG_THROW("root file '" << rhs_filenames[i] << "' appears more than once for merging");
+        }
+        rhs_tdirs[i] = rhs_tfiles.back().get();
+    }
+    s_info info;
+    merge(&f1, rhs_tdirs, "", info);
+    
+    // this is necessary to write the TTree:
     f1.cd();
     f1.Write();
     f1.Close();
-    //merge_rootfiles({file1, file2});
-}
-
-
-void ra::merge_rootfiles(const std::vector<std::string> & files){
-    //if(files.size() < 2) return;
-    //TFile f1(files[0].c_str(), "update");
     
-    //hm, TFileMerger seems to be the thing for it, but it does not work ...
-    /*TFileMerger fm;
-    fm.OutputFile(files[0].c_str(), "update");
-    for(size_t i=1; i<files.size(); ++i){
-        fm.AddFile(files[i].c_str());
-    }
-    fm.Merge();*/
+    // TODO: check the TTree entries, if requested.
+    LOG_DEBUG("exiting merge_rootfiles");
 }
+

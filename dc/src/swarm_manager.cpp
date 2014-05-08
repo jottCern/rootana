@@ -14,6 +14,10 @@ SwarmManager::SwarmManager(const StateGraph & g, const failed_handler_type & fai
     aborting(false){
 }
 
+SwarmManager::~SwarmManager(){
+    LOG_DEBUG("~SwarmManager");
+}
+
 SwarmManager::Worker::Worker(unique_ptr<Channel> c_, StateGraph::StateId state_): c(move(c_)), last_state(state_), state(state_), active(false),
    requested_state(WorkerResponse::rs_work){
 }

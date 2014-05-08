@@ -2,6 +2,7 @@
 #include "stategraph.hpp"
 
 #include "ra/include/config.hpp"
+#include "ra/include/root-utils.hpp"
 
 using namespace dra;
 using namespace dra::detail;
@@ -343,18 +344,21 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
     }
 }
 
+std::string Master::get_unmerged_filename(int iworker) const {
+    stringstream unmerged_outfilename;
+    unmerged_outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << iworker << ".root";
+    return unmerged_outfilename.str();
+}
+
 // last_worker is the worker that last merged files, i.e. the one whose output file contains everything
 void Master::finalize_dataset(const WorkerId & last_worker){
     assert(needs_merging[last_worker]);
-    // TODO: handle that on worker? e.g. could send worker a message to 'self-merge' = to rename.
-    // Then only the workers have to know the file name convention ...
-    stringstream unmerged_outfilename;
-    unmerged_outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << last_worker.id() << ".root";
+    string unmerged_filename = get_unmerged_filename(last_worker.id());
     stringstream merged_outfilename;
     merged_outfilename << config->options.output_dir << "/" << config->datasets[idataset].name << ".root";
-    int res = rename(unmerged_outfilename.str().c_str(), merged_outfilename.str().c_str());
+    int res = rename(unmerged_filename.c_str(), merged_outfilename.str().c_str());
     if(res < 0){
-        LOG_ERRNO("renaming output file from '" << unmerged_outfilename.str() << "' to '" << merged_outfilename.str() << "'");
+        LOG_ERRNO("renaming output file from '" << unmerged_filename << "' to '" << merged_outfilename.str() << "'");
         throw runtime_error("error renaming merged output");
     }
     // go to next dataset:
@@ -432,12 +436,40 @@ void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> re
         // merge_status of all workers should be 'unmerged' now.
         auto n_unmerged = get_n_unmerged();
         assert(n_unmerged == needs_merging.size());
+        // handle the trivial case first:
         if(n_unmerged == 1){
             finalize_dataset(worker);
         }
-        else{ // start distributing merge messages:
-            sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("nomerge"));
-            sm.set_target_state(sm.get_graph().get_state("merge"));
+        else{
+            if(config->options.mergemode == s_options::mm_master){
+                std::vector<std::string> filenames;
+                filenames.reserve(n_unmerged);
+                for(auto & w_nm : needs_merging){
+                    filenames.emplace_back(get_unmerged_filename(w_nm.first.id()));
+                }
+                LOG_DEBUG("Merging " << filenames.size() << " output files on master");
+                std::string filename0 = filenames[0];
+                filenames.erase(filenames.begin());
+                assert(!filenames.empty()); // as this was handled in n_unmerged == 1
+                ra::merge_rootfiles(filename0, filenames);
+                LOG_DEBUG("Merging complete");
+                // remove all merged files:
+                if(!config->options.keep_unmerged){
+                    for(auto & s: filenames){
+                        int res = unlink(s.c_str());
+                        if(res < 0){
+                            LOG_ERRNO_LEVEL(loglevel::warning, "Could not remove merged file (after merging): " << s);
+                        }
+                    }
+                }
+                // after merging is complete, move on to next dataset:
+                finalize_dataset(needs_merging.begin()->first);
+            }
+            else{
+                // start distributing merge messages:
+                sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("nomerge"));
+                sm.set_target_state(sm.get_graph().get_state("merge"));
+            }
         }
     }
 }

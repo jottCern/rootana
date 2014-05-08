@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE(tree){
     create_test_tree("test0.root", 23, 1000);
     create_test_tree("test1.root", 5728, 1000);
     
-    merge_rootfiles("test0.root", "test1.root");
+    merge_rootfiles("test0.root", {"test1.root"});
     
     // check output:
     vector<int> merged_data = get_tree_intdata("test0.root", "intdata");
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(large_tree){
     create_test_tree("test0.root", 23, nevents);
     create_test_tree("test1.root", 5728, nevents);
     
-    merge_rootfiles("test0.root", "test1.root");
+    merge_rootfiles("test0.root", {"test1.root"});
     
     // check output:
     vector<int> merged_data = get_tree_intdata("test0.root", "intdata");
@@ -107,8 +107,42 @@ BOOST_AUTO_TEST_CASE(many_trees){
     for(int ifile = 1; ifile < nfiles; ++ifile){
         stringstream ss;
         ss << "test" << ifile << ".root";
-        merge_rootfiles("test0.root", ss.str());
+        merge_rootfiles("test0.root", {ss.str()});
     }
+    
+    // check output:
+    vector<int> merged_data = get_tree_intdata("test0.root", "intdata");
+    BOOST_REQUIRE_EQUAL(merged_data.size(), nfiles * nevents);
+    for(int i=0; i<nevents * nfiles; ++i){
+        BOOST_REQUIRE_EQUAL(merged_data[i], offset0 + i);
+    }
+}
+
+
+BOOST_AUTO_TEST_CASE(duplicate_merge){
+    // test that merging a file more than once is an error; even if filename is different:
+    create_test_hfile("test0.root", {"h1", "h2"}, 0.0, 0.3);
+    create_test_hfile("test1.root", {"h1", "h2"}, 0.5, 0.3);
+    
+    BOOST_CHECK_THROW(merge_rootfiles("test0.root", {"./test0.root"}), runtime_error);
+    BOOST_CHECK_THROW(merge_rootfiles("test0.root", {"./test1.root", "test1.root"}), runtime_error);
+}
+
+
+BOOST_AUTO_TEST_CASE(many_trees_atonce){
+    const int nevents = 100000; // per file
+    const int nfiles = 20;
+    const int offset0 = 57;
+    vector<string> filenames;
+    for(int ifile = 0; ifile < nfiles; ++ifile){
+        stringstream ss;
+        ss << "test" << ifile << ".root";
+        filenames.push_back(ss.str());
+        create_test_tree(ss.str(), offset0 + ifile * nevents, nevents);
+    }
+    
+    filenames.erase(filenames.begin());
+    merge_rootfiles("test0.root", filenames);
     
     // check output:
     vector<int> merged_data = get_tree_intdata("test0.root", "intdata");
@@ -121,7 +155,7 @@ BOOST_AUTO_TEST_CASE(many_trees){
 BOOST_AUTO_TEST_CASE(histos){
     create_test_hfile("test0.root", {"h1", "h2"}, 0.0, 0.3);
     create_test_hfile("test1.root", {"h1", "h2"}, 0.5, 0.3);
-    merge_rootfiles("test0.root", "test1.root");
+    merge_rootfiles("test0.root", {"test1.root"});
     
     TFile f("test0.root", "read");
     TH1D * h1 = dynamic_cast<TH1D*>(f.Get("h1"));
@@ -135,6 +169,27 @@ BOOST_AUTO_TEST_CASE(histos){
     BOOST_CHECK_EQUAL(h2->GetEntries(), 2);
     BOOST_CHECK_EQUAL(h2->GetBinContent(h2->FindBin(0.15)), 1);
     BOOST_CHECK_EQUAL(h2->GetBinContent(h2->FindBin(0.65)), 1);
+}
+
+BOOST_AUTO_TEST_CASE(many_histos){
+    vector<string> hnames;
+    for(int i=0; i<1000; ++i){
+        stringstream hname;
+        hname << "h" << i;
+        hnames.push_back(hname.str());
+    }
+    create_test_hfile("test0.root", hnames, 0.0, 0.0);
+    create_test_hfile("test1.root", hnames, 0.5, 0.0);
+    merge_rootfiles("test0.root", {"test1.root"});
+    
+    TFile f("test0.root", "read");
+    for(int i=0; i<1000; ++i){
+        TH1D * h = dynamic_cast<TH1D*>(f.Get("h1"));
+        BOOST_REQUIRE(h);
+        BOOST_CHECK_EQUAL(h->GetEntries(), 2);
+        BOOST_CHECK_EQUAL(h->GetBinContent(h->FindBin(0.0)), 1);
+        BOOST_CHECK_EQUAL(h->GetBinContent(h->FindBin(0.5)), 1);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

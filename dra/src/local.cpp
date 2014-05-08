@@ -108,6 +108,37 @@ void ProgressPrinter::set_master(const Master * master_){
     master = master_;
 }
 
+namespace{
+    
+// returns whether is was successful
+bool run_worker(int socket){
+    auto logger = Logger::get("dra.local_run");
+    IOManager iom;
+    Worker w;
+    w.setup(unique_ptr<Channel>(new Channel(socket, iom)));
+    try {
+        iom.process();
+    }
+    catch(exception & ex){
+        LOG_ERROR("Exception during processing: '" << ex.what() << "'");
+        return false;
+    }
+    catch(...){
+        LOG_ERROR("Unknown exception during processing");
+        return false;
+    }
+    if(w.stopped_successfully()){
+        LOG_INFO("Worker stopped successfully.");
+        return true;
+    }
+    else{
+        LOG_ERROR("Worker was not successful.");
+        return false;
+    }
+}
+    
+}
+
 void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared_ptr<MasterObserver> & observer){
     // establish the signal handler  for sigint:
     /*struct sigaction sa;
@@ -142,52 +173,63 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
         if(pid == 0){
             // the child becomes the worker:
             close(sockets[0]);
-            IOManager iom;
-            Worker w;
-            w.setup(unique_ptr<Channel>(new Channel(sockets[1], iom)));
-            try {
-                iom.process();
-            }
-            catch(exception & ex){
-                LOG_ERROR("Exception: " << ex.what() << ";' exiting with status 1");
-                exit(1);
-            }
-            catch(...){
-                LOG_ERROR("Unknown exception; exiting with status 1");
-                exit(1);
-            }
-            if(w.stopped_successfully()){
-                LOG_INFO("Worker stopped successfully; exiting now via exit(0)");
-                // and cleanup the logger before ...
-                logger.reset();
-                exit(0);
-            }
-            else{
-                LOG_ERROR("Worker was not successful; exiting with status 1");
-                exit(1);
-            }
+            bool success = run_worker(sockets[1]);
+            // and cleanup the logger before ...
+            logger.reset();
+            exit(success ? 0 : 1);
         }
         else{
             // save the rest for the master:
+            LOG_INFO("Forked worker child process pid = " << pid);
             close(sockets[1]);
             worker_fds.push_back(sockets[0]);
             worker_pids.push_back(pid);
+            
         }
     }
     // the parent becomes the master:
-    IOManager iom; // important: iom has to outlibe the master, as the master references channels which reference the iom, so iom has to be there when the channels are closed in the master destructor
-    Master master(cfgfile);
-    master.add_observer(observer);
-    master.start();
-    for(int i=0; i<nworkers; ++i){
-        master.add_worker(unique_ptr<Channel>(new Channel(worker_fds[i], iom)));
+    IOManager iom; // important: iom has to outlive master, as master references Channels which reference iom, which should still be around in ~Channel called by ~Master
+    bool master_ok = true;
+    try{ // note: catch errors to wait for childs even if master throws.
+        // first make sure we grab the "dangling resources" in form of worker_fds safely into channels. This
+        // is to ensure that even if the Master constructor throws, the channels get closed.
+        std::vector<std::unique_ptr<Channel>> channels;
+        channels.reserve(nworkers);
+        for(int i=0; i<nworkers; ++i){
+            channels.emplace_back(new Channel(worker_fds[i], iom));
+        }
+        Master master(cfgfile);
+        master.add_observer(observer);
+        master.start();
+        for(int i=0; i<nworkers; ++i){
+            master.add_worker(move(channels[i]));
+        }
+        iom.process();
+        if(!master.all_done()){
+            LOG_ERROR("Master IO processing exited before the dataset was processed completely.");
+            master_ok = false;
+        }
     }
-    iom.process();
-    LOG_INFO("Master: IOManager returned, waiting for all child processes ... ");
+    catch(std::exception & ex){
+        LOG_ERROR("Exception while running master: " << ex.what());
+        master_ok = false;
+    }
+    catch(...){
+        LOG_ERROR("Unknown exception while running master");
+        master_ok = false;
+    }
+    
+    LOG_INFO("Waiting for all child processes ... ");
     bool childs_successful = true;
     for(int i=0; i<nworkers; ++i){
         int status = 0;
         pid_t pid2;
+        if(!master_ok){
+            int res = kill(worker_pids[i], SIGKILL);
+            if(res < 0){
+                LOG_ERRNO("killing child process");
+            }
+        }
         do{
             pid2 = waitpid(worker_pids[i], &status, 0);
         } while(pid2 < 0 && errno == EINTR);
@@ -195,12 +237,16 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
             if(WIFEXITED(status)){
                 int exitcode = WEXITSTATUS(status);
                 if(exitcode != 0){
-                    LOG_ERROR("Worker process " << i << " (pid=" << pid2 << ") exited with status " << exitcode);
+                    if(master_ok){
+                        LOG_ERROR("Worker process " << i << " (pid=" << pid2 << ") exited with status " << exitcode);
+                    }
                     childs_successful = false;
                 }
             }
             else{
-                LOG_ERROR("Worker process " << i << " (pid=" << pid2 << ") exited abnormally");
+                if(master_ok){
+                    LOG_ERROR("Worker process " << i << " (pid=" << pid2 << ") exited abnormally");
+                }
                 childs_successful = false;
             }
         }
@@ -208,14 +254,12 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
             LOG_ERRNO("waitpid");
         }
     }
+    if(!master_ok) return;
     if(!childs_successful){
         LOG_THROW("child processes did not exit successfully; check their logs.");
     }
     else{
         LOG_INFO("all child processes exited successfully.")
-    }
-    if(!master.all_done()){
-        LOG_THROW("dataset NOT processed completely.");
     }
 }
 
