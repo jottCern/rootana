@@ -19,29 +19,43 @@ using namespace dra;
 using namespace ra;
 
 namespace {
+
+std::set<int> exited_childs;
     
-void chld_handler(int){}
+void chld_handler(int, siginfo_t* info, void*){
+    //cout << "SIGCHLD handler called for pid " << info->si_pid << endl;
+    exited_childs.insert(info->si_pid);
+}
     
-void setup_handler(){
+void setup_sigchild_handler(){
     struct sigaction sa;
-    sa.sa_handler = &chld_handler;
+    sa.sa_sigaction = &chld_handler;
     sigfillset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART; // avoid EINTR loop in waitpid
+    sa.sa_flags = SA_SIGINFO;
+    sa.sa_restorer = 0;
+    sa.sa_flags = SA_SIGINFO;
     int res = sigaction(SIGCHLD, &sa, 0);
     if(res < 0){
         cerr << "error setting up SIGCHLD handler" << endl;
+        exit(1);
     }
 }
-    
-volatile sig_atomic_t interrupted = 0;
 
-void sigint_handler(int){
-    interrupted = 1;
+void signal_ignore(int signo){
+    struct sigaction sa;
+    sa.sa_handler = SIG_IGN;
+    sa.sa_flags = 0;
+    sa.sa_restorer = 0;
+    int res = sigaction(signo, &sa, 0);
+    if(res != 0){
+        cout << "error ignoring signal " << signo << "(" << strsignal(signo) << ")" << endl;
+        exit(1);
+    }
 }
 
 }
 
-ProgressPrinter::ProgressPrinter(): master(0){
+ProgressPrinter::ProgressPrinter(): master(0) {
     const StateGraph & g = get_stategraph();
     s_start = g.get_state("start");
     s_configure = g.get_state("configure");
@@ -104,7 +118,7 @@ void ProgressPrinter::on_dataset_start(const ra::s_dataset & dataset){
     pb->print();
 }
 
-void ProgressPrinter::set_master(const Master * master_){
+void ProgressPrinter::set_master(Master * master_){
     master = master_;
 }
 
@@ -128,33 +142,100 @@ bool run_worker(int socket){
         return false;
     }
     if(w.stopped_successfully()){
-        LOG_INFO("Worker stopped successfully.");
+        LOG_INFO("exiting run_worker; Worker stopped successfully.");
         return true;
     }
     else{
-        LOG_ERROR("Worker was not successful.");
+        LOG_ERROR("exiting run_worker; Worker was not successful.");
         return false;
     }
 }
+
+// wait for the child of the given pid for at most timeout seconds, then kill it with SIGKILL.
+// returns true only if the child exits normally (=not due to a signal and with exit code 0).
+bool wait_for_child(int pid, float timeout, bool log){
+    auto logger = Logger::get("dra.local_run");
+    bool result = true;
     
+    sigset_t sigchld_set;
+    sigemptyset(&sigchld_set);
+    sigaddset(&sigchld_set, SIGCHLD);
+    
+    int status = 0;
+    pid_t wpid = waitpid(pid, &status, WNOHANG);
+    if(wpid == 0){
+        // sleep for a while:
+        timespec req, rem;
+        req.tv_sec = int(timeout);
+        req.tv_nsec = int((timeout - req.tv_sec) * 1e9);
+        do{
+            int res = nanosleep(&req, &rem);
+            if(res < 0 && errno == EINTR){ // we have been interrupted sleeping, maybe with SIGCHLD we are waiting for?
+                bool has_exited = false;
+                // make sure not to access exited_childs
+                // the same time as the signal handler does:
+                sigprocmask(SIG_BLOCK, &sigchld_set, 0);
+                if(exited_childs.find(pid)!=exited_childs.end()){
+                    exited_childs.erase(pid);
+                    has_exited = true;
+                }
+                sigprocmask(SIG_UNBLOCK, &sigchld_set, 0);
+                if(has_exited){
+                    break;
+                }
+                req = rem; // sleep for the remaining time the next time
+            }
+            else{
+                // slept for the full time  ...
+                break;
+            }
+        } while(true);
+        
+        // Timeout has passed or signal handler signalled that the child is ready, so
+        // try again waiting for it:
+        wpid = waitpid(pid, &status, WNOHANG);
+        if(wpid == 0){
+            LOG_INFO("Killing child process " << pid);
+            kill(pid, SIGKILL);
+            waitpid(pid, &status, 0);
+            return false;
+        }
+    }
+    else if(wpid > 0){
+        if(WIFEXITED(status)){
+            int exitcode = WEXITSTATUS(status);
+            if(exitcode != 0){
+                if(log){
+                    LOG_ERROR("Child process with pid " << pid << " exited with status " << exitcode);
+                }
+                result = false;
+            }
+        }
+        else{
+            if(log){
+                LOG_ERROR("Child process with pid " << pid << " exited abnormally");
+            }
+            result = false;
+        }
+    }
+    else{ // should usually not happen.
+        LOG_ERRNO("waitpid for pid " << pid);
+        result = false;
+    }
+    return result;
+}
+
 }
 
 void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared_ptr<MasterObserver> & observer){
-    // establish the signal handler  for sigint:
-    /*struct sigaction sa;
-    sa.sa_handler = &sigint_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sa.sa_restorer = 0;
-    int res = sigaction(SIGINT, &sa, 0);
-    if(res != 0){
-        cout << "error establishing signal handler" << endl;
-        exit(1);
-    }*/
+    setup_sigchild_handler();
+    signal_ignore(SIGINT);
+    signal_ignore(SIGPIPE);
     
-    // signal handler for sigchld:
-    setup_handler();
-    // fork:
+    s_config config(cfgfile);
+    config.logger.apply(config.options.output_dir);
+    
+    // create workers via fork:
     auto logger = Logger::get("dra.local_run");
     vector<int> worker_fds;
     vector<int> worker_pids;
@@ -199,6 +280,21 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
             channels.emplace_back(new Channel(worker_fds[i], iom));
         }
         Master master(cfgfile);
+        bool stopped = false, aborted = false;
+        iom.setup_signal_handler(SIGINT, [&](const siginfo_t &){ 
+            if(!stopped){
+                cout << "SIGINT: stopping" << endl;
+                master.stop();
+                stopped = true;
+                return;
+            }
+            else if(!aborted){
+                cout << "SIGINT: aborting" << endl;
+                master.abort();
+                aborted = true;
+                return;
+            }
+        });
         master.add_observer(observer);
         master.start();
         for(int i=0; i<nworkers; ++i){
@@ -214,52 +310,25 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
         LOG_ERROR("Exception while running master: " << ex.what());
         master_ok = false;
     }
-    catch(...){
-        LOG_ERROR("Unknown exception while running master");
-        master_ok = false;
-    }
     
     LOG_INFO("Waiting for all child processes ... ");
     bool childs_successful = true;
     for(int i=0; i<nworkers; ++i){
-        int status = 0;
-        pid_t pid2;
-        if(!master_ok){
-            int res = kill(worker_pids[i], SIGKILL);
-            if(res < 0){
-                LOG_ERRNO("killing child process");
-            }
+        bool child_result = wait_for_child(worker_pids[i], 1.0f, master_ok);
+        if(!child_result){
+            childs_successful = false;
         }
-        do{
-            pid2 = waitpid(worker_pids[i], &status, 0);
-        } while(pid2 < 0 && errno == EINTR);
-        if(pid2 > 0){
-            if(WIFEXITED(status)){
-                int exitcode = WEXITSTATUS(status);
-                if(exitcode != 0){
-                    if(master_ok){
-                        LOG_ERROR("Worker process " << i << " (pid=" << pid2 << ") exited with status " << exitcode);
-                    }
-                    childs_successful = false;
-                }
-            }
-            else{
-                if(master_ok){
-                    LOG_ERROR("Worker process " << i << " (pid=" << pid2 << ") exited abnormally");
-                }
-                childs_successful = false;
-            }
+    }
+    if(master_ok){
+        if(!childs_successful){
+            LOG_THROW("child processes did not exit successfully; check their logs.");
         }
         else{
-            LOG_ERRNO("waitpid");
+            LOG_INFO("all child processes exited successfully.")
         }
     }
-    if(!master_ok) return;
-    if(!childs_successful){
-        LOG_THROW("child processes did not exit successfully; check their logs.");
-    }
     else{
-        LOG_INFO("all child processes exited successfully.")
+        cerr << "Dataset has NOT been processed completely (see log messages for details)" << endl;
     }
 }
 

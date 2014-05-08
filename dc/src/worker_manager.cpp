@@ -95,7 +95,7 @@ void WorkerManager::on_out_message(){
 }
     
 void WorkerManager::on_error(int errorcode){
-    LOG_INFO("on_error called with code " << errorcode << " (" << strerror(errorcode) << ")");
+    LOG_ERROR("Channel error: " << strerror(errorcode));
     if(current_state==failed_state){}
     // special case: connection was closed while we are in the stop state:
     else if(current_state==stop_state && errorcode==ECONNRESET){

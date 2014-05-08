@@ -181,7 +181,8 @@ ssize_t EventRangeManager::nevents_total() const{
 
 Master::~Master(){}
 
-Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(dra::get_stategraph(), bind(&Master::worker_failed, this, ph::_1, ph::_2)), idataset(-1), all_done_(false){
+Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(dra::get_stategraph(), bind(&Master::worker_failed, this, ph::_1, ph::_2)), idataset(-1),
+  all_done_(false), stopping(false){
     unique_ptr<char[]> path(new char[PATH_MAX]);
     auto res = realpath(cfgfile_.c_str(), path.get());
     if(res == 0){
@@ -371,6 +372,7 @@ size_t Master::get_n_unmerged() const{
 
 
 void Master::merge_complete(const WorkerId & worker, std::unique_ptr<Message> result){
+    if(stopping) return;
     // we need to merge the file of the merged worker again.
     Merge & merge = dynamic_cast<Merge&>(*result);
     needs_merging[WorkerId(merge.iworker1)] = true;
@@ -427,7 +429,19 @@ std::unique_ptr<Merge> Master::generate_merge(const WorkerId & wid){
     return std::unique_ptr<Merge>(new Merge(idataset, mit1->first.id(), mit2->first.id()));
 }
 
+void Master::abort(){
+    sm.abort();
+}
+
+void Master::stop(){
+    stopping = true;
+    //sm.activate_restriction_set(sm.get_graph().get_restriction_set("nomerge"));
+    //sm.activate_restriction_set(sm.get_graph().get_restriction_set("noprocess"));
+    sm.set_target_state(sm.get_graph().get_state("stop"));
+}
+
 void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> result){
+    if(stopping) return;
     closed[worker] = true;
     needs_merging[worker] = true;
     bool all_closed = all_of(closed.begin(), closed.end(), [](const pair<const WorkerId, bool> & wc){return wc.second;});
@@ -475,6 +489,7 @@ void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> re
 }
 
 void Master::process_complete(const WorkerId & worker, std::unique_ptr<Message> result){
+    if(stopping) return;
     LOG_DEBUG("process complete for worker " << worker.id());
     // update file info erm:
     assert(result);

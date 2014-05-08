@@ -20,7 +20,11 @@ namespace ra {
  */
 class AnalysisController {
 public:
-    explicit AnalysisController(const s_config & config, bool parallel);
+    
+    // Note that the only (!) effect of the \c check_for_parallel_safety flag is that all
+    // AnalysisModules' is_parallel_safe methods are called and an exception is thrown if one of them
+    // returns false.
+    explicit AnalysisController(const s_config & config, bool check_for_parallel_safety);
  
     // initialize data structures for the given dataset (e.g. calling
     // the begin_dataset methods from the modules). Initializing
