@@ -10,6 +10,9 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <iostream>
+
+#include <boost/lexical_cast.hpp>
 
 struct Histogram {
     std::unique_ptr<TH1> histo;// the actual root histogram
@@ -209,6 +212,18 @@ public:
     
 private:
     int factor;
+};
+
+class RebinVariable {
+public:
+    void operator()(Histogram & h);
+    
+    explicit RebinVariable(int nbins_, const double* bin_arr_): nbins(nbins_), bin_arr(bin_arr_) {}
+    
+private:
+    int nbins;
+    const double* bin_arr;
+    std::string new_name;
 };
 
 class SetOption{

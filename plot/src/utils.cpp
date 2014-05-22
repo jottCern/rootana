@@ -511,7 +511,7 @@ void create_dir(const string & filename){
     size_t p = filename.rfind('/');
     if(p==string::npos) return;
     string path = filename.substr(0, p);
-    int res = system(("mkdir -p " + path).c_str());
+    int res = system(("mkdir -v -p " + path).c_str());
     if(res < 0){
         throw runtime_error("Error executing 'mkdir -p " + path + "'");
     }
@@ -861,6 +861,20 @@ Plotter::Plotter(const std::string & outdir_, const std::vector<std::shared_ptr<
     if(histos.empty()) throw runtime_error("histograms are empty");
 }
 
+//
+
+void RebinVariable::operator() (Histogram & h) {
+    new_name = h.hname.name()+"_var_bin";
+    TH1* rebin_histo = h.histo->Rebin(nbins, new_name.c_str(), bin_arr);
+    h.histo->SetBins(nbins, bin_arr);
+    for(int i=0; i<nbins; ++i){
+        h.histo->SetBinContent(i+1, rebin_histo->GetBinContent(i+1));
+        h.histo->SetBinError(i+1, rebin_histo->GetBinError(i+1));
+    }
+    double xmin = h.histo->GetXaxis()->GetBinLowEdge(1);
+    double xmax = h.histo->GetXaxis()->GetBinLowEdge(nbins);
+    h.histo->GetXaxis()->SetRangeUser(xmin, xmax);
+}
 
 //+++++++++++++++++++++++++++++++++++++++++++
 //+++++++COMPARE SELECTIONS++++++++++++++++++
@@ -877,27 +891,43 @@ void Plotter::selcomp_plots(const std::initializer_list<ra::identifier> & select
 
     for(const auto & histo : histos){
         for (const auto & p : plot_types){
-            auto histograms = get_selection_histogram(histo, selections_to_compare, p);
-            if(histograms.empty()) throw std::runtime_error("no histograms for Plotter::selcomp_plots found!");
+            auto histograms1 = get_selection_histogram(histo, selections_to_compare, p);
+            auto histograms2 = get_selection_histogram(histo, selections_to_compare, p);
+            if(histograms1.empty()) throw std::runtime_error("no histograms1 for Plotter::selcomp_plots found!");
+            if(histograms2.empty()) throw std::runtime_error("no histograms2 for Plotter::selcomp_plots found!");
             // normalize all and set line color to fill color:
-            for(auto & h: histograms){
+            for(auto & h: histograms1){
                 h.histo->Scale(1.0 / h.histo->Integral());
                 h.histo->SetLineColor(h.histo->GetFillColor());
                 h.histo->SetLineWidth(2.0);
                 h.histo->SetFillColor(0);
+                h.options["ytext"] = "Normalized Units";
+                h.histo->SetMaximum(1.);
             }
-            string outfilename = outdir + outputname + "/" + histo->id().name() + "_" + p.name() + "_selcomp.pdf";
-            create_dir(outfilename);
-            draw_histos(histograms, outfilename);
+            for(auto & h: histograms2){
+                h.histo->SetLineColor(h.histo->GetFillColor());
+                h.histo->SetLineWidth(2.0);
+                h.histo->SetFillColor(0);
+            }
+            string outfilename1 = outdir + outputname + "/" + histo->id().name() + "_" + p.name() + "_selcomp_norm.pdf";
+            string outfilename2 = outdir + outputname + "/" + histo->id().name() + "_" + p.name() + "_selcomp_abs.pdf";
+            create_dir(outfilename1);
+            draw_histos(histograms1, outfilename1);
+            draw_histos(histograms2, outfilename2);
         }
     }
 }
+
+std::string plotname(const std::string &);
 
 std::vector<Histogram> Plotter::get_selection_histogram(const std::shared_ptr<ProcessHistograms> & hsource, const std::initializer_list<ra::identifier> & selections_to_compare, const ra::identifier & plot_type){
     std::vector<std::string> hnames = hsource->get_histogram_names();
     vector<Histogram> histograms;
     for (const auto & sel_id : selections_to_compare) {
         for (const string & hname : hnames){
+            ra::identifier hist_sel(lastdirname(hname));
+            ra::identifier hist_plot(plotname(hname));
+            if (hist_sel != sel_id || hist_plot != plot_type) continue;
             Histogram p_histo;
             try{
                 p_histo = hsource->get_histogram(hname);
@@ -937,6 +967,12 @@ std::set<ra::identifier> ProcessHistogramsTFile::get_plot_types(){
     std::set<ra::identifier> result;
     get_names_of_plots(result, files[0], "TH1D");
     return result;
+}
+
+std::string plotname(const string & histname) {
+    size_t lastslash = histname.rfind('/');
+    if (lastslash == string::npos) return histname;
+    else return histname.substr(lastslash+1, histname.size()-lastslash);
 }
 
 // void get_histnames_of_name(std::vector<std::string> & result, TDirectory * dir, const std::string & searched_name, const string & prefix){

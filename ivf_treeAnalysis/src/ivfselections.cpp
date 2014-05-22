@@ -166,6 +166,27 @@ private:
 
 REGISTER_SELECTION(EtaSelection)
 
+class Sig3DSelection : public Selection{
+public:
+    Sig3DSelection(const ptree & cfg, OutputManager &){
+        minsig = ptree_get<float>(cfg, "minsig", 0.);
+        maxsig = ptree_get<float>(cfg, "maxsig", 1000.);
+    }
+        
+    bool operator()(const Event & event){
+        ID(impactSig3D);
+        float sig3D = event.get<float>(impactSig3D);
+        return (minsig < sig3D && sig3D < maxsig );
+    }
+                
+private:
+    float minsig;
+    float maxsig;
+};
+
+
+REGISTER_SELECTION(Sig3DSelection)
+
 
 //===========CALCULATE ERRORS FIRST, BUT HAVE ONLY THE ONE FROM SV!!!=============     
 

@@ -30,6 +30,8 @@ public:
 	book<TH1D>("Rho1D", 300, 0, 30);
 	book<TH1D>("VertMass", 300, 0, 30);
 	book<TH1D>("TrackMult", 20, 0, 20);
+        book<TH1D>("VertPt", 200, 0, 100);
+        book<TH1D>("FlightDirSig3d", 300, 0, 30);
    
     }
     
@@ -49,15 +51,21 @@ public:
 	ID(TrackMult);
 	ID(p4daughters);
 	ID(numberTracks);
+        ID(VertPt);
+        ID(FlightDirSig3d);
+        ID(impactSig3D);
 	
         const Point & position = e.get<Point>(recoPos);
 	const LorentzVector & lorvec = e.get<LorentzVector>(p4daughters);
 	int trackmult = e.get<int>(numberTracks);
+        float flightdirSig3d = e.get<float>(impactSig3D);
 	
 	fill(ZRho, position.z(), position.rho());
 	fill(Rho1D, position.rho());
 	fill(VertMass, lorvec.M());
 	fill(TrackMult, trackmult);
+        fill(VertPt, lorvec.pt());
+        fill(FlightDirSig3d, flightdirSig3d);
         
     }
     
