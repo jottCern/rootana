@@ -1,5 +1,4 @@
 LIB := base
-TEST:= test.exe
-#USERCXXFLAGS += $(BOOST_CFLAGS)
+#TEST:= test.exe
 
 include ../Makefile.rules

@@ -29,6 +29,9 @@ public:
     explicit dcheck(const ptree & cfg);
     virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out);
     virtual void process(Event & event);
+    
+    virtual bool is_parallel_safe() const { return false; }
+    
     virtual ~dcheck(){
         print();
     }

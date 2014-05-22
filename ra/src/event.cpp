@@ -73,7 +73,7 @@ void Event::set_raw(const std::type_info & ti, const identifier & name, void * o
         std::get<2>(it->second)->operator()(std::get<1>(it->second));
         delete std::get<2>(it->second);
     }
-    data[key] = std::tuple<bool, void*, eraser_base*>(true, obj, new eraser_f_wrapper(eraser));
+    data[key] = element(true, obj, new eraser_f_wrapper(eraser), &ti);
 }
 
 Event::presence Event::get_presence(const std::type_info & ti, const identifier & name) const{
@@ -81,6 +81,12 @@ Event::presence Event::get_presence(const std::type_info & ti, const identifier 
     auto it = data.find(key);
     if(it==data.end()) return presence::nonexistent;
     return std::get<0>(it->second) ? presence::present : presence::allocated;
+}
+
+void Event::visit(const std::function<void (Event::Element)> & visitor) const{
+    for(const auto & it : data){
+        visitor(Element(it.first.second, *std::get<3>(it.second), std::get<1>(it.second), std::get<0>(it.second)));
+    }
 }
 
 Event::~Event(){

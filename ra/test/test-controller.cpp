@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE(simple){
     s_config conf(indir + "/cfg.cfg");
     
     {
-       AnalysisController ac(conf);
+       AnalysisController ac(conf, false);
     
        BOOST_CHECK_THROW(ac.start_file(0), invalid_argument);
        ac.start_dataset(0, indir + "/out.root");
@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE(morefiles){
     
     ids_seen.clear();
     {
-       AnalysisController ac(conf);
+       AnalysisController ac(conf, false);
        ac.start_dataset(0, indir + "/out.root");
        ac.start_file(0);
        ac.process(0, size_t(-1));

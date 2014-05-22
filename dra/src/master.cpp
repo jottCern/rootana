@@ -2,6 +2,7 @@
 #include "stategraph.hpp"
 
 #include "ra/include/config.hpp"
+#include "ra/include/root-utils.hpp"
 
 using namespace dra;
 using namespace dra::detail;
@@ -180,7 +181,8 @@ ssize_t EventRangeManager::nevents_total() const{
 
 Master::~Master(){}
 
-Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(dra::get_stategraph(), bind(&Master::worker_failed, this, ph::_1, ph::_2)), idataset(-1), all_done_(false){
+Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(dra::get_stategraph(), bind(&Master::worker_failed, this, ph::_1, ph::_2)), idataset(-1),
+  all_done_(false), stopping(false){
     unique_ptr<char[]> path(new char[PATH_MAX]);
     auto res = realpath(cfgfile_.c_str(), path.get());
     if(res == 0){
@@ -233,6 +235,7 @@ void Master::init_dataset(size_t id){
     worker_ranges.clear();
     closed.clear();
     needs_merging.clear();
+    nbytes_read_ = 0;
     // NOTE: make sure to call the methods of sm. last, as they will call the generate_process methods and friends so
     // we need to make sure they see a consistent state ...
     if(last){
@@ -242,6 +245,7 @@ void Master::init_dataset(size_t id){
         sm.set_target_state(sm.get_graph().get_state("stop"));
     }
     else{
+        LOG_INFO("Start processing dataset " << config->datasets[idataset].name);
         erm.reset(new EventRangeManager(config->datasets[id].files.size(), config->options.blocksize));
         for(auto & observer : observers){
             observer->on_dataset_start(config->datasets[idataset]);
@@ -329,11 +333,11 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
         }
         // erase from the worker_ranges, which should only contain successfull runs in the end:
         worker_ranges.erase(wr);
-        // make sure processing is enabled, now that we have work:
-        sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("noprocess"));
         // no merging and closing needs to be done for that worker:
         assert(needs_merging.find(worker) == needs_merging.end());
         closed.erase(worker);
+        // make sure processing is enabled, now that we have work:
+        sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("noprocess"));
     }
     // otherwise, the state was start or configure or stop; in both cases, no events are lost ...
     else{
@@ -341,18 +345,21 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
     }
 }
 
+std::string Master::get_unmerged_filename(int iworker) const {
+    stringstream unmerged_outfilename;
+    unmerged_outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << iworker << ".root";
+    return unmerged_outfilename.str();
+}
+
 // last_worker is the worker that last merged files, i.e. the one whose output file contains everything
 void Master::finalize_dataset(const WorkerId & last_worker){
     assert(needs_merging[last_worker]);
-    // TODO: handle that on worker? e.g. could send worker a message to 'self-merge' = to rename.
-    // Then only the workers have to know the file name convention ...
-    stringstream unmerged_outfilename;
-    unmerged_outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << last_worker.id() << ".root";
+    string unmerged_filename = get_unmerged_filename(last_worker.id());
     stringstream merged_outfilename;
     merged_outfilename << config->options.output_dir << "/" << config->datasets[idataset].name << ".root";
-    int res = rename(unmerged_outfilename.str().c_str(), merged_outfilename.str().c_str());
+    int res = rename(unmerged_filename.c_str(), merged_outfilename.str().c_str());
     if(res < 0){
-        LOG_ERRNO("renaming output file from '" << unmerged_outfilename.str() << "' to '" << merged_outfilename.str() << "'");
+        LOG_ERRNO("renaming output file from '" << unmerged_filename << "' to '" << merged_outfilename.str() << "'");
         throw runtime_error("error renaming merged output");
     }
     // go to next dataset:
@@ -365,6 +372,7 @@ size_t Master::get_n_unmerged() const{
 
 
 void Master::merge_complete(const WorkerId & worker, std::unique_ptr<Message> result){
+    if(stopping) return;
     // we need to merge the file of the merged worker again.
     Merge & merge = dynamic_cast<Merge&>(*result);
     needs_merging[WorkerId(merge.iworker1)] = true;
@@ -393,7 +401,7 @@ void Master::merge_complete(const WorkerId & worker, std::unique_ptr<Message> re
             }
         }
         if(merging_done){
-            LOG_INFO("Merge complete; moving on to the next dataset");
+            LOG_INFO("Merge complete for dataset " << config->datasets[idataset].name << "; moving on to the next dataset");
             finalize_dataset(WorkerId(merge.iworker1));
         }
     }
@@ -421,30 +429,72 @@ std::unique_ptr<Merge> Master::generate_merge(const WorkerId & wid){
     return std::unique_ptr<Merge>(new Merge(idataset, mit1->first.id(), mit2->first.id()));
 }
 
+void Master::abort(){
+    sm.abort();
+}
+
+void Master::stop(){
+    stopping = true;
+    //sm.activate_restriction_set(sm.get_graph().get_restriction_set("nomerge"));
+    //sm.activate_restriction_set(sm.get_graph().get_restriction_set("noprocess"));
+    sm.set_target_state(sm.get_graph().get_state("stop"));
+}
+
 void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> result){
+    if(stopping) return;
     closed[worker] = true;
     needs_merging[worker] = true;
     bool all_closed = all_of(closed.begin(), closed.end(), [](const pair<const WorkerId, bool> & wc){return wc.second;});
     if(all_closed){
-        LOG_INFO("Closing complete; merging all output files");
+        LOG_INFO("Closing complete for dataset " << config->datasets[idataset].name << "; merging all output files");
         // merge_status of all workers should be 'unmerged' now.
         auto n_unmerged = get_n_unmerged();
         assert(n_unmerged == needs_merging.size());
+        // handle the trivial case first:
         if(n_unmerged == 1){
             finalize_dataset(worker);
         }
-        else{ // start distributing merge messages:
-            sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("nomerge"));
-            sm.set_target_state(sm.get_graph().get_state("merge"));
+        else{
+            if(config->options.mergemode == s_options::mm_master){
+                std::vector<std::string> filenames;
+                filenames.reserve(n_unmerged);
+                for(auto & w_nm : needs_merging){
+                    filenames.emplace_back(get_unmerged_filename(w_nm.first.id()));
+                }
+                LOG_DEBUG("Merging " << filenames.size() << " output files on master");
+                std::string filename0 = filenames[0];
+                filenames.erase(filenames.begin());
+                assert(!filenames.empty()); // as this was handled in n_unmerged == 1
+                ra::merge_rootfiles(filename0, filenames);
+                LOG_DEBUG("Merging complete");
+                // remove all merged files:
+                if(!config->options.keep_unmerged){
+                    for(auto & s: filenames){
+                        int res = unlink(s.c_str());
+                        if(res < 0){
+                            LOG_ERRNO_LEVEL(loglevel::warning, "Could not remove merged file (after merging): " << s);
+                        }
+                    }
+                }
+                // after merging is complete, move on to next dataset:
+                finalize_dataset(needs_merging.begin()->first);
+            }
+            else{
+                // start distributing merge messages:
+                sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("nomerge"));
+                sm.set_target_state(sm.get_graph().get_state("merge"));
+            }
         }
     }
 }
 
 void Master::process_complete(const WorkerId & worker, std::unique_ptr<Message> result){
+    if(stopping) return;
     LOG_DEBUG("process complete for worker " << worker.id());
     // update file info erm:
     assert(result);
     ProcessResponse & pr = dynamic_cast<ProcessResponse&>(*result);
+    nbytes_read_ += pr.nbytes;
     auto wr = worker_ranges.find(worker);
     assert(wr != worker_ranges.end());
     assert(!wr->second.empty());
@@ -462,7 +512,7 @@ void Master::process_complete(const WorkerId & worker, std::unique_ptr<Message> 
         auto all_workers = sm.get_workers();
         bool all_idle = none_of(all_workers.begin(), all_workers.end(), [this](const WorkerId & w){return sm.state(w).second;});
         if(all_idle){
-            LOG_INFO("Processing complete; closing all output files");
+            LOG_INFO("Processing complete for dataset " << config->datasets[idataset].name << "; closing all output files");
             sm.set_target_state(sm.get_graph().get_state("close"));
         }
     }

@@ -9,11 +9,22 @@
 
 namespace ra {
 
-// A utility classes to initialize per-dataset info as nedded for both
-// the local ra program and the dra::Worker
+/** \brief Central dispatcher calling the AnalysisModule routines
+ * 
+ * This is where (part of) the event loop lives; to use this class, construct it via a s_config object (which in
+ * turn is constructed via a configuration file). Then, execute the start_dataset, start_file, and process methods
+ * in turn to process all events in all datasets mentioned in the configuration.
+ * 
+ * This class mainly exists to avoid duplication between the serial local version (ra/ra) and the distributed versions
+ * (e.g. dra/dra_local), which would otherwise contain the same code to construct the modules, initialize output, cleanup, etc.
+ */
 class AnalysisController {
 public:
-    explicit AnalysisController(const s_config & config);
+    
+    // Note that the only (!) effect of the \c check_for_parallel_safety flag is that all
+    // AnalysisModules' is_parallel_safe methods are called and an exception is thrown if one of them
+    // returns false.
+    explicit AnalysisController(const s_config & config, bool check_for_parallel_safety);
  
     // initialize data structures for the given dataset (e.g. calling
     // the begin_dataset methods from the modules). Initializing

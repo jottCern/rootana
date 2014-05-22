@@ -78,7 +78,7 @@ public:
             std::get<0>(it->second) = true;
         }
         else{
-            data[key] = std::make_tuple<bool, void*, eraser_base*>(true, new T(std::move(value)), new eraser<T>());
+            data[key] = element(true, new T(std::move(value)), new eraser<T>(), &typeid(T));
         }
     }
     
@@ -117,6 +117,10 @@ public:
     
     presence get_presence(const std::type_info & ti, const identifier & name) const;
     
+    // call the visitor for each element currently allocated.
+    typedef std::tuple<identifier, const std::type_info &, const void*, bool> Element; // name, type, pointer to object, present
+    void visit(const std::function<void (Element)> & visitor) const;
+    
     ~Event();
     
 private:
@@ -148,7 +152,7 @@ private:
     };
     
     typedef std::pair<std::type_index, identifier> ti_id;
-    typedef std::tuple<bool, void*, eraser_base*> element; // tuple of (present, data, eraser)
+    typedef std::tuple<bool, void*, eraser_base*, const std::type_info *> element; // tuple of (present, data, eraser, type)
     std::map<ti_id, element> data;
 };
 

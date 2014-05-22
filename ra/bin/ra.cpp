@@ -22,7 +22,7 @@ void sigint_handler(int){
 
 
 void run(const s_config & config){
-    AnalysisController controller(config);
+    AnalysisController controller(config, false);
     
     bool do_stop = false;
     // nested loops to run over all datasets -> files -> events
@@ -31,14 +31,17 @@ void run(const s_config & config){
         auto & dataset = config.datasets[idataset];
         string outfilename = config.options.output_dir + "/" + dataset.name + ".root";
         controller.start_dataset(idataset, outfilename);
-        progress_bar progress("Progress for dataset '%(dataset)s': files: %(files)4ld / %(files_total)4ld; events: %(events)10ld (%(events)|rate|7.1f/s)");
+        progress_bar progress("Progress for dataset '%(dataset)s': files: %(files)4ld / %(files_total)4ld; events: %(events)10ld (%(events)|rate|7.1f/s); data rate: %(mbytes)|rate|5.2fMB/s");
         identifier events("events");
+        identifier mbytes("mbytes");
+        progress.set(mbytes, 0.0);
         progress.set("files_total", dataset.files.size());
         progress.set("dataset", dataset.name);
         progress.set("files", 0);
         progress.set("events", 0);
         progress.print();
         size_t nevents_done = 0;
+        size_t nbytes = 0;
         for(size_t ifile=0; ifile < dataset.files.size(); ++ifile){
             controller.start_file(ifile);
             size_t nevents = controller.get_file_size();
@@ -47,9 +50,12 @@ void run(const s_config & config){
                 if(do_stop || interrupted) break;
                 size_t imax = min<size_t>(imin + config.options.blocksize, nevents);
                 if(imin == imax) break;
-                controller.process(imin, imax);
+                AnalysisController::ProcessStatistics s;
+                controller.process(imin, imax, &s);
+                nbytes += s.nbytes_read;
                 nevents_done += imax - imin;
-                progress.set("events", nevents_done);
+                progress.set(events, nevents_done);
+                progress.set(mbytes, nbytes * 1e-6);
                 progress.check_autoprint();
                 if(config.options.maxevents_hint > 0){
                     if(nevents_done >= (size_t)config.options.maxevents_hint){

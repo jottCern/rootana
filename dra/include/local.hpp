@@ -21,13 +21,12 @@ public:
     virtual void on_restrictions_changed(const std::set<dc::StateGraph::RestrictionSetId> & new_restrictions);
     
     // MasterObserver:
-    virtual void set_master(const Master * master);
+    virtual void set_master(Master * master);
     virtual void on_dataset_start(const ra::s_dataset & dataset);
     
     virtual ~ProgressPrinter();
     
 private:
-    void print_summary();
     
     const Master * master;
     std::unique_ptr<ra::progress_bar> pb;

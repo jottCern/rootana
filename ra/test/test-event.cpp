@@ -210,5 +210,22 @@ BOOST_AUTO_TEST_CASE(outhist_dir){
     BOOST_CHECK_EQUAL(inhist->GetEntries(), 1);
 }
 
+BOOST_AUTO_TEST_CASE(visitor){
+    Event event;
+    event.set<int>("membername", 15);
+    
+    std::vector<Event::Element> elements;
+    event.visit([&elements](Event::Element elem){
+            elements.emplace_back(move(elem));
+        });
+    
+    BOOST_REQUIRE_EQUAL(elements.size(), 1);
+    BOOST_CHECK_EQUAL(get<0>(elements[0]).name(), "membername");
+    BOOST_CHECK_EQUAL(get<1>(elements[0]).name(), typeid(int).name());
+    BOOST_CHECK_EQUAL(*reinterpret_cast<const int*>(get<2>(elements[0])), 15);
+    BOOST_CHECK_EQUAL(get<3>(elements[0]), true);
+        
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 

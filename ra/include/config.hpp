@@ -30,12 +30,15 @@ namespace ra {
 std::vector<std::string> glob(const std::string& pattern);
 
 struct s_options{
+    enum e_mergemode { mm_master, mm_workers };
+    
     int blocksize;
     int maxevents_hint;
     std::string output_dir;
     std::vector<std::string> libraries;
     std::vector<std::string> searchpaths;
     bool keep_unmerged;
+    e_mergemode mergemode;
     
     explicit s_options(const ptree & options_cfg);
     s_options(const s_options &) = delete;

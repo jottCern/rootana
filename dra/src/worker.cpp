@@ -19,13 +19,13 @@ Worker::Worker(): wm(get_stategraph()), logger(Logger::get("dra.Worker")), iwork
 Worker::~Worker(){}
 
 std::unique_ptr<dc::Message> Worker::configure(const Configure & conf){
-    LOG_INFO("configure called; this is worker " << conf.iworker << "; config file=" << conf.cfgfile);
     iworker = conf.iworker;
     controller.reset();
     config.reset();
     config.reset(new s_config(conf.cfgfile));
     config->logger.apply(config->options.output_dir);
-    controller.reset(new AnalysisController(*config));
+    controller.reset(new AnalysisController(*config, true));
+    LOG_INFO("Configure done;  iworker=" << conf.iworker << "; cfgfile=" << conf.cfgfile);
     return unique_ptr<Message>();
 }
 
@@ -33,6 +33,10 @@ std::string Worker::get_outfilename(size_t idataset, int iw){
     stringstream outfilename;
     outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << iw << ".root";
     return outfilename.str();
+}
+
+bool Worker::stopped_successfully() const{
+    return wm.state() == wm.get_graph().get_state("stop");
 }
 
 void Worker::check_filenames_hash(size_t master_hash) const {
@@ -80,7 +84,7 @@ std::unique_ptr<dc::Message> Worker::merge(const Merge & m){
     assert(m.iworker1 != m.iworker2);
     string file1 = get_outfilename(m.idataset, m.iworker1);
     string file2 = get_outfilename(m.idataset, m.iworker2);
-    ra::merge_rootfiles(file1, file2);
+    ra::merge_rootfiles(file1, {file2});
     if(!config->options.keep_unmerged){
         int res = unlink(file2.c_str());
         if(res < 0){
@@ -92,7 +96,6 @@ std::unique_ptr<dc::Message> Worker::merge(const Merge & m){
 
 
 std::unique_ptr<dc::Message> Worker::stop(const Stop &){
-    LOG_INFO("stop");
     // nothing to do: files are closed in close or merge
     return unique_ptr<dc::Message>();
 }
