@@ -21,6 +21,10 @@ int setup_handler(){
     sa.sa_handler = &chld_handler;
     sigfillset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART; // avoid EINTR loop in waitpid
+    int res = sigaction(SIGCHLD, &sa, 0);
+    if(res < 0){
+        cerr << "error setting up SIGCHLD handler" << endl;
+    }
     return 0;
 }
 

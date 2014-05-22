@@ -141,7 +141,7 @@ private:
         identifier percent_of;
         std::string printf_formatstring;
         
-        formatspec(): rate(false){}
+        formatspec(): rate(false), is_percent_of(false){}
     };
     
     

@@ -237,8 +237,8 @@ private:
        li->log(sev, ss.str()); }}
 
 
-//log error and throw a runtime error with the same message; note: throws even if logger had lower log level
-#define LOG_THROW(expr) {::std::stringstream ss; ss << expr << " (throwing runtime_error)"; logger->log(::loglevel::error, ss.str()); throw ::std::runtime_error(ss.str()); }
+//log as error and throw a runtime error with the same message
+#define LOG_THROW(expr) {::std::stringstream ss; ss << expr; logger->log(::loglevel::error, ss.str()); throw ::std::runtime_error(ss.str()); }
 
 #define LOG_ERROR(expr)   LOG(logger, ::loglevel::error, expr)
 #define LOG_INFO(expr)    LOG(logger, ::loglevel::info, expr)

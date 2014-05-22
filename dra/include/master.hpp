@@ -101,7 +101,7 @@ private:
 class Master;
 class MasterObserver: public dc::SwarmObserver {
 public:
-    virtual void set_master(const Master * master) = 0; // called when added to master
+    virtual void set_master(Master * master) = 0; // called when added to master
     virtual void on_dataset_start(const ra::s_dataset & dataset) = 0;
 };
 
@@ -124,15 +124,26 @@ public:
         return erm ? erm->nevents_total() : 0;
     }
     
+    // get the number of bytes read by all workers in the current dataset;
+    // Note that this is the number of bytes reported by TBranch::GetEntry
+    // which is the number of uncompressed bytes, so the actual number
+    // of bytes read from the file system is lower than this.
+    size_t nbytes_read() const {
+        return nbytes_read_;
+    }
+    
     bool all_done() const {
-        // TODO: maybe replace with nevents_left==0?
         return all_done_;
     }
     
     // note: the observer will also be added to the SwarmManager as SwarmObserver.
     void add_observer(const std::shared_ptr<MasterObserver> & observer);
     
+    void abort();
+    
     void start();
+    
+    void stop();
     
 private:
     std::unique_ptr<Configure> generate_configure(const WorkerId & wid);
@@ -149,6 +160,7 @@ private:
     // use idataset = config.datasets.size() to finalize completely
     void init_dataset(size_t idataset);
     void finalize_dataset(const WorkerId & last_worker);
+    std::string get_unmerged_filename(int iworker) const;
     
     size_t get_n_unmerged() const;
     
@@ -162,6 +174,7 @@ private:
     
     // per-dataset information:
     int idataset;
+    size_t nbytes_read_;
     
     // per-dataset processing information:
     std::unique_ptr<detail::EventRangeManager> erm;
@@ -174,6 +187,8 @@ private:
     
     bool all_done_;
     std::vector<std::shared_ptr<MasterObserver>> observers;
+    
+    bool stopping;
 };
 
 

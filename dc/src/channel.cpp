@@ -201,7 +201,7 @@ void Channel::perform_reads(){
                 return;
             }
             else{
-                CHANNEL_LOG(loglevel::warning, "perform_reads: got error from read, calling handle_error(errno)");
+                CHANNEL_LOG(loglevel::warning, "perform_reads: read returned error " << strerror(errorcode));
                 handle_error(errorcode);
                 return;
             }

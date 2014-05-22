@@ -98,7 +98,13 @@ size_t TTreeInputManager::read_entry(size_t ientry){
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
     size_t result = 0;
     for(auto & name_bi : bname2bi){
-        result += name_bi.second.branch->GetEntry(ientry);
+        int res =  name_bi.second.branch->GetEntry(ientry);
+        if(res < 0){
+            stringstream ss;
+            ss << "Error from TBranch::GetEntry reading entry " << ientry;
+            throw runtime_error(ss.str());
+        }
+        result += res;
         event.set_presence(name_bi.second.ti, name_bi.second.name, Event::presence::present);
     }
     return result;

@@ -47,6 +47,7 @@ public:
     typedef std::function<void (const WorkerId &, std::unique_ptr<Message> result)> result_callback_type;
     
     SwarmManager(const StateGraph & sg, const failed_handler_type & failed_handler);
+    ~SwarmManager();
     
     const StateGraph & get_graph() const {
         return graph;
@@ -161,10 +162,8 @@ private:
     };
     std::map<WorkerId, Worker> workers;
     
-    //StateGraph::PrioritySetId active_pset;
     StateGraph::StateId target_state;
-    std::set<StateGraph::RestrictionSetId> active_restrictions;
-    
+    std::set<StateGraph::RestrictionSetId> active_restrictions;    
     
     std::vector<std::shared_ptr<SwarmObserver>> observers;
 };

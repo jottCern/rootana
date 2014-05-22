@@ -9,11 +9,9 @@
 
 namespace ra {
 
-// merge rootfile file2 into file1. Both files must exist and contain the same objects.
-void merge_rootfiles(const std::string & file1, const std::string & file2);
-
-// merge al rootfiles into first
-void merge_rootfiles(const std::vector<std::string> & files);
+// merge all rootfiles into file1. file1 has to exist (it will be updated during the merge).
+// all files must have the same keys.
+void merge_rootfiles(const std::string & file1, const std::vector<std::string> & rhs_filenames);
 
 
 // get a (copy of a) histogram from an open root file, with error checking and readable error messages
