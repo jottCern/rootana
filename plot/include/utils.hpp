@@ -146,6 +146,30 @@ private:
     int col;
 };
 
+class SetLineWidth {
+public:
+    void operator()(Histogram & h){
+        h.histo->SetLineWidth(w);
+    }
+    
+    explicit SetLineWidth(float w_): w(w_){}
+    
+private:
+    float w;
+};
+
+class SetLineStyle {
+public:
+    void operator()(Histogram & h){
+        h.histo->SetLineStyle(s);
+    }
+    
+    explicit SetLineStyle(int s_): s(s_){}
+    
+private:
+    int s;
+};
+
 class Scale {
 public:
     void operator()(Histogram & h){
