@@ -7,6 +7,11 @@ using namespace std;
 using namespace ra;
 
 
+namespace {
+string outputdir = "eps/full_eff_presel";
+string inputdir = "../zsvanalysis/rootfiles/full_weird_eff/";
+}
+
 void plot_eff(ProcessHistograms & input, const string & numerator, const string & denom, const Formatters & format){
     auto n = input.get_histogram(numerator);
     auto d = input.get_histogram(denom);
@@ -14,17 +19,20 @@ void plot_eff(ProcessHistograms & input, const string & numerator, const string 
     format(n);
     n.histo->Divide(d.histo.get());
     n.options["draw_ratio"] = "";
+    n.options["use_errors"] = "true";
     n.options["ytext"] = "#epsilon";
     vector<Histogram> histos;
     histos.emplace_back(move(n));
-    draw_histos(histos, "eff.eps");
+    string outfilename = outputdir + "/" + numerator + "_" + input.id().name() + "_eff.pdf";
+    create_dir(outfilename);
+    draw_histos(histos, outfilename);
 }
 
 
 int main(){
-    shared_ptr<ProcessHistograms> ttbar(new ProcessHistogramsTFile("../ttbar.root", "ttbar"));
-    shared_ptr<ProcessHistograms> dy(new ProcessHistogramsTFile({"../dy1jets.root", "../dy2jets.root", "../dy3jets.root", "../dy4jets.root", "../dy.root"}, "dy"));
-    shared_ptr<ProcessHistograms> data(new ProcessHistogramsTFile({"../dmu_runa.root", "../dmu_runb.root", "../dmu_runc.root", "../dmu_rund.root"}, "data"));
+    shared_ptr<ProcessHistograms> ttbar(new ProcessHistogramsTFile(inputdir+"ttbar.root", "ttbar"));
+    shared_ptr<ProcessHistograms> dy(new ProcessHistogramsTFile({inputdir+"dy1jets.root", inputdir+"dy2jets.root", inputdir+"dy3jets.root", inputdir+"dy4jets.root", inputdir+"dy.root"}, "dy"));
+    shared_ptr<ProcessHistograms> data(new ProcessHistogramsTFile({inputdir+"dmu_runa.root", inputdir+"dmu_runb.root", inputdir+"dmu_runc.root", inputdir+"dmu_rund.root"}, "data"));
     
     Formatters formatters;
     formatters.add("*", SetLineColor(1));
@@ -54,18 +62,20 @@ int main(){
     formatters.add<RebinFactor>("mll", 4)("ptz", 4)("Bpt",4)("Beta",4)("DPhi_BB", 2)("DR_BB", 2)("m_BB", 4);
 
     
-    plot_eff(*dy, "final/mll", "presel/mll", formatters);
+    plot_eff(*ttbar, "presel/matched_bcands_pt", "presel/mcbs_pt", formatters);
+    plot_eff(*dy, "presel/matched_bcands_pt", "presel/mcbs_pt", formatters);
+    plot_eff(*ttbar, "final/matched_bcands_pt", "final/mcbs_pt", formatters);
+    plot_eff(*dy, "final/matched_bcands_pt", "final/mcbs_pt", formatters);
     
     // scale final selection by 0.92**2 (IVF data/MC eficiency factor):
     /*formatters.add<Scale>("final/dy:", 0.92 * 0.92);
     formatters.add<Scale>("final/ttbar:", 0.92 * 0.92);*/
     
-    Plotter p("eps", {ttbar, dy, data}, formatters);
+     Plotter p(outputdir, {ttbar, dy, data}, formatters);
+     
+     p.stackplots({}/*{"dy", "ttbar"}*/);
+     p.cutflow("cutflow", "cutflow.tex");
     
-    p.stackplots({}/*{"dy", "ttbar"}*/);
-    p.cutflow("cutflow", "cutflow.tex");
-    
-    //p.shapeplots({"dy", "dyexcl"});
     
     //Plotter p("eps", {dy, dyexcl}, formatters);
     //p.stackplots({});

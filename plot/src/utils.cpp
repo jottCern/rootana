@@ -511,7 +511,7 @@ void create_dir(const string & filename){
     size_t p = filename.rfind('/');
     if(p==string::npos) return;
     string path = filename.substr(0, p);
-    int res = system(("mkdir -p " + path).c_str());
+    int res = system(("mkdir -v -p " + path).c_str());
     if(res < 0){
         throw runtime_error("Error executing 'mkdir -p " + path + "'");
     }
@@ -782,7 +782,7 @@ void Plotter::stackplots(const std::initializer_list<identifier> & processes_to_
             histos_for_draw.emplace_back(move(h));
         }
         
-        string outfilename = outdir + hname + "_stacked.eps";
+        string outfilename = outdir + hname + "_stacked.pdf";
         create_dir(outfilename);
         draw_histos(histos_for_draw, outfilename);
     }
@@ -816,7 +816,7 @@ void Plotter::shapeplots(const std::initializer_list<ra::identifier> & processes
             //h.histo->SetLineWidth(2.0);
             h.histo->SetFillColor(0);
         }
-        string outfilename = outdir + hname + suffix + "_shape.eps";
+        string outfilename = outdir + hname + suffix + "_shape.pdf";
         draw_histos(histograms, outfilename);
     }
 }
@@ -860,3 +860,222 @@ Plotter::Plotter(const std::string & outdir_, const std::vector<std::shared_ptr<
     }
     if(histos.empty()) throw runtime_error("histograms are empty");
 }
+
+//
+
+void RebinVariable::operator() (Histogram & h) {
+    new_name = h.hname.name()+"_var_bin";
+    TH1* rebin_histo = h.histo->Rebin(nbins, new_name.c_str(), bin_arr);
+    h.histo->SetBins(nbins, bin_arr);
+    for(int i=0; i<nbins; ++i){
+        h.histo->SetBinContent(i+1, rebin_histo->GetBinContent(i+1));
+        h.histo->SetBinError(i+1, rebin_histo->GetBinError(i+1));
+    }
+    double xmin = h.histo->GetXaxis()->GetBinLowEdge(1);
+    double xmax = h.histo->GetXaxis()->GetBinLowEdge(nbins);
+    h.histo->GetXaxis()->SetRangeUser(xmin, xmax);
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++
+//+++++++COMPARE SELECTIONS++++++++++++++++++
+//+++++++++++++++++++++++++++++++++++++++++++
+
+void Plotter::selcomp_plots(const std::initializer_list<ra::identifier> & selections_to_compare, const std::initializer_list<ra::identifier> & plots_to_compare, const std::string & outputname){
+    
+    std::set<ra::identifier> plot_types;
+    
+    if (!plots_to_compare.size())
+        plot_types = histos[0]->get_plot_types();
+    else
+        plot_types = plots_to_compare;
+
+    for(const auto & histo : histos){
+        for (const auto & p : plot_types){
+            auto histograms1 = get_selection_histogram(histo, selections_to_compare, p);
+            auto histograms2 = get_selection_histogram(histo, selections_to_compare, p);
+            if(histograms1.empty()) throw std::runtime_error("no histograms1 for Plotter::selcomp_plots found!");
+            if(histograms2.empty()) throw std::runtime_error("no histograms2 for Plotter::selcomp_plots found!");
+            // normalize all and set line color to fill color:
+            for(auto & h: histograms1){
+                h.histo->Scale(1.0 / h.histo->Integral());
+                h.histo->SetLineColor(h.histo->GetFillColor());
+                h.histo->SetLineWidth(2.0);
+                h.histo->SetFillColor(0);
+                h.options["ytext"] = "Normalized Units";
+                h.histo->SetMaximum(1.);
+            }
+            for(auto & h: histograms2){
+                h.histo->SetLineColor(h.histo->GetFillColor());
+                h.histo->SetLineWidth(2.0);
+                h.histo->SetFillColor(0);
+            }
+            string outfilename1 = outdir + outputname + "/" + histo->id().name() + "_" + p.name() + "_selcomp_norm.pdf";
+            string outfilename2 = outdir + outputname + "/" + histo->id().name() + "_" + p.name() + "_selcomp_abs.pdf";
+            create_dir(outfilename1);
+            draw_histos(histograms1, outfilename1);
+            draw_histos(histograms2, outfilename2);
+        }
+    }
+}
+
+std::string plotname(const std::string &);
+
+std::vector<Histogram> Plotter::get_selection_histogram(const std::shared_ptr<ProcessHistograms> & hsource, const std::initializer_list<ra::identifier> & selections_to_compare, const ra::identifier & plot_type){
+    std::vector<std::string> hnames = hsource->get_histogram_names();
+    vector<Histogram> histograms;
+    for (const auto & sel_id : selections_to_compare) {
+        for (const string & hname : hnames){
+            ra::identifier hist_sel(lastdirname(hname));
+            ra::identifier hist_plot(plotname(hname));
+            if (hist_sel != sel_id || hist_plot != plot_type) continue;
+            Histogram p_histo;
+            try{
+                p_histo = hsource->get_histogram(hname);
+            }
+            catch(std::runtime_error & ){
+                cout << "Warning: histogram '" << hname << "' for process '" << hsource->id().name() << "' not found." << endl;
+                continue;
+            }
+            formatters(p_histo);
+            if(!p_histo.ignore && p_histo.hname == plot_type && p_histo.selection == sel_id){
+                histograms.emplace_back(move(p_histo));
+            }
+        }
+    }
+    return histograms;
+}
+
+void get_names_of_plots(std::set<ra::identifier> & result, TDirectory * dir, const char * type){
+    TList * keys = dir->GetListOfKeys();
+    TObjLink *lnk = keys->FirstLink();
+    while (lnk) {
+        TKey * key = static_cast<TKey*>(lnk->GetObject());
+        TObject * obj = key->ReadObj();
+        if(obj->InheritsFrom(type)){
+            identifier i(key->GetName());
+            result.insert(i);
+        }
+        TDirectory* subdir = dynamic_cast<TDirectory*>(obj);
+        if(subdir){
+            get_names_of_plots(result, subdir, type);
+        }
+        lnk = lnk->Next();
+    }    
+}
+
+std::set<ra::identifier> ProcessHistogramsTFile::get_plot_types(){
+    std::set<ra::identifier> result;
+    get_names_of_plots(result, files[0], "TH1D");
+    return result;
+}
+
+std::string plotname(const string & histname) {
+    size_t lastslash = histname.rfind('/');
+    if (lastslash == string::npos) return histname;
+    else return histname.substr(lastslash+1, histname.size()-lastslash);
+}
+
+// void get_histnames_of_name(std::vector<std::string> & result, TDirectory * dir, const std::string & searched_name, const string & prefix){
+//     TList * keys = dir->GetListOfKeys();
+//     TObjLink *lnk = keys->FirstLink();
+//     int hname_mode = 0;
+//     std::string hname = searched_name;
+//     if (searched_name[searched_name.size()-1] == '*') {
+//         hname_mode = 1;
+//         hname = searched_name.substr(0, searched_name.size()-1);
+//     }
+//     if (searched_name[0] == '*') {
+//         hname_mode = 2;
+//         hname = searched_name.substr(1);
+//     }
+//     while (lnk) {
+//         TKey * key = static_cast<TKey*>(lnk->GetObject());
+//         TObject * obj = key->ReadObj();
+//         std::string  obj_name = (const char*)obj->GetName();
+//         if((hname_mode == 0 && !obj_name.compare(hname)) || (hname_mode == 1 && !(obj_name.substr(0, hname.size())).compare(hname) ) || (hname_mode == 2 && !((obj_name.substr(obj_name.size()-hname.size())).compare(hname) ) )){
+//             result.emplace_back(prefix + key->GetName());
+//         }
+//         TDirectory* subdir = dynamic_cast<TDirectory*>(obj);
+//         if(subdir){
+//             get_histnames_of_name(result, subdir, searched_name, prefix + subdir->GetName() + "/");
+//         }
+//         lnk = lnk->Next();
+//     }
+// }
+// 
+// std::vector<std::string> ProcessHistogramsTFile::get_histogram_names(const std::string & searched_name){
+//     std::vector<std::string> result;
+//     get_names_of_type(result, files[0], searched_name);
+//     return result;
+// }
+
+
+
+
+//======JUST FOR LOOKING UP==================== 
+
+
+// void Formatters::add(const std::string & histos_, const formatter_type & formatter){
+//     identifier proc = all, sel = all;
+//     string hname = "*";
+//     std::string histos(histos_);
+//     // try to interpret string as
+//     // proc:sel/hname
+//     // allow that any part is missing or empty.
+//     size_t pcol = histos.find(':');
+//     if(pcol!=string::npos){
+//         if(pcol!=0){
+//             proc = histos.substr(0, pcol);
+//         } // otherwise: leave it at proc = all
+//         histos = histos.substr(pcol + 1);
+//     }
+//     size_t psl = histos.find('/');
+//     if(psl!=string::npos){
+//         if(psl!=0){
+//             sel = histos.substr(0, psl);
+//         } // itherwise, leave it at sel = all
+//         histos = histos.substr(psl + 1);
+//     }
+//     int hname_mode = 0;
+//     if(!histos.empty()){
+//         if(histos[histos.size()-1] == '*' && histos.size() != 1){
+//             // match prefix:
+//             hname_mode = 1;
+//             hname = histos.substr(0, histos.size()-1);
+//         }
+//         else if(histos[0]=='*' && histos.size() != 1){
+//             // match suffix
+//             hname_mode = 2;
+//             hname = histos.substr(1);
+//         }
+//         else{ // match all
+//             hname = histos;
+//         }
+//     }
+//     formatters.emplace_back(proc, sel, hname_mode, hname, formatter);
+// }
+// 
+// 
+// void Formatters::operator()(Histogram & h) const{
+//     for(const auto & f : formatters){
+//         if(f.proc != all and f.proc != h.process) continue;
+//         if(f.sel != all and f.sel != h.selection) continue;
+//         if(f.hname != all){
+//             bool matches;
+//             if(f.hname_mode == 0){
+//                 matches = h.hname == f.hname;
+//             }
+//             else if(f.hname_mode == 1){
+//                 matches = f.hname_substr.compare(0, f.hname_substr.size(), h.hname.name(), 0, f.hname_substr.size()) == 0;
+//             }
+//             else{ // hname_mode == 2
+//                 string hname = h.hname.name();
+//                 matches = hname.size() >= f.hname_substr.size() &&
+//                      // compare all of "this"=f.hname_substr to last part of "that" = hname
+//                      f.hname_substr.compare(0, f.hname_substr.size(), hname, hname.size() - f.hname_substr.size(), f.hname_substr.size()) == 0;
+//             }
+//             if(!matches) continue;
+//         }
+//         f.formatter(h);
+//     }
+// }

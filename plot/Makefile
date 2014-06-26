@@ -9,8 +9,9 @@ USERLDFLAGS += $(ROOT_LDFLAGS) -lra -lbase
 
 default: plot
 
+# all: plot_zbb_dominik plot_ivf plotzbb plot ../lib/libplot.so
+
 include ../Makefile.rules
 
 %: .bin/%.o ../lib/libplot.so
 	$(EXE_CMD) -lplot
-

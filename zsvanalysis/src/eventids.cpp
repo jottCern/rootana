@@ -13,3 +13,5 @@ DEFINE_ID(lepton_minus);
 DEFINE_ID(mc_true_pileup);
 DEFINE_ID(npv);
 
+DEFINE_ID(mc_bs);
+
