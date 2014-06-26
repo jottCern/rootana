@@ -152,9 +152,9 @@ public:
     }
         
     bool operator()(const Event & event){
-        ID(p4daughters);
-        LorentzVector p4 = event.get<LorentzVector>(p4daughters);
-        float eta = p4.Eta();
+        ID(recoPos);
+        Point position = event.get<Point>(recoPos);
+        float eta = position.eta();
         return (mineta < eta && eta < maxeta );
     }
                 
@@ -186,6 +186,29 @@ private:
 
 
 REGISTER_SELECTION(Sig3DSelection)
+
+
+class Rho1DSelection : public Selection{
+public:
+    Rho1DSelection(const ptree & cfg, OutputManager &){
+        minrho = ptree_get<float>(cfg, "minrho", 0.);
+        maxrho = ptree_get<float>(cfg, "maxrho", 1000.);
+    }
+        
+    bool operator()(const Event & event){
+        ID(recoPos);
+        Point position = event.get<Point>(recoPos);
+        float rho = position.rho();
+        return (minrho < rho && rho < maxrho );
+    }
+                
+private:
+    float minrho;
+    float maxrho;
+};
+
+
+REGISTER_SELECTION(Rho1DSelection)
 
 
 //===========CALCULATE ERRORS FIRST, BUT HAVE ONLY THE ONE FROM SV!!!=============     

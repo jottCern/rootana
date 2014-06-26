@@ -8,7 +8,7 @@ using namespace ra;
 
 
 namespace {
-string outputdir = "eps/ivf_hist_mcttbar_new_17_with_fdsig3d_kshort_yrange";
+string outputdir = "eps/ivf_hist_mcttbar_new_18_with_rhocut";
 string inputdir = "../ivf_treeAnalysis/rootfiles/";
 }
 
@@ -30,7 +30,7 @@ void plot_eff(ProcessHistograms & input, const string & numerator, const string 
  
 
 int main(){
-    shared_ptr<ProcessHistograms> mcttbar_full(new ProcessHistogramsTFile(inputdir+"ivf_hist_mcttbar_new_17_with_fdsig3d.root", "mcttbar_full"));
+    shared_ptr<ProcessHistograms> mcttbar_full(new ProcessHistogramsTFile(inputdir+"ivf_hist_mcttbar_new_18_with_rhocut.root", "mcttbar_full"));
     
     Formatters formatters;
     formatters.add("*", SetLineColor(1));
@@ -41,6 +41,7 @@ int main(){
         ("AnyDecay05Pt8/", kBlue) ("GeantHadronic05Pt8/", kRed) ("GeantConversions05Pt8/", kGreen) ("BDecayPt8/", kBlue) ("KsDecayPt8/", kOrange) ("PrimaryDecayPt8/", kGreen) ("RestDecayPt8/", kMagenta)
         ("AnyDecay05Mass/", kBlue) ("GeantHadronic05Mass/", kRed) ("GeantConversions05Mass/", kGreen) ("BDecayMass/", kBlue) ("KsDecayMass/", kOrange) ("PrimaryDecayMass/", kGreen) ("RestDecayMass/", kMagenta)
         ("AnyDecay05Sig3dFIN/", kBlue) ("GeantHadronic05Sig3dFIN/", kRed) ("GeantConversions05Sig3dFIN/", kGreen) ("BDecaySig3dFIN/", kBlue) ("KsDecaySig3dFIN/", kOrange) ("PrimaryDecaySig3dFIN/", kGreen) ("RestDecaySig3dFIN/", kMagenta)
+        ("AnyDecay05Rho28/", kBlue) ("GeantHadronic05Rho28/", kRed) ("GeantConversions05Rho28/", kGreen) ("BDecayRho28/", kBlue) ("KsDecayRho28/", kOrange) ("PrimaryDecayRho28/", kGreen) ("RestDecayRho28/", kMagenta)
         ;
     formatters.add<SetLegends>
         ("AllProcess/", "All Processes")
@@ -50,6 +51,7 @@ int main(){
         ("AnyDecay05Pt8/", "Decays (0.5)") ("GeantHadronic05Pt8/", "Hadronic Processes, NI (0.5)") ("GeantConversions05Pt8/", "Conversion Processes (0.5)") ("BDecayPt8/", "B Decays") ("KsDecayPt8/", "Kshort") ("PrimaryDecayPt8/", "Primary Fakes") ("RestDecayPt8/", "Rest Decays")
         ("AnyDecay05Mass/", "Decays (0.5)") ("GeantHadronic05Mass/", "Hadronic Processes, NI (0.5)") ("GeantConversions05Mass/", "Conversion Processes (0.5)") ("BDecayMass/", "B Decays") ("KsDecayMass/", "Kshort") ("PrimaryDecayMass/", "Primary Fakes") ("RestDecayMassFIN/", "Rest Decays")
         ("AnyDecay05Sig3dFIN/", "Decays (0.5)") ("GeantHadronic05Sig3dFIN/", "Hadronic Processes, NI (0.5)") ("GeantConversions05Sig3dFIN/", "Conversion Processes (0.5)") ("BDecaySig3dFIN/", "B Decays") ("KsDecaySig3dFIN/", "Kshort") ("PrimaryDecaySig3dFIN/", "Primary Fakes") ("RestDecaySig3dFIN/", "Rest Decays")
+        ("AnyDecay05Rho28/", "Decays (0.5)") ("GeantHadronic05Rho28/", "Hadronic Processes, NI (0.5)") ("GeantConversions05Rho28/", "Conversion Processes (0.5)") ("BDecayRho28/", "B Decays") ("KsDecayRho28/", "Kshort") ("PrimaryDecayRho28/", "Primary Fakes") ("RestDecayRho28/", "Rest Decays")
         ;
     formatters.add<SetOption>/*("Rho1D", "use_yrange", "1") ("VertMass", "use_yrange", "1") ("FlightDirSig3d", "use_yrange", "1")*/ ("VertMass", "xmin", "0") ("VertMass", "xmax", "10") ("Rho1D", "ylog", "1") ("VertMass", "ylog", "1") ("*", "ytext", "#Vertices") ("VertMass", "xtext", "Mass [GeV]") ("Rho1D", "xtext", "Rho [cm]") ("TrackMult", "xtext", "Number Tracks") ("VertPt", "xtext", "p_{T} [GeV]") ("FlightDirSig3d", "xtext", "flight dir sig3D") ("FlightDirSig3d", "ylog", "1");
     
@@ -73,6 +75,9 @@ int main(){
      
      p.selcomp_plots({"AllProcess", "AnyDecay05Sig3dFIN", "GeantHadronic05Sig3dFIN", "GeantConversions05Sig3dFIN", "RestDecaySig3dFIN"}, {"Rho1D", "VertMass", "TrackMult", "VertPt", "FlightDirSig3d"}, "ZZ_geantonly_selcomp_Sig3dFIN");
      p.selcomp_plots({"GeantHadronic05Sig3dFIN", "BDecaySig3dFIN", "KsDecaySig3dFIN", "PrimaryDecaySig3dFIN"}, {"Rho1D", "VertMass", "TrackMult", "VertPt", "FlightDirSig3d"}, "ZZ_geantdec_selcomp_Sig3dFIN");
+     
+     p.selcomp_plots({"AllProcess", "AnyDecay05Rho28", "GeantHadronic05Rho28", "GeantConversions05Rho28", "RestDecayRho28"}, {"Rho1D", "VertMass", "TrackMult", "VertPt", "FlightDirSig3d"}, "ZZ_geantonly_selcomp_Rho28");
+     p.selcomp_plots({"GeantHadronic05Rho28", "BDecayRho28", "KsDecayRho28", "PrimaryDecayRho28"}, {"Rho1D", "VertMass", "TrackMult", "VertPt", "FlightDirSig3d"}, "ZZ_geantdec_selcomp_Rho28");
 //      p.cutflow("cutflow", "cutflow.tex");
     
     //p.shapeplots({"dy", "dyexcl"}); 
