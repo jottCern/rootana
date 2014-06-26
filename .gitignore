@@ -12,8 +12,10 @@ ra/ra
 *.so
 *.exe
 *.NOT
-ivf_treeAnalysis/plot_ivf/plot
+ivf_treeAnalysis/plot_ivf/
 */plot
 plot/plotzbb
 dra/dra_local
 zsvanalysis/rootfiles
+plot_ivf/
+plot_zsv
