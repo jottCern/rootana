@@ -14,10 +14,4 @@ ra/ra
 *.NOT
 ivf_treeAnalysis/plot_ivf/
 */plot
-plot/plotzbb
-plot/plot_ivf
-plot/plot_zbb_dominik
-dra/dra_local
 zsvanalysis/rootfiles
-plot_ivf
-plot_zsv

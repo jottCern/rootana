@@ -1,4 +1,5 @@
-./plot*
+plot*
 Makefile.local
 eps/*
 *.tex
+
