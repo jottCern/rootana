@@ -9,7 +9,7 @@ all: make-test-input unf plot
 include ../Makefile.rules
 
 unf: .bin/unf.o ../lib/libunfold.so
-	@$(EXE_CMD) -lunfold
+	@$(EXE_CMD) -lunfold -lra
 
 make-test-input: .bin/make-test-input.o ../lib/libunfold.so
 	@$(EXE_CMD) -lunfold

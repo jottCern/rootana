@@ -3,6 +3,7 @@
 #include "random.hpp"
 #include "stat.hpp"
 #include "base/include/ptree-utils.hpp"
+#include "ra/include/root-utils.hpp"
 
 #include "TDirectory.h"
 #include "TH1D.h"
@@ -11,7 +12,7 @@
 using namespace std;
 
 unfold::unfold(const ptree& cfg, TFile & infile, TDirectory& out_): Module(out_){
-    auto histo = gethisto<TH1D>(infile, ptree_get<string>(cfg, "hname"));
+    auto histo = ra::gethisto<TH1D>(infile, ptree_get<string>(cfg, "hname"));
     reco = roothist_to_spectrum(*histo);
 }
 

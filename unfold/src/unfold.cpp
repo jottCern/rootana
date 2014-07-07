@@ -1,6 +1,7 @@
 #include "unfold.hpp"
 #include "root.hpp"
 #include "base/include/ptree-utils.hpp"
+#include "ra/include/root-utils.hpp"
 
 #include "TFile.h"
 #include "TH1D.h"
@@ -14,11 +15,11 @@ Module::~Module(){}
 Problem::Problem(TFile & infile, const ptree & cfg){
     auto prefix = ptree_get<string>(cfg, "prefix", "");
     
-    auto hresponse = gethisto<TH2D>(infile, prefix + ptree_get<string>(cfg, "response", "response"));
+    auto hresponse = ra::gethisto<TH2D>(infile, prefix + ptree_get<string>(cfg, "response", "response"));
     bool transpose = ptree_get<bool>(cfg, "transpose", false);
     tie(R_, R_uncertainties_) = roothist_to_matrix(*hresponse, transpose);
     
-    auto hgen = gethisto<TH1D>(infile, prefix + ptree_get<string>(cfg, "gen", "gen"));
+    auto hgen = ra::gethisto<TH1D>(infile, prefix + ptree_get<string>(cfg, "gen", "gen"));
     gen_ = roothist_to_spectrum(*hgen);
     
     
@@ -28,11 +29,11 @@ Problem::Problem(TFile & infile, const ptree & cfg){
     // 2. if 'bkg' is not given, try the standard names
     boost::optional<string> bkg_hname = cfg.get_optional<string>("bkg");
     if(bkg_hname){
-        auto hbkg = gethisto<TH1D>(infile, prefix + *bkg_hname);
+        auto hbkg = ra::gethisto<TH1D>(infile, prefix + *bkg_hname);
         auto bkg_cov_hname = cfg.get_optional<string>("bkg-cov");
         std::unique_ptr<TH2D> hbkg_cov;
         if(bkg_cov_hname){
-            hbkg_cov = gethisto<TH2D>(infile, prefix + *bkg_cov_hname);
+            hbkg_cov = ra::gethisto<TH2D>(infile, prefix + *bkg_cov_hname);
         }
         bkg_ = roothist_to_spectrum(*hbkg, hbkg_cov.get(), bkg_use_uncertainties);
     }
@@ -40,8 +41,8 @@ Problem::Problem(TFile & infile, const ptree & cfg){
         std::unique_ptr<TH1D> hbkg;
         std::unique_ptr<TH2D> hbkg_cov;
         try{
-            hbkg = gethisto<TH1D>(infile, prefix + "bkg");
-            hbkg_cov = gethisto<TH2D>(infile, prefix + "bkg_cov");
+            hbkg = ra::gethisto<TH1D>(infile, prefix + "bkg");
+            hbkg_cov = ra::gethisto<TH2D>(infile, prefix + "bkg_cov");
         }
         catch(runtime_error & ){
             // histogram not found: ignore

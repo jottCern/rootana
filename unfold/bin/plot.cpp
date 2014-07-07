@@ -1,5 +1,6 @@
 #include "root.hpp"
 #include "plot/include/utils.hpp"
+#include "ra/include/root-utils.hpp"
 
 #include "TROOT.h"
 #include "TText.h"
@@ -15,6 +16,7 @@
 #include <sstream>
 
 using namespace std;
+using namespace ra;
 
 
 namespace {
