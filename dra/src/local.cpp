@@ -23,7 +23,6 @@ namespace {
 std::set<int> exited_childs;
     
 void chld_handler(int, siginfo_t* info, void*){
-    //cout << "SIGCHLD handler called for pid " << info->si_pid << endl;
     exited_childs.insert(info->si_pid);
 }
     
@@ -84,19 +83,15 @@ void ProgressPrinter::on_state_transition(const WorkerId & w1, const StateGraph:
         
         ssize_t ntotal = master->nevents_total();
         if(ntotal == 0){ // this happens in a state transition to a new dataset
-            pb->check_autoprint();
+            pb->print();
             return; 
         }
         size_t nevents_left = master->nevents_left();
         pb->set("events", abs(ntotal) - nevents_left);
         pb->set("mbytes", master->nbytes_read() * 1e-6);
-        pb->check_autoprint();
+        pb->print();
     }
 }
-
-void ProgressPrinter::on_idle(const WorkerId & w, const StateGraph::StateId & current_state){}
-void ProgressPrinter::on_target_changed(const StateGraph::StateId & new_target){}
-void ProgressPrinter::on_restrictions_changed(const std::set<StateGraph::RestrictionSetId> & new_restrictions){}
 
 ProgressPrinter::~ProgressPrinter(){}
 
@@ -301,10 +296,11 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
             master.add_worker(move(channels[i]));
         }
         iom.process();
-        if(!master.all_done()){
+        // TODO: ...
+        /*if(!master.all_done()){
             LOG_ERROR("Master IO processing exited before the dataset was processed completely.");
             master_ok = false;
-        }
+        }*/
     }
     catch(std::exception & ex){
         LOG_ERROR("Exception while running master: " << ex.what());

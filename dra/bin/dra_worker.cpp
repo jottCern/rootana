@@ -50,10 +50,11 @@ int main(int argc, char ** argv){
         int socket = connect_to(argv[1], port);
         bool success = run_worker(socket);
         if(success){
-            cout << "worker exiting successfully" << endl;
+            return 0;
         }
         else{
             cerr << "worker NOT successfull (see log for details)" << endl;
+            exit(2);
         }
     }
     catch(std::runtime_error & ex){

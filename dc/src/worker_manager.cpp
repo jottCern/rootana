@@ -95,13 +95,13 @@ void WorkerManager::on_out_message(){
 }
     
 void WorkerManager::on_error(int errorcode){
-    LOG_ERROR("Channel error: " << strerror(errorcode));
     if(current_state==failed_state){}
     // special case: connection was closed while we are in the stop state:
     else if(current_state==stop_state && errorcode==ECONNRESET){
         LOG_DEBUG("on_error: is ECONNRESET in stop state, ignoring");
     }
     else{
+        LOG_ERROR("Channel error: " << strerror(errorcode));
         handle_error(ErrorType::io);
     }
 }

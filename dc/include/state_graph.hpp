@@ -144,7 +144,6 @@ public:
         add_state("start");
         add_state("stop");
         add_state("failed");
-        //add_priority_set("zero");
     }
     
     // states:

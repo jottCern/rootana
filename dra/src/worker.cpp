@@ -74,7 +74,7 @@ std::unique_ptr<dc::Message> Worker::process(const Process & p){
 }
 
 std::unique_ptr<dc::Message> Worker::close(const Close &){
-    LOG_INFO("closing file for current dataset");
+    LOG_INFO("closing output file for current dataset");
     controller->start_dataset(-1, "");
     return unique_ptr<dc::Message>();
 }

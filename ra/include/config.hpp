@@ -104,18 +104,18 @@ struct s_logger {
     struct s_logconfig {
         std::string loggername_prefix;
         std::string threshold; // empty = inherit
-        std::string logfile;
         
         explicit s_logconfig(const std::string & key, const ptree & cfg);
     };
     
-    std::string logfile_dir;
+    std::string logfile;
+    std::string stdout_threshold;
     std::vector<s_logconfig> configs;
     
     explicit s_logger(const ptree & cfg);
     s_logger() = default;
     
-    // apply the current configuration to the global Logger. outdir is the base directory to use in case
+    // apply the current configuration to the global LogController. outdir is the base directory to use in case
     // of relative logfile_dir (typically set to s_options::output_dir).
     void apply(const std::string & outdir) const;
 };

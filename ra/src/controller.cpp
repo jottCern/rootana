@@ -38,7 +38,7 @@ AnalysisController::AnalysisController(const s_config & config_, bool parallel):
 
 void AnalysisController::start_dataset(size_t idataset, const string & new_outfile_path){
     if(current_idataset == idataset && outfile_path == new_outfile_path) return;
-    LOG_DEBUG("start dataset, outfile = " << new_outfile_path);
+    LOG_DEBUG("start_dataset idataset = " << idataset << "; outfile = " << new_outfile_path);
     // cleanup previous per-file info:
     current_ifile = -1;
     infile.reset();

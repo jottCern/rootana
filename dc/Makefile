@@ -1,5 +1,5 @@
 LIB := dc
-#TEST := test.exe
+TEST := test.exe
 
 USERCXXFLAGS += $(BOOST_CFLAGS)
 USERLDFLAGS += -lbase

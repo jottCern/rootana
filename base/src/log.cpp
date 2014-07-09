@@ -29,12 +29,27 @@ namespace{
     }
 }
 
+loglevel parse_loglevel(const std::string & threshold, const loglevel & def, bool verbose){
+    if(threshold == "DEBUG") return loglevel::debug;
+    else if(threshold == "INFO") return loglevel::info;
+    else if(threshold == "WARNING") return loglevel::warning;
+    else if(threshold == "ERROR") return loglevel::error;
+    else if(threshold == "QUIET") return loglevel::quiet_threshold;
+    else {
+        if(verbose){
+            cerr << "Could not parse logger threshold '" << threshold << "'";
+        }
+        return def;
+    }
+}
+
 void print(ostream & out, loglevel s, bool with_color){
     switch(s){
         case loglevel::debug:   out << "[DEBUG]  "; break;
         case loglevel::info:    out << "[INFO]   "; break;
         case loglevel::warning: out << "[WARNING]"; break;
         case loglevel::error:
+        case loglevel::quiet_threshold:
             if(with_color)
                 out << red("[ERROR]  ");
             else
@@ -42,92 +57,6 @@ void print(ostream & out, loglevel s, bool with_color){
             break;
     }
 }
-
-namespace {
-    
-void split(const std::string & s, char delim, std::vector<std::string> & elems) {
-    std::stringstream ss(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
-}
-
-
-bool is_child = false; // true if we are a forked subprocess. Only works if forking takes place after static initialization via dofork.
-
-void mark_child(){
-    is_child = true;
-}
-
-int init_atfork(){
-    atfork(&mark_child, atfork_child);
-    return 0;
-}
-
-int dummy = init_atfork();
-
-}
-
-std::shared_ptr<LogSink> LogSinkFactory::get_sink(const std::string & outfile){
-    // note that sinks are usually owned by the Loggers they use them;
-    // we do not need to keep around sinks that are not used by any logger.
-    // Therefore, we keep weak_ptrs here, but return them as shared_ptr
-    static std::map<std::string, std::weak_ptr<LogSink> > filename_to_sink; // uses full path names as key (!) and "" for the stdout sink.
-    
-    if(outfile.empty() || outfile == "-"){
-        auto it = filename_to_sink.find("");
-        if(it != filename_to_sink.end() && !it->second.expired()){
-            return it->second.lock();
-        }
-        else{
-            std::shared_ptr<LogSink> result(new LogSinkOstream(cout));
-            filename_to_sink[""] = result;
-            return result;
-        }
-    }
-    // create a file: ...
-    std::vector<string> tokens;
-    split(outfile, ';', tokens);
-    // in case the filename is relative to the current directory, make sure to tell that realpath:
-    string dname, bname; // dirname and base name of the outfile.
-    {
-       char * path = strdup(tokens[0].c_str());
-       char * c_bname = basename(path);
-       bname = c_bname;
-       free(path);
-       path = strdup(tokens[0].c_str());
-       char * c_dname = dirname(path);
-       dname = c_dname;
-       free(path);
-    }
-    unique_ptr<char[]> path(new char[PATH_MAX]);
-    char * res = realpath(dname.c_str(), path.get());
-    if(res == 0){
-        int errorcode = errno;
-        cerr << "Could not create LogSink for outfile '" << outfile << "': error during path resolution: " << strerror(errorcode) << endl;
-    }
-    string fullname = string(path.get()) + '/' + bname;
-    auto it = filename_to_sink.find(fullname);
-    if(it != filename_to_sink.end() && !it->second.expired()){
-        return it->second.lock();
-    }
-    else{
-        int maxsize = 5 * (1 << 20);
-        int circular = 1;
-        if(tokens.size() > 1){
-            maxsize = boost::lexical_cast<int>(tokens[1]);
-        }
-        if(tokens.size() > 2){
-            circular = boost::lexical_cast<int>(tokens[2]);
-        }
-        std::shared_ptr<LogFile> result(new LogFile(fullname.c_str(), maxsize, circular));
-        result->init();
-        filename_to_sink[fullname] = result;
-        return result;
-    }
-}
-
 
 void LogSinkOstream::append(const string & m){
     if(out.good()){
@@ -148,18 +77,8 @@ namespace {
     // all LogFiles.
     const int pagesize = sysconf(_SC_PAGESIZE);
     
-    std::list<std::weak_ptr<LogFile> > & log_files(){
-        static std::list<std::weak_ptr<LogFile> > files;
-        return files;
-    }
-    
     void logfile_forkhandler(){
-        auto & files = log_files();
-        for(auto & f : files){
-            if(!f.expired()){
-                f.lock()->handle_fork();
-            }
-        }
+        LogController::get().handle_fork();
     }
     
     int install_logfile_forhandler(){
@@ -175,24 +94,12 @@ LogFile::LogFile(const char * fname, size_t maxsize, int circular_): filename(fn
     if(msize == 0 || msize % pagesize > 0){
         msize += pagesize - msize % pagesize;
     }
-    if(is_child){
-        stringstream fn;
-        fn << filename << ".p" << getpid();
-        filename = fn.str();
-    }
-}
-
-void LogFile::init(){
-    log_files().push_back(shared_from_this());
     setup_new_file();
 }
 
-void LogFile::handle_fork(){
-    stringstream fname;
-    fname << filename << ".p" << getpid();
-    filename = fname.str();
-    // unmap current region, but do not ftruncate (otherwise the parent would
-    // get screwed when writing ...).
+void LogFile::reopen_after_fork(const char * new_fname){
+    filename = new_fname;
+    // unmap current region, but do not ftruncate (otherwise the parent would get segfault when writing ...).
     if(maddr){
         int res = munmap(maddr, msize);
         maddr = 0;
@@ -200,7 +107,7 @@ void LogFile::handle_fork(){
             cerr << "LogFile: munmap failed: " << strerror(errno) << "; ignoring that." << endl;
         }
     }
-    // start the new file with different name containing ".p<pid>".
+    // start the new file:
     current_file = -1;
     setup_new_file();
 }
@@ -311,28 +218,105 @@ void LogFile::append(const string & m){
     mpos += m.size();
 }
 
-
-// Logger
-std::list<LoggerConfiguration> & Logger::the_configuration(){
-    static std::list<LoggerConfiguration> config;
-    return config;
+//LogController
+LogController::LogController(): stdout_threshold(loglevel::warning){
+    auto * fname = getenv("DC_LOGFILE");
+    if(fname){
+        set_outfile(fname);
+    }
+    stdout.reset(new LogSinkOstream(std::cout));
 }
 
-void Logger::set_configuration(std::list<LoggerConfiguration> conf){
-    the_configuration() = move(conf);
-    auto & loggers = all_loggers();
-    for(auto & l : loggers){
-        l.second->apply_configuration();
+LogController & LogController::get(){
+    static LogController lc;
+    return lc;
+}
+
+void LogController::set_outfile(const std::string & outfile_pattern_, size_t maxsize, int circular){
+    outfile_pattern = outfile_pattern_;
+    if(outfile_pattern.empty()){
+        outfile.reset();
+    }
+    else{
+        outfile.reset(new LogFile(get_outfile_name().c_str(), maxsize, circular));
     }
 }
 
-std::map<std::string, std::shared_ptr<Logger> > & Logger::all_loggers(){
-    static map<string, std::shared_ptr<Logger> > loggers;
-    return loggers;
+std::string LogController::get_outfile_name() const{
+    string outfile = outfile_pattern;
+    auto replace = [](string & s, const string & search, const std::function<string ()> & repl) -> bool {
+        auto p = s.find(search);
+        if(p!=string::npos){
+            s.replace(p, search.size(), repl());
+            return true;
+        }
+        return false;
+    };
+    
+    auto gethostname_string = []() -> string {
+        char buf[HOST_NAME_MAX+1];
+        gethostname(buf, HOST_NAME_MAX+1); // only error can be ENAMETOOLONG ...
+        buf[HOST_NAME_MAX] = '\0'; // .. in which case the hostname is truncated and we take care about null-termination ...
+        return buf;
+    };
+    
+    auto getdatetime = []() -> string {
+        char buf[40];
+        time_t t;
+        time(&t);
+        struct tm * tmt = localtime(&t);
+        if(tmt==0) return "terr0";
+        auto res = strftime(buf, 40, "%Y-%m-%d_%H-%M-%S", tmt); // 19 characters + null = 20.
+        if(res==0) return "terr1";
+        return buf;
+    };
+    
+    replace(outfile, "%p", [](){return boost::lexical_cast<string>(getpid());});
+    replace(outfile, "%h", gethostname_string);
+    replace(outfile, "%T", getdatetime);
+    return outfile;
+}
+    
+void LogController::set_stdout_threshold(const loglevel & l){
+    stdout_threshold = l;
+}
+
+void LogController::configure(const std::list<LoggerThresholdConfiguration> & conf){
+    configuration = conf;
+    for(auto & l: all_loggers){
+        l.second->apply_configuration(conf);
+    }
+}
+
+void LogController::log(loglevel l, const std::string & m){
+    if(stdout && l >= stdout_threshold){
+        stringstream ss;
+        print(ss, l, stdout->is_terminal());
+        ss << m;
+        stdout->append(ss.str());
+    }
+    if(outfile){
+        stringstream ss;
+        print(ss, l, false);
+        ss << m;
+        outfile->append(ss.str());
+    }
+}
+
+void LogController::handle_fork(){
+    if(outfile){
+        outfile->reopen_after_fork(get_outfile_name().c_str());
+    }
+}
+
+
+// Logger
+Logger::Logger(const std::string & name): logger_name(name), l_threshold(loglevel::warning), next_index(0){
+    apply_configuration(LogController::get().configuration);
 }
 
 std::shared_ptr<Logger> Logger::get(const string & name){
-    auto & loggers = all_loggers();
+    auto & loggers =  LogController::get().all_loggers;
     auto it = loggers.find(name);
     if(it!=loggers.end()) return it->second;
     else{
@@ -343,7 +327,7 @@ std::shared_ptr<Logger> Logger::get(const string & name){
 }
 
 void Logger::remove(const std::string & name){
-    auto & loggers = all_loggers();
+    auto & loggers =  LogController::get().all_loggers;
     auto it = loggers.find(name);
     if(it == loggers.end()) return;
     if(it->second.use_count() == 1){
@@ -351,14 +335,12 @@ void Logger::remove(const std::string & name){
     }
 }
 
-void Logger::apply_configuration(){
-    const auto & configs  = get_configuration();
-    std::string threshold, outfile;
+void Logger::apply_configuration(const std::list<LoggerThresholdConfiguration> & configs){
+    std::string threshold;
     for(auto & conf : configs){
         // the config applies if its logger_name_prefix is empty or is identical to our full logger name or our name starts with (prefix + ".").
         if(!conf.logger_name_prefix.empty() && conf.logger_name_prefix != logger_name && logger_name.find(conf.logger_name_prefix + ".") != 0) continue;
-        if(conf.command == LoggerConfiguration::set_threshold) threshold = conf.value;
-        else if(conf.command == LoggerConfiguration::set_outfile) outfile = conf.value;
+        threshold = conf.threshold;
     }
     // if not configured, use the default from the environment:
     if(threshold.empty()){
@@ -366,34 +348,17 @@ void Logger::apply_configuration(){
         if(!ll) threshold = "WARNING";
         else threshold = ll;
     }
-    if(threshold == "DEBUG") l_threshold = loglevel::debug;
-    else if(threshold == "INFO") l_threshold = loglevel::info;
-    else if(threshold == "WARNING") l_threshold = loglevel::warning;
-    else if(threshold == "ERROR") l_threshold = loglevel::error;
-    else {
-        cerr << "Logger: could not parse threshold '" << threshold << "', defaulting to WARNING level.";
-        l_threshold = loglevel::warning;
-    }
-    
-    if(outfile.empty()){
-        const char * of = getenv("DC_LOGFILE");
-        if(!of) outfile = "-";
-        else {
-            outfile = of;
-        }
-    }
-    sink = LogSinkFactory::get_sink(outfile); // note: can be the same as before ...
+    l_threshold = parse_loglevel(threshold, loglevel::warning);
 }
 
 void Logger::log(loglevel l, const string & m){
-    if(l < l_threshold || !sink) return;
+    if(l < l_threshold) return;
     int pid = getpid();
     int index = next_index++;
     timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
     stringstream ss;
-    print(ss, l, sink->is_terminal());
-    ss << "@" << pid << "; " << logger_name << "[" << index << "] "
+    ss << "p" << pid << "; " << logger_name << "[" << index << "] "
        << t.tv_sec << "." << setw(3) << setfill('0') << t.tv_nsec / 1000000 << ": " << m << "\n";
-    sink->append(ss.str());
+    LogController::get().log(l, ss.str());
 }

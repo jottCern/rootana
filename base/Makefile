@@ -1,4 +1,4 @@
 LIB := base
-#TEST:= test.exe
+TEST:= test.exe
 
 include ../Makefile.rules

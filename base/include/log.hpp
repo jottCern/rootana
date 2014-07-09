@@ -8,15 +8,28 @@
 #include <list>
 
 enum class loglevel {
-    debug, info, warning, error
+    debug, info, warning, error,
+    quiet_threshold // do not use to issue messages, only for setting the threshold to discard all messages
 };
+
+loglevel parse_loglevel(const std::string & level, const loglevel & def, bool verbose = true);
+
+
+
+// Logging overview:
+// Log messages are issued by classes using the Logger class; the Logger class is the only class clients
+// of this library need to know.
+//
+// The Logger class sends the message (if the level exceeds the logger threshold) to the LogController singleton which in turn sends the
+// messages to one or more LogSinks (again according to currently set thresholds).
+// As Logging deals with global stuff, there is one singleton class, the LogController, which handles all these global things, such as Logger instances
+// and LogSinks (i.e. output of the logging such as files).
+
 
 /** \brief Base class for the 'sink' of log messages
  * 
- * Implemented LogSinks right now include the LogFile and the LogSinkOstream. All
- * a LogSink does is to accept messages which are written to their destination (which depends on the
- * derived class). In general, no further formatting is applied (except the one necessary to distinguish
- * messages, such as appending a newline).
+ * All a LogSink does is to accept messages which are written to their destination (which depends on the
+ * derived class).
  * 
  * LogSinks are usually not used directly, but only indirectly via Loggers.
  */
@@ -27,22 +40,8 @@ public:
     virtual ~LogSink(){}
 };
 
-/** \brief Construct a new or get an existing LogSink
- * 
- * Get the sink for the given \c outfile string. \c outfile contains a filename, this filename is first
- * resolved to its absolute path. The absolute path is used to lookup whether the sink already exists; if it does, the existing
- * sink is returned, otherwise, a sink is created according to the outfile string.
- * 
- * Use \c outfile = '-' or an empty \c outfile to use std out as target. All other values are interpreted as filename.
- * To have more control of LogFile options, specify options with colons, e.g. use outfile = "log;1;-1"
- * for creating the log file "log" with maxsize = 1MB and circular = -1
+/** \brief LogSink writing all messages to a std::ostream
  */
-class LogSinkFactory {
-public:
-    static std::shared_ptr<LogSink> get_sink(const std::string & outfile);
-};
-
-
 class LogSinkOstream: public LogSink{
 public:
     // note: out has to live longer than this.
@@ -72,13 +71,9 @@ private:
  * 
  * Note that \c maxsize will be rounded to the nearest page size.
  * 
- * To make LogFile work across forks, each child will open a new file where ".p<pid>" is appended to the filename
- * used in the child process. To make this mechanism work, the fork must happen via dofork. In any case,
- * the initialization of a LogFile must be in a shared_ptr and the init method must be called
- * between the construction and the first message. It is advisable to construct LogFile instances
- * only through LogSinkFactory which takes care of that.
+ * To make LogFile work across forks, you have to call \c reopen_after_fork with a new file name in the child process.
  */
-class LogFile: public LogSink, public std::enable_shared_from_this<LogFile> {
+class LogFile: public LogSink {
 public:
     
     static const size_t KB = (1 << 10);
@@ -86,9 +81,8 @@ public:
     static const size_t GB = (1 << 30);
     
     explicit LogFile(const char * fname, size_t maxsize = 20 * MB, int circular = 1);
-    void init(); // MUST be called directly after construction
     
-    void handle_fork();
+    void reopen_after_fork(const char * new_fname);
     
     virtual ~LogFile();
     
@@ -118,15 +112,62 @@ private:
 };
 
 
-struct LoggerConfiguration {
-    enum e_command { set_threshold, set_outfile };
-    
+struct LoggerThresholdConfiguration {
     std::string logger_name_prefix; // to which loggers to apply this configuration: prefix = "a" matches loggers names exactly "a" or starting with "a."
-    e_command command;
-    std::string value; // for set_threshold: use "DEBUG", "INFO", "WARNING", "ERROR" only. For outfile: see LogSink::get_sink
+    std::string threshold; // "DEBUG", "INFO", "WARNING", "ERROR", "QUIET"
     
-    LoggerConfiguration(const std::string & prefix, e_command cmd, const std::string value_):
-       logger_name_prefix(prefix), command(cmd), value(value_){}
+    LoggerThresholdConfiguration(std::string prefix, std::string thresh): logger_name_prefix(move(prefix)), threshold(move(thresh)){}
+};
+
+
+class Logger;
+/** \brief Singleton class managing all Loggers and global configuration
+ *
+ * Loggers call LogController::log if the logging threshold exceeds the configured one. The LogController
+ * then writes the LogMessage to the ouput file and to stdout if the message exceeds the stdout_threshold.
+ */
+class LogController {
+public:
+    friend class Logger;
+    
+    LogController(const LogController &) = delete;
+    
+    static LogController & get();
+    
+    /** \brief Set the output file for all logging messages
+     * 
+     * \c outfile_pattern is used to construct the file name. There are special string sequences:
+     * "%p" is replaced by the pid, "%T" by the current date and time in the format, "%h" is the hostname.
+     * For logging in distributed applications, it is recommended to use all of these to make log filename collissions
+     * unlikely.
+     * 
+     * For empty \c outfile_pattern, the current file is closed and no new file is created.
+     *
+     * The parameters \c maxsize and \c circular are passed to \c LogFile, see description there.
+     */
+    void set_outfile(const std::string & outfile_pattern, size_t maxsize = 20 * LogFile::MB, int circular = 1);
+    
+    void handle_fork();
+    
+    void set_stdout_threshold(const loglevel & l);
+    
+    void configure(const std::list<LoggerThresholdConfiguration> & conf);
+    
+private:
+    LogController();
+    
+    // used by logger:
+    void log(loglevel l, const std::string & m);
+    std::map<std::string, std::shared_ptr<Logger> > all_loggers;
+    std::list<LoggerThresholdConfiguration> configuration;
+    
+    loglevel stdout_threshold;
+    
+    std::string outfile_pattern;
+    std::string get_outfile_name() const;
+    
+    std::unique_ptr<LogFile> outfile;
+    std::unique_ptr<LogSink> stdout;
 };
 
 
@@ -183,14 +224,10 @@ struct LoggerConfiguration {
  */
 class Logger {
 public:
+    friend class LogController;
     Logger(const Logger &) = delete;
     Logger(Logger &&) = delete;
 
-    static const std::list<LoggerConfiguration> & get_configuration(){
-        return the_configuration();
-    }
-    
-    static void set_configuration(std::list<LoggerConfiguration> new_configuration);
     static std::shared_ptr<Logger> get(const std::string & name);
     
     // the "opposite" if get: removes the logger from the global logger list.
@@ -214,19 +251,12 @@ private:
     
     // create a logger with the given name, respecting the current configuration.
     // If the configuration does not specify a LogSink, uses the default log sink.
-    explicit Logger(const std::string & name): logger_name(name), l_threshold(loglevel::warning), next_index(0){
-        apply_configuration();
-    }
+    explicit Logger(const std::string & name);
     
-    void apply_configuration();
-    
-    // NOTE: pack static "members" into static getters to avoid problems of static intialization order.
-    static std::map<std::string, std::shared_ptr<Logger> > & all_loggers();
-    static std::list<LoggerConfiguration> & the_configuration();
+    void apply_configuration(const std::list<LoggerThresholdConfiguration> & configuration);
     
     std::string logger_name;
     loglevel l_threshold;
-    std::shared_ptr<LogSink> sink;
     int next_index;
 };
 

@@ -9,7 +9,7 @@ namespace dra {
     
 namespace detail {
     
-// a union of integer intervals, ro denote a range of events to process within a given file.
+// a union of integer intervals, to denote a range of events to process within a given file.
 struct IndexRanges {
 public:
     // make an interval [from, to)
@@ -73,18 +73,17 @@ public:
     
     // add the given EventRange to the list of available EventRanges. It must correspond to a previously
     // consumed one.
-    // adding is only allowed for file with known size and is not allowed to extend beyond this
-    // file size.
     // This is typically used in case of worker failure to re-run other workers on those
     // Events.
     void add(const EventRange & er);
     
     // Current estimate of number or events left to do.
-    // NOTE: until all files have a known size, the returned number is a guess in which each unknown
-    // size counts with blocksize0.
+    // This is not accurate if not all file sizes are known yet; in this case, all unknown files 
+    // count as blocksize0.
     size_t nevents_left() const;
     
-    // number is negative if the total number is not known yet completely
+    // number is negative if the total number is not known yet completely; in this case, each unknown file
+    // is counted with blocksize0.
     ssize_t nevents_total() const;
     
 private:
@@ -99,10 +98,14 @@ private:
 
 
 class Master;
+
+// abstract base class for getting notifications about the Master state
 class MasterObserver: public dc::SwarmObserver {
 public:
     virtual void set_master(Master * master){} // called when added to master
     virtual void on_dataset_start(const ra::s_dataset & dataset){}
+    virtual void on_stop_complete(){}
+    virtual ~MasterObserver();
 };
 
 
@@ -132,10 +135,6 @@ public:
         return nbytes_read_;
     }
     
-    bool all_done() const {
-        return all_done_;
-    }
-    
     bool failed() const {
         return failed_;
     }
@@ -160,6 +159,7 @@ private:
     void process_complete(const WorkerId & worker, std::unique_ptr<dc::Message> result);
     void close_complete(const WorkerId & worker, std::unique_ptr<dc::Message> result);
     void merge_complete(const WorkerId & worker, std::unique_ptr<dc::Message> result);
+    void stop_complete(const WorkerId & worker, std::unique_ptr<dc::Message> result);
     
     // use idataset = config.datasets.size() to finalize completely
     void init_dataset(size_t idataset);
@@ -189,7 +189,6 @@ private:
     
     std::map<WorkerId, bool> needs_merging; // only save closed workers
     
-    bool all_done_;
     std::vector<std::shared_ptr<MasterObserver>> observers;
     
     bool stopping;

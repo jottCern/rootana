@@ -209,7 +209,7 @@ void Channel::perform_reads(){
         else if(res == 0){
             if(bin.position()==0){
                 // clean close between messages; report as ECONNRESET
-                //CHANNEL_LOG(loglevel::debug, "perform_reads: EOF after reading complete message; calling handle_error(ECONNRESET)");
+                CHANNEL_LOG(loglevel::debug, "perform_reads: EOF after reading complete message; calling handle_error(ECONNRESET)");
                 handle_error(ECONNRESET);
                 return;
             }
@@ -227,14 +227,16 @@ void Channel::perform_reads(){
             continue;
         }
         else{
-            //CHANNEL_LOG(loglevel::debug, "perform_reads: read complete buffer, size=" << bin.size() << "; performing de-serialization now.");
+            CHANNEL_LOG(loglevel::debug, "perform_reads: read complete buffer, size=" << bin.size() << "; performing de-serialization now.");
             // convert to a message object, starting after header:
             bin.seek(sizeof(uint64_t));
             unique_ptr<Message> m;
             bin >> m;
+            CHANNEL_LOG(loglevel::debug, "perform_reads: deserialized message has type " << (m ? typeid(*m).name() : "<null message>"));
             assert(read_handler);
-            read_handler_type rh = move(*read_handler); // none
+            read_handler_type rh = move(*read_handler);
             read_handler = boost::none;
+            CHANNEL_LOG(loglevel::debug, "perform_reads: calling read handler now.");
             rh(move(m));
         }
     }

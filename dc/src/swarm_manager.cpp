@@ -181,7 +181,6 @@ void SwarmManager::on_in_message(WorkerId wid, std::unique_ptr<Message> message)
         set_failed(wid);
         return;
     }
-    //StateGraph::PrioritySetId response_pset(wr->priority_set);
     if(w.requested_state != wr->requested_state){
         LOG_DEBUG("worker " << wid.id() << " switched to requested state " << wr->requested_state);
         w.requested_state = wr->requested_state;
@@ -196,7 +195,7 @@ void SwarmManager::on_in_message(WorkerId wid, std::unique_ptr<Message> message)
     if(!w.active){
         if(w.state == graph.get_state("stop") || w.state==graph.get_state("failed")){
             LOG_DEBUG("on_in_message: got message from worker " << wid.id() << " which is in terminal state " << graph.name(w.state) << "; not giving it any work");
-            // do nothing in this case ...
+            w.c->close();
         }
         else{
             give_work_to(wid);

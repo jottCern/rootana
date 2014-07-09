@@ -187,42 +187,38 @@ s_dataset::s_dataset(const ptree & cfg){
 
 s_logger::s_logconfig::s_logconfig(const std::string & key, const ptree & cfg): loggername_prefix(key){
     threshold = ptree_get<string>(cfg, "threshold", "");
-    logfile = ptree_get<string>(cfg, "logfile", "");
 }
 
 s_logger::s_logger(const ptree & cfg){
-    logfile_dir = ptree_get<string>(cfg, "logfile_dir", "");
+    logfile = ptree_get<string>(cfg, "logfile", "log-%T-%h-%p");
+    stdout_threshold = ptree_get<string>(cfg, "stdout_threshold", "WARNING");
     for(const auto & it : cfg){
-        if(it.first == "logfile_dir") continue;
+        if(it.first == "logfile" || it.first == "stdout_threshold") continue;
         configs.emplace_back(it.first, it.second);
     }
 }
 
 void s_logger::apply(const std::string & base_dir) const{
-    std::list<LoggerConfiguration> logger_configs;
-    for(auto const & this_cfg : configs){
-        if(!this_cfg.logfile.empty()){
-            string outfile;
-            if(this_cfg.logfile == "-"){
-                outfile = "-";
-            }
-            else{
-                outfile = this_cfg.logfile;
-                if(outfile[0]!='/' && !logfile_dir.empty()){
-                    outfile = logfile_dir + '/' + outfile;
-                }
-                if(outfile[0]!='/' && !base_dir.empty()){
-                    outfile = base_dir + '/' + outfile;
-                    // can still be relative, but we allow that.
-                }
-            }
-            logger_configs.emplace_back(this_cfg.loggername_prefix, LoggerConfiguration::set_outfile, outfile);
+    // set output file:
+    if(!logfile.empty()){
+        string outfile = logfile;
+        if(outfile[0] != '/'){ // if it is relative, interpret it relative to base_dir:
+            outfile = base_dir + '/' + outfile;
         }
+        LogController::get().set_outfile(outfile);
+    }
+    
+    // set stdout threshold:
+    LogController::get().set_stdout_threshold(parse_loglevel(stdout_threshold, loglevel::warning));
+    
+    // set logger thresholds:
+    std::list<LoggerThresholdConfiguration> logger_configs;
+    for(auto const & this_cfg : configs){
         if(!this_cfg.threshold.empty()){
-            logger_configs.emplace_back(this_cfg.loggername_prefix, LoggerConfiguration::set_threshold, this_cfg.threshold);
+            logger_configs.emplace_back(this_cfg.loggername_prefix, this_cfg.threshold);
         }
     }
-    Logger::set_configuration(logger_configs);
+    LogController::get().configure(logger_configs);
 }
 
 s_config::s_config(const std::string & filename) {

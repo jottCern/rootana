@@ -102,7 +102,7 @@ EventRange EventRangeManager::consume(size_t preferred_ifile, size_t blocksize){
     size_t ifile = preferred_ifile;
     if(preferred_ifile == prefer_unprocessed || events_left[preferred_ifile].empty()){
         // find unprocessed ifile, i.e. a ifile for which the size is unknown or for
-        // whch the file size is known and matches the number of available events:
+        // which the file size is known and matches the number of available events:
         for(size_t i=0; i<events_left.size(); ++i){
             if(events_left[i].empty()) continue;
             if(nevents[i] < 0 || static_cast<size_t>(nevents[i]) == events_left[i].size()){
@@ -151,8 +151,7 @@ void EventRangeManager::set_file_size(size_t ifile, size_t n) {
 
 void EventRangeManager::add(const EventRange & er){
     assert(er.ifile < nevents.size());
-    // note that we always allow adding the first block  of size blocksize0, even if we know that the file size is different
-    // now ...
+    // note that we always allow adding the first block  of size blocksize0, even if we know that the file size is different.
     if((nevents[er.ifile] < 0 || er.last > static_cast<size_t>(nevents[er.ifile])) && !(er.first == 0 && er.last == blocksize0)){
         throw invalid_argument("adding range beyond file");
     }
@@ -173,16 +172,21 @@ ssize_t EventRangeManager::nevents_total() const{
     ssize_t sign = 1;
     for(auto n : nevents){
         if(n >= 0) result += n;
-        else sign = -1;
+        else{
+            result += blocksize0;
+            sign = -1;
+        }
     }
     return sign * result;
 }
 
 
+MasterObserver::~MasterObserver(){}
+
 Master::~Master(){}
 
 Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(dra::get_stategraph(), bind(&Master::worker_failed, this, ph::_1, ph::_2)), idataset(-1),
-  all_done_(false), stopping(false), failed_(false){
+  stopping(false), failed_(false){
     unique_ptr<char[]> path(new char[PATH_MAX]);
     auto res = realpath(cfgfile_.c_str(), path.get());
     if(res == 0){
@@ -204,7 +208,7 @@ Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(d
     auto s_process = g.get_state("process");
     auto s_close = g.get_state("close");
     auto s_merge = g.get_state("merge");
-    //auto s_stop = g.get_state("stop");
+    auto s_stop = g.get_state("stop");
     
     sm.connect<Configure>(s_start, bind(&Master::generate_configure, this, ph::_1));
     sm.connect<Process>(s_configure, bind(&Master::generate_process, this, ph::_1));
@@ -223,6 +227,7 @@ Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(d
     sm.set_result_callback(s_process, bind(&Master::process_complete, this, ph::_1, ph::_2));
     sm.set_result_callback(s_close, bind(&Master::close_complete, this, ph::_1, ph::_2));
     sm.set_result_callback(s_merge, bind(&Master::merge_complete, this, ph::_1, ph::_2));
+    sm.set_result_callback(s_stop, bind(&Master::stop_complete, this, ph::_1, ph::_2));
     
     sm.set_target_state(s_process);
     sm.check_connections();
@@ -240,9 +245,8 @@ void Master::init_dataset(size_t id){
     // we need to make sure they see a consistent state ...
     if(last){
         erm.reset();
-        all_done_ = true;
         sm.activate_restriction_set(sm.get_graph().get_restriction_set("noprocess")); // note: nomerge is active anyway
-        sm.set_target_state(sm.get_graph().get_state("stop"));
+        stop();
     }
     else{
         LOG_INFO("Start processing dataset " << config->datasets[idataset].name);
@@ -272,7 +276,7 @@ std::unique_ptr<Configure> Master::generate_configure(const WorkerId & wid){
 }
 
 std::unique_ptr<Process> Master::generate_process(const WorkerId & wid){
-    // find an EventRange corresponding o what the worker did last:
+    // find an EventRange corresponding to what the worker did last:
     size_t preferred_ifile(-1);
     auto wr = worker_ranges.find(wid);
     if(wr != worker_ranges.end()){
@@ -388,7 +392,7 @@ void Master::merge_complete(const WorkerId & worker, std::unique_ptr<Message> re
     else{
         // n_unmerged == 1
         
-        // look whether the mering is done, i.e. all workers that are in the
+        // look whether the merging is done, i.e. all workers that are in the
         // close or merge state are idle. Note that we ignore workers in any state
         // other than close or merge: if asking for all workers to be idle and
         // if a new worker is added and currently active in configure while we reach this point, we could
@@ -413,7 +417,20 @@ void Master::merge_complete(const WorkerId & worker, std::unique_ptr<Message> re
 }
 
 
-// rule generate_merge is only available if there are at least 2 *unmerged* workers.
+void Master::stop_complete(const WorkerId & worker, std::unique_ptr<dc::Message> result){
+    LOG_DEBUG("stop complete for worker " << worker.id());
+    if(!stopping) return;
+    auto all_workers = sm.get_workers();
+    bool all_idle = none_of(all_workers.begin(), all_workers.end(), [this](const WorkerId & w){return sm.state(w).second;});
+    if(all_idle){
+        for(auto & observer : observers){
+            observer->on_stop_complete();
+        }
+    }
+}
+
+
+// generate_merge will only be called if there are at least 2 *unmerged* workers.
 std::unique_ptr<Merge> Master::generate_merge(const WorkerId & wid){
     // find another worker to merge with:
     auto mit1 = find_if(needs_merging.begin(), needs_merging.end(), [](const pair<const WorkerId, bool> & wm){ return wm.second;});
@@ -435,13 +452,12 @@ std::unique_ptr<Merge> Master::generate_merge(const WorkerId & wid){
 }
 
 void Master::abort(){
+    failed_ = true;
     sm.abort();
 }
 
 void Master::stop(){
     stopping = true;
-    //sm.activate_restriction_set(sm.get_graph().get_restriction_set("nomerge"));
-    //sm.activate_restriction_set(sm.get_graph().get_restriction_set("noprocess"));
     sm.set_target_state(sm.get_graph().get_state("stop"));
 }
 

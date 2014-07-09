@@ -9,4 +9,4 @@ all:
 
 
 clean:
-	@for d in $(DIRS); do ( $(MAKE) -C $$d clean-subdir ) || break; done
+	@for d in $(DIRS); do echo Cleaning directory $$d; ( $(MAKE) -C $$d clean-subdir ) || break; done

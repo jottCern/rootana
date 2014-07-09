@@ -22,6 +22,7 @@ void sigint_handler(int){
 
 
 void run(const s_config & config){
+    auto logger  = Logger::get("ra.ra");
     AnalysisController controller(config, false);
     
     bool do_stop = false;
@@ -73,7 +74,7 @@ void run(const s_config & config){
             break;
         }
         if(interrupted){
-            cout << "Interrupted by SIGINT" << endl;
+            LOG_INFO("Interrupted by SIGINT");
             break;
         }
     }
@@ -91,14 +92,13 @@ int main(int argc, char ** argv){
     sa.sa_restorer = 0;
     int res = sigaction(SIGINT, &sa, 0);
     if(res != 0){
-        cout << "error establishing signal handler (iognoring ...)" << endl;
+        cout << "error establishing signal handler (ignoring ...)" << endl;
     }
     
     try{
         s_config config(argv[1]);
         config.logger.apply(config.options.output_dir);
         ROOT::Cintex::Cintex::Enable();
-        // TODO: set up logging.
         run(config);
     }
     catch(std::runtime_error & ex){

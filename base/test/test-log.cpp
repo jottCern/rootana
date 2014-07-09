@@ -15,8 +15,8 @@ BOOST_AUTO_TEST_CASE(logsink_file){
     const char * test_fname = "/tmp/logsink_file_test";
     unlink(test_fname);
     {
-       auto logsink = LogSinkFactory::get_sink(test_fname);
-       logsink->append("abc");
+       LogFile logsink(test_fname);
+       logsink.append("abc");
     }
     ifstream in(test_fname);
     string s;
@@ -31,8 +31,8 @@ BOOST_AUTO_TEST_CASE(logsink_file_rel){
     const char * test_fname = "logsink_file_test";
     unlink(test_fname);
     {
-       auto logsink = LogSinkFactory::get_sink(test_fname);
-       logsink->append("abc");
+       LogFile logsink(test_fname);
+       logsink.append("abc");
     }
     ifstream in(test_fname);
     string s;
@@ -46,16 +46,14 @@ BOOST_AUTO_TEST_CASE(logsink_file_rel){
 BOOST_AUTO_TEST_CASE(logger0){
     const char * fname = "logger0test-out";
     unlink(fname); // ignore errors
-    list<LoggerConfiguration> conf;
-    conf.emplace_back("logger0test", LoggerConfiguration::set_outfile, fname);
-    Logger::set_configuration(move(conf));
+    LogController::get().set_outfile(fname);
+    LogController::get().set_stdout_threshold(loglevel::quiet_threshold);
     auto logger = Logger::get("logger0test");
     
     LOG_ERROR("my error message 1");
     LOG_ERROR("my error message 2");
     
-    logger.reset();
-    Logger::remove("logger0test");
+    LogController::get().set_outfile(""); // close file ...
 
     ifstream in(fname);
     string s;
@@ -69,9 +67,8 @@ BOOST_AUTO_TEST_CASE(logger0){
 }
 
 BOOST_AUTO_TEST_CASE(logger_before_fork){
-    list<LoggerConfiguration> conf;
-    conf.emplace_back("logtest", LoggerConfiguration::set_outfile, "logtest-out");
-    Logger::set_configuration(move(conf));
+    LogController::get().set_outfile("logtest-out.p%p");
+    LogController::get().set_stdout_threshold(loglevel::quiet_threshold);
     auto logger = Logger::get("logtest");
     int pid = dofork();
     if(pid == 0){
@@ -80,15 +77,19 @@ BOOST_AUTO_TEST_CASE(logger_before_fork){
         logger.reset();
         exit(0);
     }
+    
+    // parent:
     LOG_ERROR("parent");
     check_child_success(pid);
     
+    // make sure to close logfile:
+    LogController::get().set_outfile("");
     
-    // there should be two files now: "logtest" and "logtest.p<childpid>", both with a single line.
+    // there should be two files now: "logtest-out.p<parentpid>" and "logtest-out.p<childpid>", both with a single line.
     // In the parent, however, the logger is not closed yet, so do that first:
-    logger.reset();
-    Logger::remove("logtest");
-    ifstream in("logtest-out");
+    stringstream fn1;
+    fn1 << "logtest-out.p" << getpid();
+    ifstream in(fn1.str().c_str());
     BOOST_REQUIRE(in.good());
     std::string line;
     getline(in, line);
@@ -97,12 +98,11 @@ BOOST_AUTO_TEST_CASE(logger_before_fork){
     BOOST_CHECK(line.empty());
     BOOST_CHECK(in.eof());
     in.close();
-    unlink("logtest-out");
+    unlink(fn1.str().c_str());
     
     stringstream fn2;
     fn2 << "logtest-out.p" << pid;
-    string fname2 = fn2.str();
-    ifstream in2(fname2.c_str());
+    ifstream in2(fn2.str().c_str());
     BOOST_REQUIRE(in2.good());
     getline(in2, line);
     BOOST_CHECK_NE(line.find("child"), string::npos);
@@ -114,9 +114,8 @@ BOOST_AUTO_TEST_CASE(logger_before_fork){
 }
 
 BOOST_AUTO_TEST_CASE(logger_after_fork){
-    list<LoggerConfiguration> conf;
-    conf.emplace_back("logtest2", LoggerConfiguration::set_outfile, "logtest2-out");
-    Logger::set_configuration(conf);
+    LogController::get().set_outfile("logtest2-out.p%p");
+    LogController::get().set_stdout_threshold(loglevel::quiet_threshold);
     //cout << "parent pid: "<< getpid() << endl;
     int pid = dofork();
     if(pid == 0){
@@ -131,11 +130,12 @@ BOOST_AUTO_TEST_CASE(logger_after_fork){
     LOG_ERROR("parent");
     check_child_success(pid);
 
-    logger.reset();
-    Logger::remove("logtest2");
+    LogController::get().set_outfile("");
     
     // see logging_before_fork; it should be the same here:
-    ifstream in("logtest2-out");
+    stringstream fn1;
+    fn1 << "logtest2-out.p" << getpid();
+    ifstream in(fn1.str().c_str());
     BOOST_REQUIRE(in.good());
     std::string line;
     getline(in, line);
@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(logger_after_fork){
     BOOST_CHECK(line.empty());
     BOOST_CHECK(in.eof());
     in.close();
-    unlink("logtest2-out");
+    unlink(fn1.str().c_str());
     
     stringstream fn2;
     fn2 << "logtest2-out.p" << pid;
