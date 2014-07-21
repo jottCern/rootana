@@ -2,7 +2,7 @@
 
 
 DIR=`dirname $0`
-DRADIR=`readlink -f $DIR`
+DRADIR=`readlink -f $DIR/..`
 
 ${DRADIR}/dra_master $* &
 MASTER_PID=$!

@@ -16,12 +16,17 @@
 using namespace ra;
 using namespace std;
 
+HistogramOutputManager::~HistogramOutputManager(){}
+
 OutputManager::~OutputManager(){}
 
 InputManager::~InputManager(){}
 
 
 void TTreeInputManager::declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti){
+    if(bname2bi.find(bname) != bname2bi.end()){
+         throw runtime_error("InputManager: input for branch name '" + string(bname) + "' declared multiple times. This is not allowed.");
+    }
     bname2bi.insert(pair<string, branchinfo>(bname, branchinfo(0, ti, event_member_name, addr)));
 }
 
@@ -94,6 +99,7 @@ void TTreeInputManager::setup_tree(TTree * tree){
 
 
 size_t TTreeInputManager::read_entry(size_t ientry){
+    static identifier empty("");
     event.reset_all();
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
     size_t result = 0;
@@ -105,7 +111,9 @@ size_t TTreeInputManager::read_entry(size_t ientry){
             throw runtime_error(ss.str());
         }
         result += res;
-        event.set_presence(name_bi.second.ti, name_bi.second.name, Event::presence::present);
+        if(name_bi.second.name != empty){
+            event.set_presence(name_bi.second.ti, name_bi.second.name, Event::presence::present);
+        }
     }
     return result;
 }

@@ -20,21 +20,21 @@ public:
     
 private:
     shared_ptr<Logger> logger;
-    
     TcpAcceptor & acc;
 };
 
 int main(int argc, char ** argv){
-    if(argc != 2){
-        cerr << "Usage: " << argv[0] << " <config file>" << endl;
+    if(argc != 3){
+        cerr << "Usage: " << argv[0] << " <port> <config file>" << endl;
         exit(1);
     }
+    const int port = boost::lexical_cast<int>(argv[1]);
     
     IOManager iom;    
     TcpAcceptor acc(iom);
     bool success = false;
     {
-        Master master(argv[1]);
+        Master master(argv[2]);
         iom.setup_signal_handler(SIGINT, [&](const siginfo_t &){ 
                 cout << "SIGINT: aborting Master" << endl;
                 master.abort();
@@ -46,7 +46,7 @@ int main(int argc, char ** argv){
         master.add_observer(stopper);
         master.start();
 
-        acc.start([&](unique_ptr<Channel> c){ master.add_worker(move(c)); }, "*", 5473);
+        acc.start([&](unique_ptr<Channel> c){ master.add_worker(move(c)); }, "*", port);
         iom.process();
         pp.reset();
         success = !master.failed();

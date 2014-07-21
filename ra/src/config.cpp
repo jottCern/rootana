@@ -228,6 +228,10 @@ s_config::s_config(const std::string & filename) {
     if(cfg.count("logger") > 0){
         logger = s_logger(cfg.get_child("logger"));
     }
+    else{
+      // setup logging with default by using empty ptree:
+      logger = s_logger(ptree());
+    }
     options = s_options(cfg.get_child("options"));
     auto logger = Logger::get("ra.config");
     modules_cfg = cfg.get_child("modules");

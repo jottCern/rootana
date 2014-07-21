@@ -89,6 +89,8 @@ void ProgressPrinter::on_state_transition(const WorkerId & w1, const StateGraph:
         size_t nevents_left = master->nevents_left();
         pb->set("events", abs(ntotal) - nevents_left);
         pb->set("mbytes", master->nbytes_read() * 1e-6);
+        pb->set("files_done", master->nfiles_done());
+        pb->set("files_total", master->nfiles_total());
         pb->print();
     }
 }
@@ -98,9 +100,11 @@ ProgressPrinter::~ProgressPrinter(){}
 // MasterObserver:
 void ProgressPrinter::on_dataset_start(const ra::s_dataset & dataset){
     current_dataset = dataset.name;
-    pb.reset(new progress_bar("Processing dataset '" + dataset.name + "': events: %(events)10ld (%(events)|rate|8.1f/s); data rate: %(mbytes)|rate|5.2fMB/s; "
-            " workers:  %(start)ld S, %(configure)ld C, %(process)ld p,  %(close)ld c, %(merge)ld m,  %(stop)ld s,  %(failed)ld F"));
+    pb.reset(new progress_bar("Dataset '" + dataset.name + "' %(files_done)5ld/%(files_total)5ld files, %(events)10ld events (%(events)|rate|8.1f/s), %(mbytes)|rate|5.1fMB/s; "
+            " workers: %(start)ld S, %(configure)ld C, %(process)ld p,  %(close)ld c, %(merge)ld m,  %(stop)ld s,  %(failed)ld F"));
     pb->set("dataset", dataset.name);
+    pb->set("files_done", 0);
+    pb->set("files_total", 0);
     pb->set("events", 0);
     pb->set("mbytes", 0);
     pb->set("start", nworkers[s_start]);
@@ -296,35 +300,35 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
             master.add_worker(move(channels[i]));
         }
         iom.process();
-        // TODO: ...
-        /*if(!master.all_done()){
+        if(master.failed()){
             LOG_ERROR("Master IO processing exited before the dataset was processed completely.");
             master_ok = false;
-        }*/
+        }
     }
     catch(std::exception & ex){
         LOG_ERROR("Exception while running master: " << ex.what());
         master_ok = false;
     }
     
-    LOG_INFO("Waiting for all child processes ... ");
+    LOG_INFO("Waiting for all worker processes ... ");
     bool childs_successful = true;
     for(int i=0; i<nworkers; ++i){
         bool child_result = wait_for_child(worker_pids[i], 1.0f, master_ok);
         if(!child_result){
             childs_successful = false;
+            LOG_WARNING("Worker process " << worker_pids[i] << " exited abnormally.")
         }
     }
     if(master_ok){
         if(!childs_successful){
-            LOG_THROW("child processes did not exit successfully; check their logs.");
+            LOG_THROW("worker processes did not exit successfully; check their logs.");
         }
         else{
-            LOG_INFO("all child processes exited successfully.")
+            LOG_INFO("all worker processes exited successfully.")
         }
     }
-    else{
-        cerr << "Dataset has NOT been processed completely (see log messages for details)" << endl;
+    if(!master_ok || stopped || aborted){
+        cerr << "Dataset has NOT been processed completely (see log for details)" << endl;
     }
 }
 

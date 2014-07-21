@@ -1,5 +1,5 @@
 LIB := ra
-#TEST := test.exe
+TEST := test.exe
 
 USERCXXFLAGS += $(ROOT_CFLAGS) $(BOOST_CFLAGS)
 USERLDFLAGS += $(ROOT_LDFLAGS) -lbase

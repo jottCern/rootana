@@ -70,13 +70,12 @@ void run(const s_config & config){
             progress.set("files", ifile + 1);
             progress.print();
         }
-        if(do_stop){
+        if(do_stop || interrupted){
             break;
         }
-        if(interrupted){
-            LOG_INFO("Interrupted by SIGINT");
-            break;
-        }
+    }
+    if(interrupted){
+          LOG_WARNING("Interrupted by SIGINT, not all data has been processed.");
     }
 }
 

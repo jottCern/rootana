@@ -15,21 +15,24 @@ namespace ra{
 
 class HistFiller;
 
-// abstract base class for histograms, providing some convenience methods for booking
-//
-// For usage:
-// * derive from this class
-// * book the histograms in the constructor, using the book* routines
-// * fill the (non-auto) histograms in the fill method; you can use the 'get' method
-//   to retrieve the histograms booked previously.
-//
-// Alternative use without inheritance:
-//  * from your AnlaysisModule::begin_dataset, construct an instance of this type and create histograms
-//  * in your AnalysisModule::process, call Hists::process_all to process the autofil histograms
-//  * in addition, use Hists::get from AnalysisModule::process to retrvie historgams you can fill directly
-//
-// The class is usually called from a HistsFiller. Instances are constructed at HistsFiller::begin_dataset,
-// so they live only for one dataset.
+/** \brief Utility class for easy filling of Histograms
+ *
+ * To use it:
+ * - derive from this class
+ * - book the histograms in the constructor, using the book* routines
+ * - fill the (non-auto) histograms in the process method; you can use the 'get' method
+ *   to retrieve the histograms booked previously.
+ *
+ * To run it in the analysis workflow, use the HistFiller module.
+ *
+ * Alternative use without inheritance:
+ *  - from your AnlaysisModule::begin_dataset, construct an instance of this type and create histograms
+ *  - in your AnalysisModule::process, call Hists::process_all to process the autofill histograms
+ *  - in addition, you can use Hists::get from AnalysisModule::process to retrieve historgams you can fill
+ *
+ * The class is usually called from a HistsFiller. Instances are constructed at HistsFiller::begin_dataset,
+ * so they live only for one dataset.
+ */
 class Hists{
 public:
     

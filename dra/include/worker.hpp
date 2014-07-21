@@ -22,6 +22,9 @@ public:
     std::unique_ptr<dc::Message> merge(const Merge & m);
     std::unique_ptr<dc::Message> stop(const Stop &);
     
+    // signal the Master that we want to stop soon.
+    void signal_stop();
+    
     void setup(std::unique_ptr<dc::Channel> c);
     
     bool stopped_successfully() const;

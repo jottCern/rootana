@@ -120,6 +120,26 @@ BOOST_AUTO_TEST_CASE(read){
     BOOST_CHECK_THROW(event.get<double>("doubledata"), std::runtime_error);
 }
 
+// use inputmanager to read data without using an Event
+BOOST_AUTO_TEST_CASE(read_noevent){
+    TFile f("tree.root", "read");
+    BOOST_REQUIRE(f.IsOpen());
+    TTree * tree = dynamic_cast<TTree*>(f.Get("test"));
+    BOOST_REQUIRE(tree);
+    
+    Event event;
+    TTreeInputManager in(event);
+    int int_in;
+    in.declare_input("intdata", "", &int_in, typeid(int));
+    in.setup_tree(tree);
+    
+    BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
+    for(int i=0; i<100; ++i){
+        in.read_entry(i);
+        BOOST_CHECK_EQUAL(int_in, i+1);
+    }
+}
+
 BOOST_AUTO_TEST_CASE(read_wrong_type){
     TFile f("tree.root", "read");
     TTree * tree = dynamic_cast<TTree*>(f.Get("test"));
@@ -139,8 +159,6 @@ BOOST_AUTO_TEST_CASE(outtree){
     Event event;
     TFileOutputManager fout(outfile, "eventtree", event);
     OutputManager & out = fout;    
-    
-    //BOOST_CHECK_THROW(out.declare_output<int>(event, "my_int"), std::runtime_error);
     
     //event.set<int>("my_int", 5);
     out.declare_event_output<int>("my_int");

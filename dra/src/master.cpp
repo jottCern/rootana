@@ -165,6 +165,17 @@ size_t EventRangeManager::nevents_left() const{
     }
     return result;
 }
+
+size_t EventRangeManager::nfiles_done() const{
+    size_t result = 0;
+    for(size_t i=0; i<events_left.size(); ++i){
+        // a file is done if we know its size and no range is left:
+        if(events_left[i].size() == 0 && nevents[i] >= 0){
+            ++result;
+        }
+    }
+    return result;
+}
     
 // number is negative if the total number is not known yet completely
 ssize_t EventRangeManager::nevents_total() const{

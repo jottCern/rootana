@@ -38,7 +38,7 @@ ifneq ($(DICT),)
 # NOTE: to get the necessary options for genreflex, run "scram b -v" for some dictionaries ...
 .bin/dict__.cpp: src/classes_def.xml src/classes.h
 	@echo generating dictionary
-	@genreflex src/classes.h -s src/classes_def.xml -o $@ --deep --pool --fail_on_warnings -DDICTGEN -D__STRICT_ANSI__ -D_REENTRANT -DGNUSOURCE -DGNU_GCC -D_GNU_SOURCE $(GENREFLEX_FLAGS) -Iinclude -I$(shell root-config --incdir) --gccxmlpath=$(shell dirname `which gccxml`) --gccxmlopt="--gccxml-config $(call scramtag,gccxml,GCCXML_BASE)/share/gccxml-0.9/gccxml_config --gccxml-root $(call scramtag,gccxml,GCCXML_BASE)/share/gccxml-0.9/"
+	@genreflex src/classes.h -s src/classes_def.xml -o $@ --deep --pool --fail_on_warnings -DDICTGEN -D__STRICT_ANSI__ -D_REENTRANT -DGNUSOURCE -DGNU_GCC -D_GNU_SOURCE $(GENREFLEX_FLAGS) -Iinclude -I$(shell root-config --incdir) $(USERINCLUDES) --gccxmlpath=$(shell dirname `which gccxml`) --gccxmlopt="--gccxml-config $(call scramtag,gccxml,GCCXML_BASE)/share/gccxml-0.9/gccxml_config --gccxml-root $(call scramtag,gccxml,GCCXML_BASE)/share/gccxml-0.9/"
 
 ../lib/lib$(LIB).so: .bin/dict__.o
 endif
@@ -63,7 +63,7 @@ endif
 
 # stick together all flags.
 # NOTE: unused-local-typedefs warnings appear a lot for gcc 4.8 in boost
-CXXFLAGS := -std=c++0x -O3 -Wall -Wfatal-errors -g -fPIC -Wno-unused-local-typedefs -I.. -Iinclude -pipe $(BOOST_CFLAGS) $(USERCXXFLAGS)
+CXXFLAGS := -std=c++0x -O3 -Wall -Wfatal-errors -g -fPIC -Wno-unused-local-typedefs -I.. -Iinclude -pipe $(BOOST_CFLAGS) $(USERCXXFLAGS) $(USERINCLUDES)
 LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../lib $(USERLDFLAGS)
 
 # compile commands, to be used in cubdirectory makefiles:

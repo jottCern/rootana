@@ -44,7 +44,8 @@ public:
         declare_event_input<T>(name, name);
     }
     
-    // "low-level" access; addr has to point to a structure of type ti (not necessarily in the Event container).
+    // "low-level" access; addr has to point to a structure of type ti, which has not necessarily to be in the Event container.
+    // If the data is not stored in the Event container, use event_member_name="".
     virtual void declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti) = 0;
     
 protected:
@@ -75,7 +76,7 @@ private:
     struct branchinfo {
         TBranch * branch;
         const std::type_info & ti; // this is always a non-pointer type.
-        identifier name; // name of the data member in the event container
+        identifier name; // name of the data member in the event container (is "" if addr is not in the event)
         void * addr; // address of an object of type ti, into the event container
         
         branchinfo(TBranch * branch_, const std::type_info & ti_, const identifier & name_, void * addr_): branch(branch_), ti(ti_), name(name_), addr(addr_){}
@@ -84,9 +85,27 @@ private:
     size_t nentries;
     std::map<std::string, branchinfo> bname2bi;
 };
+
+/** \brief Utility class for declaring histogram output
+ */
+class HistogramOutputManager {
+public:
+    /** \brief Put a histogram in the output root file at the specified path
+    *
+    * By calling this routine, you pass memory management of t to the framework.
+    *
+    * To create the object in a subdirectory of the output, use an id with the corresponding
+    * full name, i.e. "dir/subdirB/name"; the required directories will be created automatically.
+    */
+    virtual void put(const char * name, TH1 * t) = 0;
     
+    virtual ~HistogramOutputManager();
+};
+
 
 /** \brief Utility class for performing TTree and histogram output to a rootfile
+ *
+ * An instance of this class is passed to the AnalysisModule, where the user can declare tree and histogram output.
  *
  * There are two types of trees: event trees and user-defined trees. Event trees are managed by the framework
  * in the sense that each entry in the input event tree is processed once (by calling AnalysisModule::process)
@@ -96,24 +115,15 @@ private:
  * would be to fill data on a per-object basis. To use user-defined trees, call the 'declare_output' method, and
  * for each entry, call the 'write_output' method.
  */
-class OutputManager {
+class OutputManager: public HistogramOutputManager {
 public:
-        
-   /** \brief Put a histogram in the output root file at the specified path
-    *
-    * By calling this routine, you pass memory management of t to the framework.
-    *
-    * To create the object in a subdirectory of the output, use an id with the corresponding
-    * full name, i.e. "dir/subdirB/name"; the required directories will be created automatically.
-    */
-    virtual void put(const char * name, TH1 * t) = 0;
-    
+
     /** \brief Declare an output variable in the event tree
      *
      * The variable has to exist in the Event before calling this method.
      */
     template<typename T>
-    void declare_event_output(const char * event_member_name, const char * branchname){
+    void declare_event_output(const char * branchname, const identifier & event_member_name){
         if(event.get_presence<T>(event_member_name) == Event::presence::nonexistent){
             event.set<T>(event_member_name, T());
         }

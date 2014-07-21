@@ -121,12 +121,14 @@ std::string LogFile::get_filename(int ifile) const{
     return ss.str();
 }
 
-void LogFile::close_file(const string & filename){
-    int res = truncate(filename.c_str(), mpos);
+void LogFile::close_current_file(){
+    assert(current_file >= 0);
+    int res = truncate(get_filename(current_file).c_str(), mpos);
     if(res < 0){
         cerr << "LogFile: could not truncate log file '" << filename << "'; ignoring that." << endl;
     }
     res = munmap(maddr, msize);
+    maddr = 0;
     if(res < 0){
         cerr << "LogFile: munmap failed: " << strerror(errno) << "; ignoring that." << endl;
     }
@@ -135,7 +137,7 @@ void LogFile::close_file(const string & filename){
 
 LogFile::~LogFile(){
     if(current_file >= 0){
-        close_file(get_filename(current_file));
+        close_current_file();
     }
     if(dropped){
         cerr << "~LogFile('" << filename << "') warning: dropped " << dropped << " log messages due to previous errors" << endl;
@@ -148,55 +150,44 @@ void LogFile::setup_new_file(){
         current_file = 0;
     }
     else{
-        // we already opened some file. Save it in old_filename to close it later:
-        string old_filename;
-        if(circular < 0){
-            old_filename = get_filename(current_file);
-            current_file++;
-        }
-        else if(circular == 0){
+        // we already opened some file.
+        if(circular == 0){
             mpos = 0;
             return;
         }
         else{
-            old_filename = get_filename(current_file);
-            if(circular == current_file){
-                current_file = 0;
-            }
-            else{
+            close_current_file();
+            if(circular > 0){
+                current_file = (current_file + 1) % (circular + 1);
+            }else{
                 ++current_file;
             }
-        }
-        if(!old_filename.empty()){
-            close_file(old_filename);
         }
     }
     // open new file, mmap it to maddr and reset mpos:
     mpos = 0;
+    maddr = 0;
     string new_filename = get_filename(current_file);
-    int fd = open(new_filename.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0600);
+    int fd = open(new_filename.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
     if(fd < 0){
         cerr << "LogFile: could not open logfile '" << new_filename << "': " << strerror(errno) << "; LogFile enters null state." << endl;
-        maddr = 0;
         return;
     }
     int res = ftruncate(fd, msize);
     if(res < 0){
         cerr << "LogFile: could not ftruncate logfile '" << new_filename << "' to desired length: " << strerror(errno) << "; LogFile enters null state." << endl;
-        maddr = 0;
         return;
     }
     maddr = reinterpret_cast<char*>(mmap(NULL, msize, PROT_WRITE, MAP_SHARED, fd, 0));
     if(maddr == reinterpret_cast<char*>(MAP_FAILED)){
         cerr << "LogFile: mmap failed for logfile '" << new_filename << "': " << strerror(errno) << "; LogFile enters null state." << endl;
-        close(fd);
         maddr = 0;
+        close(fd);
         return;
     }
     res = close(fd);
     if(res < 0){
         cerr << "LogFile: closing fd for logfile '" << new_filename << "' after mmap failed: " << strerror(errno) << "; LogFile enters null state." << endl;
-        maddr = 0;
         return;
     }
 }
@@ -233,6 +224,7 @@ LogController & LogController::get(){
 }
 
 void LogController::set_outfile(const std::string & outfile_pattern_, size_t maxsize, int circular){
+    if(outfile_pattern == outfile_pattern_) return;
     outfile_pattern = outfile_pattern_;
     if(outfile_pattern.empty()){
         outfile.reset();
@@ -326,13 +318,15 @@ std::shared_ptr<Logger> Logger::get(const string & name){
     }
 }
 
-void Logger::remove(const std::string & name){
+bool Logger::remove(const std::string & name){
     auto & loggers =  LogController::get().all_loggers;
     auto it = loggers.find(name);
-    if(it == loggers.end()) return;
+    if(it == loggers.end()) return true;
     if(it->second.use_count() == 1){
         loggers.erase(it);
+        return true;
     }
+    return false;
 }
 
 void Logger::apply_configuration(const std::list<LoggerThresholdConfiguration> & configs){

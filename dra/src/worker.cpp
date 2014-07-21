@@ -79,6 +79,10 @@ std::unique_ptr<dc::Message> Worker::close(const Close &){
     return unique_ptr<dc::Message>();
 }
 
+void Worker::signal_stop(){
+    wm.stop();
+}
+
 std::unique_ptr<dc::Message> Worker::merge(const Merge & m){
     LOG_INFO("iworker = " << iworker << ": merge entered with other iworker1=" << m.iworker1 << "; iworker2 = " << m.iworker2);
     assert(m.iworker1 != m.iworker2);

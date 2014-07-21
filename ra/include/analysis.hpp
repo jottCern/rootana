@@ -50,8 +50,8 @@ public:
      * is read on an per-event basis. This method should only by used if it is necessary to access information
      * in the input file that is *not* part of this per-event information.
      * While it is possible to access the input event tree, some care should be taken: after
-     * begin_file returns, InputTree will be called which will replace any connections (TTree::SetAddress) made
-     * here with the ones defined in the InputTree. Therefore, try to avoid touching the input event tree; if you do, do not
+     * begin_file returns, the input tree will be set up according to the declarations provided to the InputManager which could
+     * replace connections (TTree::SetAddress) made here. Therefore, try to avoid touching the input event tree; if you do, do not
      * expect that anything done here has any effect after this method returns.
      */
     virtual void begin_in_file(TFile & input_file){}

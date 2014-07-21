@@ -95,7 +95,7 @@ private:
     void setup_new_file();
     
     std::string get_filename(int ifile) const;
-    void close_file(const std::string & filename);
+    void close_current_file();
     
     // constructor arguments:
     std::string filename;
@@ -233,7 +233,8 @@ public:
     // the "opposite" if get: removes the logger from the global logger list.
     // remove only has an effect if there are no more references to that logger. Otherwise, the
     // request to remove a logger is silently ignored.
-    static void remove(const std::string & name);
+    // returns whether the logger was actually removed.
+    static bool remove(const std::string & name);
     
     bool enabled(loglevel l) const{
         return l_threshold <= l; 

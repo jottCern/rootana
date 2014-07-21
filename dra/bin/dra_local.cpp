@@ -13,15 +13,17 @@ int main(int argc, char ** argv){
     int nworkers;
     if(argc == 3){
         nworkers = boost::lexical_cast<int>(argv[2]);
-        if(nworkers <= 0 || nworkers > 1000){
-            cerr << "nworkers <= 0 or > 1000 is not supported" << endl;
+        if(nworkers <= 0 || nworkers > 100){
+            cerr << "nworkers <= 0 or > 100 is not supported" << endl;
             exit(1);
         }
     }
     else{
-        nworkers = std::thread::hardware_concurrency();
-        if(nworkers == 0)
-            nworkers = 16;
+         // use half the available cores, but not more than 8 workers:
+        nworkers = std::min(std::thread::hardware_concurrency() / 2, 8u);
+        if(nworkers == 0){
+            nworkers = 4;
+        }
     }
     
     try{
@@ -29,7 +31,7 @@ int main(int argc, char ** argv){
         dra::local_run(argv[1], nworkers, pp);
     }
     catch(std::exception & ex){
-        cerr << "main: exception ocurred: " << ex.what() << endl;
+        cerr << argv[0] << " in main: exception ocurred: " << ex.what() << endl;
         exit(1);
     }
 }

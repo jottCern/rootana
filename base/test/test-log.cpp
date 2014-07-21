@@ -43,6 +43,33 @@ BOOST_AUTO_TEST_CASE(logsink_file_rel){
 }
 
 
+BOOST_AUTO_TEST_CASE(logsink_file_twice){
+    const char * fname = "/tmp/logsink_file_test_twice";
+    unlink(fname);
+    
+    LogController::get().set_outfile(fname);
+    auto logger = Logger::get("loggertest");
+    
+    LOG_ERROR("test error message before");
+    
+    LogController::get().set_outfile(fname);
+    LOG_ERROR("test error message after");
+
+    // close output:
+    LogController::get().set_outfile("");
+    
+    ifstream in(fname);
+    string s;
+    getline(in, s);
+    BOOST_CHECK_NE(s.find("error message before"), string::npos);
+    getline(in, s);
+    BOOST_CHECK_NE(s.find("error message after"), string::npos);
+    getline(in, s);
+    BOOST_CHECK(in.eof());
+    unlink(fname); // ignore error ...
+}
+
+
 BOOST_AUTO_TEST_CASE(logger0){
     const char * fname = "logger0test-out";
     unlink(fname); // ignore errors

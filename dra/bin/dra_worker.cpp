@@ -15,6 +15,8 @@ bool run_worker(int socket){
     IOManager iom;
     Worker w;
     w.setup(unique_ptr<Channel>(new Channel(socket, iom)));
+    bool sigusr1 = false;
+    iom.setup_signal_handler(SIGUSR1, [&](const siginfo_t &){ sigusr1 = true; w.stop(); })
     try {
         iom.process();
     }
@@ -26,6 +28,9 @@ bool run_worker(int socket){
         LOG_ERROR("Unknown exception during processing");
         return false;
     }
+    if(sigusr1){
+        LOG_INFO("Worker stopped by SIGUSR1.");
+    }
     if(w.stopped_successfully()){
         LOG_INFO("exiting run_worker; Worker stopped successfully.");
         return true;
@@ -36,12 +41,14 @@ bool run_worker(int socket){
     }
 }
 
+
+
 }
 
 
 int main(int argc, char ** argv){
     if(argc != 3){
-        cerr << "Usage: " << argv[0] << " master-host master-port" << endl;
+        cerr << "Usage: " << argv[0] << " <master-host> <master-port>" << endl;
         exit(1);
     }
     

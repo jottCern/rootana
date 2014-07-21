@@ -86,6 +86,13 @@ public:
     // is counted with blocksize0.
     ssize_t nevents_total() const;
     
+    // total number of files
+    size_t nfiles_total() const{
+        return nevents.size();
+    }
+    
+    size_t nfiles_done() const;
+    
 private:
     size_t blocksize0;
     std::vector<ssize_t> nevents; // -1 = unknown
@@ -125,6 +132,14 @@ public:
     
     ssize_t nevents_total() const{
         return erm ? erm->nevents_total() : 0;
+    }
+    
+    size_t nfiles_done() const{
+        return erm ? erm->nfiles_done() : 0;
+    }
+    
+    size_t nfiles_total() const{
+        return erm ? erm->nfiles_total() : 0;
     }
     
     // get the number of bytes read by all workers in the current dataset;

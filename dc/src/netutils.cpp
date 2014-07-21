@@ -10,6 +10,10 @@
 #include <string.h>
 #include <stdexcept>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+
 using namespace dc;
 using namespace std;
 using namespace std::placeholders;
@@ -142,7 +146,7 @@ int dc::bind_to(const std::string & hostname, int port, int ai_family){
     if(!success){
         LOG_THROW("error in bind_to did not find any suitable addresses");
     }
-    LOG_DEBUG("sucessfully binded server socket for " << hostname << ":" << port << " as fd=" << sockfd);
+    LOG_DEBUG("successfully bound server socket for " << hostname << ":" << port << " as fd=" << sockfd);
     return sockfd;
 }
 
@@ -164,7 +168,6 @@ void TcpAcceptor::start(const new_connection_callback_type & cb, const string & 
 }
 
 void TcpAcceptor::stop(){
-    //LOG_DEBUG("stopping");
     if(ssocket >= 0){
         iom.remove(ssocket);
         ssocket = -1;
@@ -183,6 +186,8 @@ void TcpAcceptor::on_ssocket_event(IOEvent e, int error){
             return;
         }
         LOG_INFO("new client connection with fd=" << connfd << "; creating channel and calling callback.");
+        int one = 1;
+        setsockopt(connfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)); // ignore error
         unique_ptr<Channel> c(new Channel(connfd, iom));
         new_connection_callback(move(c));
     }
