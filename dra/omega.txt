@@ -1,0 +1,79 @@
+omega.sh is a script for processing the dataset with ra-config files on a cluster. The main
+code is for doing the parallel procesing is in dra_master and dra_worker; omega.sh contains some shell
+code for setting up these processes, i.e. starting the master process locally and submitting workers to the batch system.
+
+To allow processing more than one configuration file at once, there is a concept of 'sessions': Sessions are independent
+of each other; there is always one master per session. A session is also associated to a screen session,
+where one part shows the master progress and the other contains a normal command line allowing you to submit additional jobs,
+cancel the jobs, execute qstat, ...
+
+To use the omega script, first do
+source omega.sh
+
+Then, you can use a number of commands (shell functions). The first three referring to the
+session should usually be executed outside of a screen session, the last two commands (for workers) should only be run
+inside of a screen session.
+
+omega_create_session session_name cfg_file 
+  This is the central command: it creates the session screen, starting the master process and
+  preparing a command line to submit some workers (note that you have to hit enter to actually submit them).
+  It will write data about the master process (pid, host, port) and other info required to a session
+  directory (default: $HOME/.omega/session-<session_name>). This directory will also contain the (usually very short)
+  logs of the worker batch scripts (note that the more verbose logging usually goes to the logfile, according
+  to the logging configuration in the config file).
+  
+omega_list_sessions
+  List the sessions according to the contents of the session directories and their current state (i.e. the state
+  of their screen process)
+  
+omega_cleanup_session session_name
+  Check whether the screen process for this session is still active and remove the session directory in case
+  the screen has terminated. Otherwise print a warning with further instructions.
+  
+omega_submit_workers N
+  Submit N workers to the batch system via qsub
+  
+omega_cancel_workers
+  Call qdel to cancel all worker processes. This is often not necessary to stop the job (see below)
+  
+  
+  
+FAQ
+ Q: How to configure omega?
+ A: Create a shell file $HOME/.omega.rc and set OMEGA_* variables according to the documentation at the top of omega.sh.
+    This allows customizing qsub arguments, verbosity, the location of the session directories, and more.
+    
+ Q: How can I submit additional workers?
+ A: Within the screen session, use
+    omega_submit_workers N
+    again, where N is the number of workers. The new jobs will get work as soon as they start running and contact the master.
+    
+ Q: When does the master stop normally?
+ A: The master only stops normally, when there is nothing left to process. This means it if no active workers
+    are present (e.g. because all stopped or failed), you have to submit additional workers to make progress in the processing.
+    
+ Q: What happens if a worker crashes?
+ A: If a worker crashes, the master notices that by a lost network connection. In such a case, a warning is logged and all events
+    the worker should process in the current dataset are re-distributed to the other workers; and the 'unmerged' output file of
+    that worker is of course not merged at the end of the processing.
+
+ Q: Can I stop processing before all events in the configuration have been processed?
+ A: Yes: In the screen session, change to the master area (Ctrl+A, Tab) and press Ctrl+C. This will send SIGINT
+    to the master process which will then stop the processing gracefully. "Gracefully" means means that the unmerged output files
+    will be closed correctly on the workers. However, as processing is incomplete that's usually only useful for debugging.
+    Also note that no merging of the output files is done.
+    To abort (really stop), press Ctrl+C on the master area again. In this case, the master will terminate immediately; the unmerged root files
+    in this case are not in any well-defined state.
+    
+    In any case, also run
+    omega_cancel_workers
+    to 'qdel' all queued batch jobs. This is only necessary if jobs are queued and not yet running:
+    The running workers will be stopped anyway by the master (either directly by a command from the master in case of a
+    stop or indirectly  by loosing the connection in case of an abort).
+ 
+ Q: How can I see more detailed information about what commands are executed?
+ A: Use
+    OMEGA_VERBOSE=1
+    after sourcing omega.sh. This will print more details.
+
+    
