@@ -4,6 +4,7 @@
 
 using namespace ra;
 using namespace std;
+using namespace zsv;
 
 class NBCandSelection: public Selection{
 public:
@@ -13,7 +14,7 @@ public:
     }
     
     bool operator()(const Event & event){
-        const vector<Bcand> & bcands = event.get<vector<Bcand>>(selected_bcands);
+        const vector<Bcand> & bcands = event.get<vector<Bcand>>(id::selected_bcands);
         return (nmin < 0 || bcands.size() >= static_cast<size_t>(nmin)) && (nmax < 0 || bcands.size() <= static_cast<size_t>(nmax));
     }
     
@@ -34,7 +35,7 @@ public:
     }
     
     bool operator()(const Event & event){
-        double zpt = event.get<LorentzVector>(zp4).pt();
+        double zpt = event.get<LorentzVector>(id::zp4).pt();
         return (ptmin < 0 || zpt >= ptmin) && (ptmax < 0 || zpt <= ptmax);
     }
     
@@ -54,7 +55,7 @@ public:
     }
     
     bool operator()(const Event & event){
-        double mll = event.get<LorentzVector>(zp4).M();
+        double mll = event.get<LorentzVector>(id::zp4).M();
         return (mllmin < 0 || mll >= mllmin) && (mllmax < 0 || mll <= mllmax);
     }
     
@@ -72,7 +73,7 @@ public:
     }
     
     bool operator()(const Event & event){
-        float metvalue = event.get<float>(met);
+        float metvalue = event.get<float>(id::met);
         return (metmin < 0 || metvalue >= metmin) && (metmax < 0 || metvalue <= metmax);
     }
     

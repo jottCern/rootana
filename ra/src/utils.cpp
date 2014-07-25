@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <libgen.h>
 
 using namespace std;
 using namespace ra;
@@ -103,6 +104,23 @@ void ra::load_lib(const string & path){
         LOG_ERROR("dlopen of '" << path << "' (resolved to: '" << actual_path << "') failed: " << errstr);
         throw runtime_error("dlopen failed");
     }
+}
+
+
+std::string ra::dir_name(const string & path){
+    // note: dirname might modify its argument, therefore we make a copy here
+    char * path_copy = strdup(path.c_str());
+    string result = ::dirname(path_copy);
+    free(path_copy);
+    return result;
+}
+
+std::string ra::base_name(const string & path){
+    // note: dirname might modify its argument, therefore we make a copy here
+    char * path_copy = strdup(path.c_str());
+    string result = ::basename(path_copy);
+    free(path_copy);
+    return result;
 }
 
 

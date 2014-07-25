@@ -10,6 +10,7 @@
 
 using namespace ra;
 using namespace std;
+using namespace zsv;
 
 class filter_n_me_fs: public AnalysisModule {
 public:
@@ -46,11 +47,10 @@ void filter_n_me_fs::process(Event & event){
     if(nmin < 0 and nmax < 0){
         return;
     }
-    ID(stop);
-    int n = event.get<int>(mc_n_me_finalstate);
+    int n = event.get<int>(id::mc_n_me_finalstate);
     bool passed = (nmin < 0 || n >= nmin) && (nmax < 0 || n <= nmax);
     if(!passed){
-        event.set<bool>(stop, true);
+        event.set<bool>(id::stop, true);
     }
 }
 

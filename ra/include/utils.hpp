@@ -32,9 +32,33 @@ inline auto deltaR2(const T1 & t1, const T2 & t2) -> decltype(t1.eta()) {
 template<typename T1, typename T2>
 inline auto deltaR(const T1 & t1, const T2 & t2) -> decltype(t1.eta()) {
     return std::sqrt(deltaR2(t1,t2));
+}
+
+// see cmssw: DataFormats/Math/interface/angle.h 
+
+template<typename T> T sqrtT(T);
+template<> inline float sqrtT<float>(float t){ return sqrtf(t); }
+template<> inline double sqrtT<double>(double t){ return sqrt(t); }
+
+template<typename T> T acosT(T);
+template<> inline float acosT<float>(float t){ return acosf(t); }
+template<> inline double acosT<double>(double t){ return acos(t); }
+
+template <class T>
+T angle (T x1, T y1, T z1, T x2, T y2, T z2) {
+  return acosT((x1*x2 + y1*y2 + z1*z2)/sqrtT((x1*x1 + y1*y1 + z1*z1)*(x2*x2 + y2*y2 + z2*z2)));
+}
+
+template<typename T1, typename T2>
+inline auto angle(const T1 & t1, const T2 & t2) -> decltype(t1.x()) {
+  return angle(t1.x(), t1.y(), t1.z(), t2.x(), t2.y(), t2.z());
 } 
 
 namespace ra {
+    
+// C++ friendly version of dirname and basename
+std::string dir_name(const std::string & path);
+std::string base_name(const std::string & path);
 
 const std::list<std::string> & search_paths();
 void add_searchpath(const std::string & path, int index = 0); // index is the position for the new path in the list, -1 or numbers too large will add to the end.

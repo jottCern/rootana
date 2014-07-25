@@ -221,10 +221,42 @@ void s_logger::apply(const std::string & base_dir) const{
     LogController::get().configure(logger_configs);
 }
 
+namespace {
+
+struct set_reset_cwd {
+    
+    set_reset_cwd(const string & path){
+        old_dir = get_current_dir_name();
+        int res = chdir(path.c_str());
+        if(res < 0){
+            int error = errno;
+            stringstream ss;
+            ss << "Could not chdir to path '" << path << "': " << strerror(error) << endl;
+            free(old_dir);
+            throw runtime_error(ss.str());
+        }
+    }
+    
+    ~set_reset_cwd(){
+        int res = chdir(old_dir);
+        if(res < 0){
+            int error = errno;
+            cerr << "Could not change to '" << old_dir << "': " << strerror(error) << endl;
+        }
+        free(old_dir);
+    }
+    
+    char * old_dir;
+};
+    
+}
+
 s_config::s_config(const std::string & filename) {
-    // note: make an effort to iniliaze logging soon:
     ptree cfg;
-    boost::property_tree::read_info(filename.c_str(), cfg);
+    // change into directory of the config file, so that #includes
+    // are always resolved the same way:
+    set_reset_cwd setter(dir_name(filename));
+    boost::property_tree::read_info(base_name(filename).c_str(), cfg);
     if(cfg.count("logger") > 0){
         logger = s_logger(cfg.get_child("logger"));
     }

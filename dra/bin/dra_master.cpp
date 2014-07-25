@@ -3,6 +3,8 @@
 #include "stategraph.hpp"
 #include "dc/include/netutils.hpp"
 
+#include <fstream>
+
 using namespace dra;
 using namespace dc;
 using namespace std;
@@ -23,21 +25,67 @@ private:
     TcpAcceptor & acc;
 };
 
+namespace {
+  
+void usage(const char * name, int code){
+    cout << "Usage: " << name << " [-f pidfile] -p port config_file" << endl;
+    exit(code);
+}
+
+}
+
 int main(int argc, char ** argv){
-    if(argc != 3){
-        cerr << "Usage: " << argv[0] << " <port> <config file>" << endl;
-        exit(1);
+    int port = -1;
+    string pidfile;
+    
+    int c;
+    while((c = getopt(argc, argv, "f:p:")) != -1){
+      switch(c){
+        case 'p':
+          try {
+             port = boost::lexical_cast<int>(optarg);
+          } catch(boost::bad_lexical_cast&){} // port remains -1, triggering error below
+          break;
+        case 'f':
+          pidfile = optarg;
+          break;
+        default:
+          usage(argv[0], 1);
+      }
     }
-    const int port = boost::lexical_cast<int>(argv[1]);
+    
+    // the only thing left chould be the config file:
+    if(argc - 1 != optind || port <= 0){
+       usage(argv[0], 1);
+    }
+    const string cfgfile = argv[argc-1];
+    
+    if(!pidfile.empty()){
+        ofstream out(pidfile.c_str());
+        if(out){
+           out << getpid();
+        }
+        else{
+           cerr << "Warning: could not create pid file " << pidfile << endl;
+        }
+    }
     
     IOManager iom;    
     TcpAcceptor acc(iom);
     bool success = false;
+    bool stopped = false;
     {
-        Master master(argv[2]);
-        iom.setup_signal_handler(SIGINT, [&](const siginfo_t &){ 
-                cout << "SIGINT: aborting Master" << endl;
+        Master master(cfgfile);
+        iom.setup_signal_handler(SIGINT, [&](const siginfo_t &){
+            if(!stopped){
+                stopped = true;
+                cout << endl << "SIGINT: stopping Master" << endl;
+                master.stop();
+            }
+            else{
+                cout << endl<< "SIGINT: aborting Master" << endl;
                 master.abort();
+            }
         });
         
         shared_ptr<ProgressPrinter> pp(new ProgressPrinter());
@@ -49,12 +97,12 @@ int main(int argc, char ** argv){
         acc.start([&](unique_ptr<Channel> c){ master.add_worker(move(c)); }, "*", port);
         iom.process();
         pp.reset();
-        success = !master.failed();
+        success = !master.failed() && !stopped;
         // remove signal handler which refers to master which is about to be destroyed
         iom.reset_signal_handler(SIGINT, 0);
     }
     if(success){
-        cout << "Master completed successfully." << endl;
+        cout << "Master: Processing completed successfully." << endl;
     }
     else{
         cerr << "Data NOT processed completely; see log for details." << endl;

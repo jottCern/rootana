@@ -5,6 +5,6 @@ DICT := 1
 USERCXXFLAGS += $(ROOT_CFLAGS) $(BOOST_CFLAGS)
 USERLDFLAGS += $(ROOT_LDFLAGS) -lra
 
-#all: ../lib/libdra.so test.exe dra_local
+all: plot_single_efficiency
 
 include ../Makefile.rules

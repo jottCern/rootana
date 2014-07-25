@@ -42,9 +42,8 @@ void get_names_of_type(std::vector<std::string> & result, TDirectory * dir, cons
 class ProcessHistograms {
 public:
     virtual std::vector<std::string> get_histogram_names() = 0; // all histograms names available
-//     virtual std::vector<std::string> get_histogram_names(const std::string &) = 0;
     virtual Histogram get_histogram(const std::string & name) = 0; // get a copy of the histogram named
-    virtual ra::identifier id() = 0; // unique name for this process; data should be called data or DATA
+    virtual ra::identifier id() = 0; // unique name for this process; data should be called 'data' or 'DATA'
     virtual ~ProcessHistograms();
     
     virtual std::set<ra::identifier> get_plot_types() = 0;
@@ -57,7 +56,6 @@ public:
     ProcessHistogramsTFile(const std::initializer_list<std::string> & filenames, const ra::identifier & id);
     
     virtual std::vector<std::string> get_histogram_names(); // including subdirectories ...
-//     virtual std::vector<std::string> get_histogram_names(const std::string &);
     virtual Histogram get_histogram(const std::string & name);
     virtual ra::identifier id(){
         return id_;

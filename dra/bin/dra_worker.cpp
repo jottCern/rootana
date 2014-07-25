@@ -16,7 +16,7 @@ bool run_worker(int socket){
     Worker w;
     w.setup(unique_ptr<Channel>(new Channel(socket, iom)));
     bool sigusr1 = false;
-    iom.setup_signal_handler(SIGUSR1, [&](const siginfo_t &){ sigusr1 = true; w.stop(); })
+    iom.setup_signal_handler(SIGUSR1, [&](const siginfo_t &){ sigusr1 = true; w.signal_stop(); });
     try {
         iom.process();
     }

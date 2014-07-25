@@ -41,15 +41,13 @@ void plot_eff(const vector<shared_ptr<ProcessHistograms> > & histos, const strin
 int main(){
     shared_ptr<ProcessHistograms> ttbar(new ProcessHistogramsTFile(inputdir+"ttbar.root", "ttbar"));
     shared_ptr<ProcessHistograms> dy(new ProcessHistogramsTFile({inputdir+"dy1jets.root", inputdir+"dy2jets.root", inputdir+"dy3jets.root", inputdir+"dy4jets.root", inputdir+"dy.root"}, "dy"));
-    //shared_ptr<ProcessHistograms> data(new ProcessHistogramsTFile({inputdir+"dmu_runa.root", inputdir+"dmu_runb.root", inputdir+"dmu_runc.root", inputdir+"dmu_rund.root"}, "data"));
     
     Formatters formatters;
     formatters.add("*", SetLineColor(1));
-    formatters.add<SetFillColor>("ttbar:", 810)  ("dymix:", 414) ("dyexcl:", kMagenta) ("dy:", kBlue);
-    formatters.add<SetLineColor>("ttbar:", 810)  ("dy:", 414) ("dyexcl:", kMagenta);
-    formatters.add<SetLegends>("ttbar:", "t#bar{t}+Jets", "$\\ttbar$") ("dy:", "Z/#gamma*+Jets (MG)", "$Z/\\gamma^*$+Jets") ("data:", "Data") ("dyexcl:", "Z/#gamma*+Jets (excl)")("dymix:", "Z/#gamma*+Jets");
+    formatters.add<SetFillColor>("ttbar:", 810) ("dy:", kBlue);
+    formatters.add<SetLineColor>("ttbar:", 810) ("dy:", 414) ("dyexcl:", kMagenta);
+    formatters.add<SetLegends>("ttbar:", "t#bar{t}+Jets", "$\\ttbar$") ("dy:", "Z/#gamma*+Jets (MG)", "$Z/\\gamma^*$+Jets");
     formatters.add<SetOption>
-       ("*", "title_ur", "19.7 fb^{-1}, #sqrt{s}=8TeV")
        /*("*", "draw_ratio", "1")
        ("*", "ratio_ymax", "2")
        ("*", "ratio_ymin", "0.5")*/
@@ -77,7 +75,7 @@ int main(){
        ("mcb_bcand_dr", "xmax", "0.1")
        ("ptz", "xtext", "p_{T}(ll)")
        ;
-    formatters.add<RebinFactor>("mll", 4)("ptz", 4)("Bpt",4)("Beta",4)("DPhi_BB", 2)("DR_BB", 2)("m_BB", 4)("m_all", 16) ("met", 4) ("ptz", 2);
+    //formatters.add<RebinFactor>("mll", 4)("ptz", 4)("Bpt",4)("Beta",4)("DPhi_BB", 2)("DR_BB", 2)("m_BB", 4)("m_all", 16) ("met", 4) ("ptz", 2);
     //formatters.add<SetOption>("matched*", "draw_ratio", "") ("mcb*", "draw_ratio", "") ("double*", "draw_ratio", "");
     
     /*Formatters format_eff;

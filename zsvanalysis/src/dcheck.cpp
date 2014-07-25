@@ -2,6 +2,8 @@
 #include "ra/include/event.hpp"
 #include "ra/include/config.hpp"
 
+#include "eventids.hpp"
+
 #include <set>
 
 using namespace ra;
@@ -14,7 +16,7 @@ using namespace std;
  * \code
  * fdup {
  *    type dcheck
- *    verbose true; optional, default is false
+ *    verbose true ; optional, default is false
  *    dataset data ; optional, see below
  * }
  * \endcode
@@ -78,7 +80,6 @@ void dcheck::begin_dataset(const s_dataset & dataset, InputManager & in, OutputM
 }
 
 void dcheck::process(Event & event){
-    ID(stop);
     if(!runid){
         runid = &event.get<int>("runNo");
         eventid = &event.get<int>("eventNo");
@@ -86,7 +87,7 @@ void dcheck::process(Event & event){
     re current_re{*runid, *eventid};
     if(res.find(current_re)!=res.end()){
         ++ndup;
-        event.set<bool>(stop, true);
+        event.set<bool>(zsv::id::stop, true);
         if(verbose) cout << ndup << ". duplicate event found: runid=" << *runid << "; eventid=" << *eventid << endl;
     }
     else{

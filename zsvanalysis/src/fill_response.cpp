@@ -12,6 +12,7 @@
 
 using namespace ra;
 using namespace std;
+using namespace zsv;
 
 /** \brief Write new mcparticle-vector to the event with selected input particles
  * 
@@ -183,7 +184,7 @@ void fill_response::process(Event & event){
         genonly_dr->Fill(dr_gen, w);
     }
     if(reco){
-        auto & reco_bs = event.get<vector<Bcand>>(selected_bcands);
+        auto & reco_bs = event.get<vector<Bcand>>(id::selected_bcands);
         if(reco_bs.size() != 2) throw runtime_error("reco-selected event but reco_bs.size() != 2!");
         double dphi_reco = fabs(deltaPhi(reco_bs[0].flightdir, reco_bs[1].flightdir));
         double dr_reco = deltaR(reco_bs[0].flightdir, reco_bs[1].flightdir);

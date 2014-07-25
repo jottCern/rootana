@@ -12,6 +12,7 @@
 
 using namespace ra;
 using namespace std;
+using namespace zsv;
 
 /** \brief Pileup reweighting module
  * 
@@ -114,7 +115,7 @@ void pileup_reweight::begin_dataset(const s_dataset & dataset, InputManager & in
 
 void pileup_reweight::process(Event & event){
     if(!weights) return;
-    float tp = event.get<float>(mc_true_pileup);
+    float tp = event.get<float>(id::mc_true_pileup);
     int ibin = weights->FindBin(tp);
     event.set_weight(event.weight() * weights->GetBinContent(ibin));
 }

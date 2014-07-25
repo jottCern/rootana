@@ -15,6 +15,7 @@
 
 using namespace ra;
 using namespace std;
+using namespace zsv;
 
 // see: https://twiki.cern.ch/twiki/bin/viewauth/CMS/MuonReferenceEffs
 
@@ -117,8 +118,8 @@ void dimusf::process(Event & event){
     if(is_real_data){
         return;
     }
-    const LorentzVector & lp_p4 = event.get<lepton>(lepton_plus).p4;
-    const LorentzVector & lm_p4 = event.get<lepton>(lepton_minus).p4;
+    const LorentzVector & lp_p4 = event.get<lepton>(id::lepton_plus).p4;
+    const LorentzVector & lm_p4 = event.get<lepton>(id::lepton_minus).p4;
     
     // Trigger scale factor:
     double eta_larger, eta_smaller;

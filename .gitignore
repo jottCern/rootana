@@ -3,6 +3,7 @@ Makefile.local
 *.eps
 lib/*
 */.bin
+*/plot_*
 *~
 ra/ra
 *.pdf

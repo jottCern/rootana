@@ -16,17 +16,17 @@
 
 using boost::property_tree::ptree;
 
-
-// This header defines data structures containing the configuration file data. The hierarchy
+// This file defines the data structures containing the configuration file data. The hierarchy
 // resembles the one in the config file:
 // the top-level class is s_config which contains "s_options" (corresponding to the "options" section),
-// a vector of "s_dataset" (which in turn contaion a vector of "s_file"). Note that plugin-objects, i.e.
-// the AnalysisModules and the InputTree are *not* constructed. Rather, they ptree configuration is saved to
-// allow construction when they are needed.
+// a vector of "s_dataset" (which in turn contain a vector of "s_file").
+// Constructing the s_config can be done from data, which populates the other data structured, with one important exception:
+// the modules are not constructed (via the plugin system); rather they configuration is saved as property tree
+// allow later construction when they are needed.
 
 namespace ra {
 
-// expand glob pattern
+// expand the given pattern to a vector of filenames, using the glob rules
 std::vector<std::string> glob(const std::string& pattern);
 
 struct s_options{
@@ -127,10 +127,11 @@ struct s_config {
     std::vector<s_dataset> datasets;
     ptree modules_cfg;
     
+    // TODO: instead of having a ptree modules_cfg, could also make an interface to return modules
+    // which would (lazily!) construct them.
+    
     explicit s_config(const std::string & filename);
 };
-
-
 
 }
 

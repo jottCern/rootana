@@ -11,6 +11,7 @@
 
 using namespace ra;
 using namespace std;
+using namespace zsv;
 
 class muscale: public AnalysisModule {
 public:
@@ -68,11 +69,11 @@ void muscale::correct_lepton(lepton & lep){
 }
 
 void muscale::process(Event & event){
-    auto & l1 = event.get<lepton>(lepton_plus);
+    auto & l1 = event.get<lepton>(id::lepton_plus);
     if(abs(l1.pdgid) == 13){
         correct_lepton(l1);
     }
-    auto & l2 = event.get<lepton>(lepton_minus);
+    auto & l2 = event.get<lepton>(id::lepton_minus);
     if(abs(l2.pdgid) == 13){
         correct_lepton(l2);
     }

@@ -817,6 +817,7 @@ void Plotter::shapeplots(const std::initializer_list<ra::identifier> & processes
             h.histo->SetFillColor(0);
         }
         string outfilename = outdir + hname + suffix + "_shape.pdf";
+        create_dir(outfilename);
         draw_histos(histograms, outfilename);
     }
 }

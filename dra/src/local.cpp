@@ -269,7 +269,7 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
     }
     // the parent becomes the master:
     IOManager iom; // important: iom has to outlive master, as master references Channels which reference iom, which should still be around in ~Channel called by ~Master
-    bool master_ok = true;
+    bool master_ok = false, stopped = false, aborted = false;
     try{ // note: catch errors to wait for childs even if master throws.
         // first make sure we grab the "dangling resources" in form of worker_fds safely into channels. This
         // is to ensure that even if the Master constructor throws, the channels get closed.
@@ -279,7 +279,6 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
             channels.emplace_back(new Channel(worker_fds[i], iom));
         }
         Master master(cfgfile);
-        bool stopped = false, aborted = false;
         iom.setup_signal_handler(SIGINT, [&](const siginfo_t &){ 
             if(!stopped){
                 cout << "SIGINT: stopping" << endl;
@@ -302,12 +301,13 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
         iom.process();
         if(master.failed()){
             LOG_ERROR("Master IO processing exited before the dataset was processed completely.");
-            master_ok = false;
+        }
+        else{
+          master_ok = true;
         }
     }
     catch(std::exception & ex){
         LOG_ERROR("Exception while running master: " << ex.what());
-        master_ok = false;
     }
     
     LOG_INFO("Waiting for all worker processes ... ");

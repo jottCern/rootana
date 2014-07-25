@@ -68,7 +68,7 @@ LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../l
 
 # compile commands, to be used in cubdirectory makefiles:
 SHARED_CMD = @echo creating $@; $(CXX) $+ -shared $(LDFLAGS) -o $@ 
-EXE_CMD = @echo creating $@; $(CXX) $(LDFLAGS) -o $@ $+ $(USERLDFLAGS)
+EXE_CMD = @echo creating $@; $(CXX) -o $@ $+ $(LDFLAGS)
 
 .bin/%.o: src/%.cpp
 	@echo compiling $<
@@ -86,6 +86,9 @@ EXE_CMD = @echo creating $@; $(CXX) $(LDFLAGS) -o $@ $+ $(USERLDFLAGS)
 	@echo compiling $<
 	@$(CXX) $(CXXFLAGS) -I. -DDICTGEN -c $< -o $@
 
+plot_%: .bin/plot_%.o
+	$(EXE_CMD) -lplot -lbase
+
 clean-subdir:
 	rm -rf .bin
 
@@ -97,3 +100,6 @@ clean-subdir:
 
 .bin/%.d: test/%.cpp
 	@echo creating dep file $@; $(CXX) $(CXXFLAGS) -MM -MT '$(patsubst test/%.cpp,.bin/%.o,$<)' $< > $@
+
+
+
