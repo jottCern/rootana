@@ -171,23 +171,29 @@ void LogFile::setup_new_file(){
     int fd = open(new_filename.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
     if(fd < 0){
         cerr << "LogFile: could not open logfile '" << new_filename << "': " << strerror(errno) << "; LogFile enters null state." << endl;
+        current_file = -1;
         return;
     }
     int res = ftruncate(fd, msize);
     if(res < 0){
         cerr << "LogFile: could not ftruncate logfile '" << new_filename << "' to desired length: " << strerror(errno) << "; LogFile enters null state." << endl;
+        current_file = -1;
         return;
     }
     maddr = reinterpret_cast<char*>(mmap(NULL, msize, PROT_WRITE, MAP_SHARED, fd, 0));
     if(maddr == reinterpret_cast<char*>(MAP_FAILED)){
         cerr << "LogFile: mmap failed for logfile '" << new_filename << "': " << strerror(errno) << "; LogFile enters null state." << endl;
         maddr = 0;
+        current_file = -1;
         close(fd);
         return;
     }
     res = close(fd);
     if(res < 0){
         cerr << "LogFile: closing fd for logfile '" << new_filename << "' after mmap failed: " << strerror(errno) << "; LogFile enters null state." << endl;
+        munmap(maddr, msize);
+        current_file = -1;
+        maddr = 0;
         return;
     }
 }
