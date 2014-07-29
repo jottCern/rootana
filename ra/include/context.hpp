@@ -35,7 +35,7 @@ public:
     void declare_event_input(const char * branchname, const identifier & event_member_name){
         event.set<T>(event_member_name, T());
         void * addr = &(event.get<T>(event_member_name));
-        event.set_presence<T>(event_member_name, Event::presence::allocated);
+        event.set_state<T>(event_member_name, Event::state::invalid);
         declare_input(branchname, event_member_name, addr, typeid(T));
     }
     
@@ -44,30 +44,39 @@ public:
         declare_event_input<T>(name, name);
     }
     
+protected:
     // "low-level" access; addr has to point to a structure of type ti, which has not necessarily to be in the Event container.
     // If the data is not stored in the Event container, use event_member_name="".
     virtual void declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti) = 0;
     
-protected:
     explicit InputManager(Event & event_): event(event_){}
     Event & event;
 };
 
 
 
-// This is the actual InputDeclaration class used in the framework: TODO: remove from here?
+// This is the actual InputManager class usuall used in the framework: TODO: remove from here?
 class TTreeInputManager: public InputManager{
 public:
+    // this method simply saves all declared associations internally
     virtual void declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti);
     
-    explicit TTreeInputManager(Event & event_): InputManager(event_), nentries(0){}
+    explicit TTreeInputManager(Event & event_, bool lazy_ = false): InputManager(event_), nentries(0), current_ientry(-1), bytes_read(0), lazy(lazy_){}
     
-    // call SetBranchAddress for all input previously declared.
+    // call SetBranchAddress for all saved 'declare_input' calls.
     void setup_tree(TTree * tree);
     
-    // returns the number of read bytes
-    size_t read_entry(size_t ientry);
+    // returns the number of read bytes (uncompressed, as by TBranch::GetEntry).
+    void read_entry(size_t ientry);
     
+    // get the number of bytes read since the last time this function was called
+    size_t nbytes_read(){
+        size_t result = bytes_read;
+        bytes_read = 0;
+        return result;
+    }
+    
+    // the number of entries in the setup tree
     size_t entries() const{
         return nentries;
     }
@@ -82,8 +91,13 @@ private:
         branchinfo(TBranch * branch_, const std::type_info & ti_, const identifier & name_, void * addr_): branch(branch_), ti(ti_), name(name_), addr(addr_){}
     };
     
+    void read_branch(branchinfo & bi);
+    
     size_t nentries;
+    size_t current_ientry;
+    size_t bytes_read;
     std::map<std::string, branchinfo> bname2bi;
+    bool lazy;
 };
 
 /** \brief Utility class for declaring histogram output
@@ -124,7 +138,7 @@ public:
      */
     template<typename T>
     void declare_event_output(const char * branchname, const identifier & event_member_name){
-        if(event.get_presence<T>(event_member_name) == Event::presence::nonexistent){
+        if(event.get_state<T>(event_member_name) == Event::state::nonexistent){
             event.set<T>(event_member_name, T());
         }
         const T & t = event.get<T>(event_member_name, false);

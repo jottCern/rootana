@@ -93,29 +93,48 @@ void TTreeInputManager::setup_tree(TTree * tree){
             throw runtime_error(ss.str());
         }
         bi.branch = branch;
+        // if we're lazy, install the callbacks:
+        if(lazy){
+            event.set_get_callback(bi.ti, bi.name, std::bind(&TTreeInputManager::read_branch, this, ref(bi)));
+        }
     }
     nentries = tree->GetEntries();
 }
 
 
-size_t TTreeInputManager::read_entry(size_t ientry){
+void TTreeInputManager::read_branch(branchinfo & bi){
+    int res =  bi.branch->GetEntry(current_ientry);
+    if(res < 0){
+        stringstream ss;
+        ss << "Error from TBranch::GetEntry reading entry " << current_ientry;
+        throw runtime_error(ss.str());
+    }
+    bytes_read += res;
+}
+
+
+void TTreeInputManager::read_entry(size_t ientry){
     static identifier empty("");
-    event.reset_all();
+    event.invalidate_all();
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
-    size_t result = 0;
-    for(auto & name_bi : bname2bi){
-        int res =  name_bi.second.branch->GetEntry(ientry);
-        if(res < 0){
-            stringstream ss;
-            ss << "Error from TBranch::GetEntry reading entry " << ientry;
-            throw runtime_error(ss.str());
-        }
-        result += res;
-        if(name_bi.second.name != empty){
-            event.set_presence(name_bi.second.ti, name_bi.second.name, Event::presence::present);
+    current_ientry = ientry;
+    if(lazy){
+        // in case we're lazy: only read the stuff not handled via the event container:
+        for(auto & name_bi : bname2bi){
+            if(name_bi.second.name == empty){
+                read_branch(name_bi.second);
+            }
         }
     }
-    return result;
+    else{
+        // otherwise: read all:
+        for(auto & name_bi : bname2bi){
+            read_branch(name_bi.second);
+            if(name_bi.second.name != empty){
+                event.set_state(name_bi.second.ti, name_bi.second.name, Event::state::valid);
+            }
+        }
+    }
 }
 
 

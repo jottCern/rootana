@@ -39,6 +39,7 @@ struct s_options{
     std::vector<std::string> searchpaths;
     bool keep_unmerged;
     e_mergemode mergemode;
+    bool lazy_read;
     
     explicit s_options(const ptree & options_cfg);
     s_options(const s_options &) = delete;

@@ -78,7 +78,7 @@ vector<string> parse_sframe_xml(const string & path){
 
 }
 
-s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint(-1), output_dir("."), keep_unmerged(false), mergemode(mm_master){
+s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint(-1), output_dir("."), keep_unmerged(false), mergemode(mm_master), lazy_read(false){
     auto logger = Logger::get("ra.config.options");
     std::string verb("info");
     for(const auto & cfg : options_cfg){
@@ -105,6 +105,9 @@ s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint
         }
         else if(cfg.first == "keep_unmerged"){
             keep_unmerged = try_cast<bool>("options.keep_unmerged", cfg.second.data());
+        }
+        else if(cfg.first == "lazy_read"){
+            lazy_read = try_cast<bool>("options.lazy_read", cfg.second.data());
         }
         else if(cfg.first == "mergemode"){
             if(cfg.second.data() == "workers"){

@@ -69,7 +69,7 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
     const s_dataset & dataset = config.datasets[current_idataset];
     event.reset(new Event());
     out.reset(new TFileOutputManager(outfile.get(), dataset.treename, *event));
-    in.reset(new TTreeInputManager(*event));
+    in.reset(new TTreeInputManager(*event, config.options.lazy_read));
     for(auto & m : modules){
         m->begin_dataset(dataset, *in, *out);
     }
@@ -143,7 +143,7 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
     n_read = 0;
     for(size_t ientry = imin; ientry < imax; ++ientry){
         try{
-            n_read += in->read_entry(ientry);
+            in->read_entry(ientry);
         }
         catch(...){
             LOG_ERROR("Exception caught in read_entry while reading entry " << ientry << " of file " << current_dataset().files[current_ifile].path << "; re-throwing.");
@@ -160,11 +160,12 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
                           << current_dataset().files[current_ifile].path << "; re-throwing.");
                 throw;
             }
-            if(event->get_presence<bool>(id_stop) == Event::presence::present && event->get<bool>(id_stop)){
+            if(event->get_state<bool>(id_stop) == Event::state::valid && event->get<bool>(id_stop)){
                 event_selected = false;
                 break;
             }
         }
+        n_read += in->nbytes_read();
         if(event_selected) out->write_event();
     }
 }
