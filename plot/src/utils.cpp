@@ -885,10 +885,11 @@ void Plotter::selcomp_plots(const std::initializer_list<ra::identifier> & select
     
     std::set<ra::identifier> plot_types;
     
-    if (!plots_to_compare.size())
+    if (!plots_to_compare.size()){
         plot_types = histos[0]->get_plot_types();
-    else
+    }else{
         plot_types = plots_to_compare;
+    }
 
     for(const auto & histo : histos){
         for (const auto & p : plot_types){
@@ -899,16 +900,6 @@ void Plotter::selcomp_plots(const std::initializer_list<ra::identifier> & select
             // normalize all and set line color to fill color:
             for(auto & h: histograms1){
                 h.histo->Scale(1.0 / h.histo->Integral());
-                h.histo->SetLineColor(h.histo->GetFillColor());
-                h.histo->SetLineWidth(2.0);
-                h.histo->SetFillColor(0);
-                h.options["ytext"] = "Normalized Units";
-                h.histo->SetMaximum(1.);
-            }
-            for(auto & h: histograms2){
-                h.histo->SetLineColor(h.histo->GetFillColor());
-                h.histo->SetLineWidth(2.0);
-                h.histo->SetFillColor(0);
             }
             string outfilename1 = outdir + outputname + "/" + histo->id().name() + "_" + p.name() + "_selcomp_norm.pdf";
             string outfilename2 = outdir + outputname + "/" + histo->id().name() + "_" + p.name() + "_selcomp_abs.pdf";

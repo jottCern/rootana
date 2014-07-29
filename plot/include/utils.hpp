@@ -46,7 +46,7 @@ public:
     virtual ra::identifier id() = 0; // unique name for this process; data should be called 'data' or 'DATA'
     virtual ~ProcessHistograms();
     
-    virtual std::set<ra::identifier> get_plot_types() = 0;
+    virtual std::set<ra::identifier> get_plot_types() = 0; // the directories for this source
 };
 
 
