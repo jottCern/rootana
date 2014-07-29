@@ -50,9 +50,7 @@ private:
     std::string current_dataset;
     bool active;
     std::set<re> res;
-    int ndup;    
-    const int * runid;
-    const int * eventid;
+    int ndup;
 };
 
 dcheck::dcheck(const ptree & cfg): ndup(0){
@@ -76,19 +74,16 @@ void dcheck::begin_dataset(const s_dataset & dataset, InputManager & in, OutputM
     active = datasets.find(dataset.name) != datasets.end() || datasets.empty();
     res.clear();
     ndup = 0;
-    runid = eventid = 0;
 }
 
 void dcheck::process(Event & event){
-    if(!runid){
-        runid = &event.get<int>("runNo");
-        eventid = &event.get<int>("eventNo");
-    }
-    re current_re{*runid, *eventid};
+    int runid = event.get<int>("runNo");
+    int eventid = event.get<int>("eventNo");
+    re current_re{runid, eventid};
     if(res.find(current_re)!=res.end()){
         ++ndup;
         event.set<bool>(zsv::id::stop, true);
-        if(verbose) cout << ndup << ". duplicate event found: runid=" << *runid << "; eventid=" << *eventid << endl;
+        if(verbose) cout << ndup << ". duplicate event found: runid=" << runid << "; eventid=" << eventid << endl;
     }
     else{
         res.insert(current_re);

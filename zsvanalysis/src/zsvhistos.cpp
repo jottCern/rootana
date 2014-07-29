@@ -172,10 +172,6 @@ public:
         ((TH2*)get(id))->Fill(xvalue, yvalue, current_weight);
     }
     
-    void divide(const identifier & id_new, const identifier & id_num, const identifier & id_den){
-        get(id_new)->Divide(get(id_num), get(id_den));
-    }
-    
     virtual void process(Event & e){
         ID(Bmass);
         ID(Bpt);

@@ -1,0 +1,30 @@
+; to be included at the beginning of the 'modules' section
+setup_intree {
+    type zsvtree
+}
+
+filterdyincl { ; filter the Z+0j component from dyincl
+    type filter_n_me_fs
+    dy {
+        nmin 2
+        nmax 2
+    }
+}
+        
+mcweight {
+    type mcweight
+    target_lumi 19700.
+}
+
+pileup_weight {
+    type pileup_reweight
+    target /nfs/dust/cms/user/peiffer/Analysis53X_v3/PileUpHistos/MyDataPileupHistogram.root:pileup
+}
+
+sf {
+    type dimusf
+}
+
+zp4 {
+    type calc_zp4
+}
