@@ -78,6 +78,10 @@ public:
     const T & get(const identifier & name, bool check_valid = true) const{
         return *(reinterpret_cast<const T*>(get_raw(typeid(T), name, check_valid)));
     }
+
+    // type-erased versions:
+    void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true);
+    const void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true) const;
     
     /** \brief Set an element, allocating memory if necessary
      *
@@ -151,8 +155,6 @@ public:
     
 private:
     
-    void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true);
-    const void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true) const;
     void set_raw(const std::type_info & ti, const identifier & name, void * obj, const std::function<void (void*)> & eraser);
     void reset_get_callback(const std::type_info & ti, const identifier & name);
     void fail(const std::type_info & ti, const identifier & id) const;

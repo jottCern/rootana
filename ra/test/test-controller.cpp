@@ -59,6 +59,18 @@ void test_module::process(Event & event){
 
 REGISTER_ANALYSIS_MODULE(test_module);
 
+class test_module_copy: public ra::AnalysisModule {
+public:
+    test_module_copy(const ptree & cfg){}
+    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
+        in.declare_event_input<int>("intdata");
+        out.declare_event_output<int>("intdata");
+    }
+    virtual void process(Event & event){}
+};
+
+REGISTER_ANALYSIS_MODULE(test_module_copy)
+
 string maketempdir(){
     char pattern[] = "/tmp/tc.XXXXXX";
     char * result = mkdtemp(pattern);
@@ -108,6 +120,44 @@ BOOST_AUTO_TEST_CASE(simple){
         BOOST_CHECK_EQUAL(ids_seen[i], i + offset);
     }
 }
+
+BOOST_AUTO_TEST_CASE(lazy){
+    string indir = maketempdir();
+    const int offset = 9824;
+    create_test_tree(indir + "/test.root", offset, 1000);
+    {
+    ofstream configstr(indir + "/cfg.cfg");
+    configstr << "options { lazy_read true \n }\n"
+     "dataset {\n"
+     " name testdataset\n"
+     " treename events\n"
+     " file-pattern " << indir << "/*.root\n"
+     "}\n"
+     "modules { testm { type test_module_copy } }";
+    }
+    
+    s_config conf(indir + "/cfg.cfg");
+    
+    {
+       AnalysisController ac(conf, false);
+       ac.start_dataset(0, indir + "/out.root");
+       ac.start_file(0);
+       ac.process(0, 1000, 0);
+    }
+    // read out.root: should have same structure as in:
+    TFile out((indir + "/out.root").c_str(), "read");
+    TTree * tree = dynamic_cast<TTree*>(out.Get("events"));
+    BOOST_REQUIRE(tree);
+    BOOST_REQUIRE_EQUAL(tree->GetEntries(), 1000);
+    int id = -1;
+    tree->SetBranchAddress("intdata", &id);
+    for(int i=0; i<1000; ++i){
+        tree->GetEntry(i);
+        BOOST_CHECK_EQUAL(id, offset + i);
+    }
+}
+
+
 
 BOOST_AUTO_TEST_CASE(morefiles){
     const int offset0 = 2835985;

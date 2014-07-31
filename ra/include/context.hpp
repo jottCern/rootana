@@ -142,7 +142,7 @@ public:
             event.set<T>(event_member_name, T());
         }
         const T & t = event.get<T>(event_member_name, false);
-        declare_event_output(branchname, static_cast<const void*>(&t), typeid(T));
+        declare_event_output(branchname, event_member_name, static_cast<const void*>(&t), typeid(T));
     }
     
     // shortcut if branchname and member name are the same
@@ -168,7 +168,7 @@ public:
     virtual ~OutputManager();
     
     // low-level access:
-    virtual void declare_event_output(const char * branchname, const void * addr, const std::type_info & ti) = 0;
+    virtual void declare_event_output(const char * branchname, const identifier & event_member_name, const void * addr, const std::type_info & ti) = 0;
     virtual void declare_output(const identifier & tree_id, const char * branchname, const void * t, const std::type_info & ti) = 0;
     
 protected:
@@ -181,7 +181,7 @@ protected:
 class TFileOutputManager: public OutputManager {
 public:
     virtual void put(const char * name, TH1 * t);
-    virtual void declare_event_output(const char * name, const void * addr, const std::type_info & ti);
+    virtual void declare_event_output(const char * name, const identifier & event_member_name, const void * addr, const std::type_info & ti);
     virtual void declare_output(const identifier & tree_id, const char * name, const void * t, const std::type_info & ti);
     virtual void write_output(const identifier & tree_id);
     
@@ -193,10 +193,12 @@ private:
     TFile * outfile;
     std::string event_treename;
     TTree * event_tree;
-    std::map<identifier, TTree*> trees;
-    std::list<void*> ptrs;
+    std::vector<std::pair<ra::identifier, const std::type_info*>> event_members; // list of event members to read before the write; important for lazy read
+    std::map<identifier, TTree*> trees; // additional trees beyond the event tree
+    std::list<void*> ptrs; // keep a list of pointers, so we can give root the *address* of the pointer
 };
 
 }
 
 #endif
+

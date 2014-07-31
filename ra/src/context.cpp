@@ -252,7 +252,7 @@ void TFileOutputManager::put(const char * name_, TH1 * histo){
     histo->SetDirectory(gDirectory);
 }
 
-void TFileOutputManager::declare_event_output(const char * name, const void * caddr, const std::type_info & ti){
+void TFileOutputManager::declare_event_output(const char * name, const identifier & event_member_name, const void * caddr, const std::type_info & ti){
     if(!event_tree){
         TDirectory * dir = gDirectory;
         outfile->cd();
@@ -262,6 +262,10 @@ void TFileOutputManager::declare_event_output(const char * name, const void * ca
     void * addr = const_cast<void*>(caddr);
     ptrs.push_back(addr);
     void *& ptrptr = ptrs.back();
+    static identifier empty("");
+    if(event_member_name != empty){
+        event_members.emplace_back(event_member_name, &ti);
+    }
     ttree_branch(event_tree, name, addr, &ptrptr, ti);
 }
 
@@ -290,6 +294,10 @@ void TFileOutputManager::write_output(const identifier & tree_id){
 
 void TFileOutputManager::write_event(){
     if(event_tree){
+        // read all event members; to make sure info is up to dat in case of lazy reads:
+        for(const auto & em : event_members){
+            event.get_raw(*em.second, em.first);
+        }
         event_tree->Fill();
     }
 }
