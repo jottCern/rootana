@@ -204,13 +204,13 @@ void ttree_branch(TTree * tree, const char * name, void * addr, void ** addraddr
     }
 }
 
-void root_cd(TDirectory * base, string path, bool create_dirs = true){
+void root_cd(TDirectory & base, string path, bool create_dirs = true){
     // remove leading '/'s:
     while(!path.empty() && path[0]=='/'){
         path = path.substr(1);
     }
     if(path.empty()){
-        base->cd();
+        base.cd();
     }
     else{
         size_t p = path.find('/');
@@ -224,15 +224,33 @@ void root_cd(TDirectory * base, string path, bool create_dirs = true){
             nextdir_name = path.substr(0, p);
             path = path.substr(p+1);
         }
-        TDirectory * nextdir = base->GetDirectory(nextdir_name.c_str());
+        TDirectory * nextdir = base.GetDirectory(nextdir_name.c_str());
         if(!nextdir && create_dirs){
-            nextdir = base->mkdir(nextdir_name.c_str());
+            nextdir = base.mkdir(nextdir_name.c_str());
         }
         if(!nextdir){
-            throw runtime_error("Error: no such directory '" + nextdir_name + "' in directory '" + base->GetName() + "'");
+            throw runtime_error("Error: no such directory '" + nextdir_name + "' in directory '" + base.GetName() + "'");
         }
-        root_cd(nextdir, path, create_dirs);
+        root_cd(*nextdir, path, create_dirs);
     }
+}
+
+// split a path-string to the path part and the name part. path can be empty.
+std::pair<string, string> get_path_name(const string & fullname){
+    size_t p = fullname.rfind('/');
+    if(p==string::npos) p = 0;
+    string path = fullname.substr(0, p); // can be empty in case no '/' was found
+    string name = fullname.substr(p + (p==0?0:1)); // last part of the name, without '/'
+    return make_pair(move(path), move(name));
+}
+
+TTree * create_ttree(TFile & file, const string & name){
+    TDirectory * dir = gDirectory;
+    auto path_name = get_path_name(name);
+    root_cd(file, path_name.first);
+    TTree * result = new TTree(path_name.second.c_str(), path_name.second.c_str());
+    gDirectory = dir;
+    return result;
 }
 
 
@@ -240,24 +258,18 @@ void root_cd(TDirectory * base, string path, bool create_dirs = true){
 
 
 void TFileOutputManager::put(const char * name_, TH1 * histo){
-    string fullname(name_);
+    assert(outfile);
     // find last '/' to get directory name:
-    size_t p = fullname.rfind('/');
-    if(p==string::npos) p = 0;
-    string path = fullname.substr(0, p); // can be empty in case no '/' was found
-    string name = fullname.substr(p + (p==0?0:1)); // last part of the name, without '/'
-    root_cd(outfile, path);
+    auto path_name = get_path_name(name_);
+    root_cd(*outfile, path_name.first);
     histo->SetDirectory(0);
-    histo->SetName(name.c_str());
+    histo->SetName(path_name.second.c_str());
     histo->SetDirectory(gDirectory);
 }
 
 void TFileOutputManager::declare_event_output(const char * name, const identifier & event_member_name, const void * caddr, const std::type_info & ti){
     if(!event_tree){
-        TDirectory * dir = gDirectory;
-        outfile->cd();
-        event_tree = new TTree(event_treename.c_str(), event_treename.c_str());
-        gDirectory = dir;
+        event_tree = create_ttree(*outfile, event_treename);
     }
     void * addr = const_cast<void*>(caddr);
     ptrs.push_back(addr);
@@ -272,10 +284,7 @@ void TFileOutputManager::declare_event_output(const char * name, const identifie
 void TFileOutputManager::declare_output(const identifier & tree_id, const char * name, const void * caddr, const std::type_info & ti){
     TTree *& tree = trees[tree_id];
     if(!tree){
-        TDirectory * dir = gDirectory;
-        outfile->cd();
-        tree = new TTree(tree_id.name().c_str(), tree_id.name().c_str()); 
-        gDirectory = dir;
+        tree = create_ttree(*outfile, tree_id.name());
     }
     assert(tree);
     void * addr = const_cast<void*>(caddr);
@@ -285,6 +294,7 @@ void TFileOutputManager::declare_output(const identifier & tree_id, const char *
 }
 
 void TFileOutputManager::write_output(const identifier & tree_id){
+    assert(outfile);
     auto it = trees.find(tree_id);
     if(it==trees.end()){
         throw invalid_argument("did not find tree '" + tree_id.name() + "'");
@@ -293,6 +303,7 @@ void TFileOutputManager::write_output(const identifier & tree_id){
 }
 
 void TFileOutputManager::write_event(){
+    assert(outfile);
     if(event_tree){
         // read all event members; to make sure info is up to dat in case of lazy reads:
         for(const auto & em : event_members){
@@ -301,7 +312,19 @@ void TFileOutputManager::write_event(){
         event_tree->Fill();
     }
 }
+
+void TFileOutputManager::close(){
+    if(outfile){
+        outfile->cd();
+        outfile->Write();
+        outfile.reset();
+    }
+}
+
+TFileOutputManager::~TFileOutputManager(){
+    close();
+}
     
-TFileOutputManager::TFileOutputManager(TFile * outfile_, const string & event_treename_, Event & event_): OutputManager(event_), outfile(outfile_), event_treename(event_treename_),event_tree(0){
+TFileOutputManager::TFileOutputManager(std::unique_ptr<TFile> outfile_, const string & event_treename_, Event & event_): OutputManager(event_), outfile(move(outfile_)), event_treename(event_treename_),event_tree(0){
 }
 

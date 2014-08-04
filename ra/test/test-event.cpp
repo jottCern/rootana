@@ -220,10 +220,41 @@ BOOST_AUTO_TEST_CASE(read_wrong_type){
 
 
 BOOST_AUTO_TEST_CASE(outtree){
-    TFile * outfile = new TFile("out.root", "recreate");
     Event event;
-    TFileOutputManager fout(outfile, "eventtree", event);
-    OutputManager & out = fout;    
+    unique_ptr<TFile> outfile(new TFile("out.root", "recreate"));
+    TFileOutputManager fout(move(outfile), "eventtree", event);
+    OutputManager & out = fout;
+    
+    out.declare_event_output<int>("my_int");
+    for(int i=0; i<100; ++i){
+        event.get<int>("my_int") = i;
+        fout.write_event();
+    }
+    fout.close();
+    
+    // check that the output file is Ok:
+    TFile f("out.root", "read");
+    TTree * tree = dynamic_cast<TTree*>(f.Get("eventtree"));
+    BOOST_REQUIRE(tree);
+    Event inevent;
+    TTreeInputManager in(inevent);
+    in.declare_event_input<int>("my_int");
+    in.setup_tree(tree);
+    BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
+    for(int i=0; i<100; ++i){
+        in.read_entry(i);
+        int idata = inevent.get<int>("my_int");
+        BOOST_CHECK_EQUAL(idata, i);
+    }
+}
+
+
+// output tree in a directory within the output file:
+BOOST_AUTO_TEST_CASE(outtree_dir){
+    Event event;
+    unique_ptr<TFile> outfile(new TFile("out.root", "recreate"));
+    TFileOutputManager fout(move(outfile), "dir/eventtree", event);
+    OutputManager & out = fout;
     
     out.declare_event_output<int>("my_int");
     for(int i=0; i<100; ++i){
@@ -231,14 +262,12 @@ BOOST_AUTO_TEST_CASE(outtree){
         fout.write_event();
     }
     
-    // important: writing and closing the outfile is not the responsibility of OutputManager ...
-    outfile->cd();
-    outfile->Write();
-    delete outfile;
+    fout.close();
     
     // check that the output file is Ok:
     TFile f("out.root", "read");
-    TTree * tree = dynamic_cast<TTree*>(f.Get("eventtree"));
+    TTree * tree = dynamic_cast<TTree*>(f.Get("dir/eventtree"));
+    BOOST_REQUIRE(tree);
     Event inevent;
     TTreeInputManager in(inevent);
     in.declare_event_input<int>("my_int");
@@ -253,17 +282,15 @@ BOOST_AUTO_TEST_CASE(outtree){
 
 
 BOOST_AUTO_TEST_CASE(outhist){
-    TFile * outfile = new TFile("outhist.root", "recreate");
+    unique_ptr<TFile> outfile(new TFile("outhist.root", "recreate"));
     Event event;
-    TFileOutputManager fout(outfile, "eventtree", event);
+    TFileOutputManager fout(move(outfile), "eventtree", event);
     
     TH1D * histo = new TH1D("h1", "h1", 100, 0, 1);
     fout.put("histname", histo);
     histo->Fill(0.5);
     
-    outfile->cd();
-    outfile->Write();
-    outfile->Close();
+    fout.close();
     
     // check that h1 was written as "outhist":
     TFile f("outhist.root", "read");
@@ -273,17 +300,15 @@ BOOST_AUTO_TEST_CASE(outhist){
 }
 
 BOOST_AUTO_TEST_CASE(outhist_dir){
-    TFile * outfile = new TFile("outhist_dir.root", "recreate");
+    unique_ptr<TFile> outfile(new TFile("outhist_dir.root", "recreate"));
     Event event;
-    TFileOutputManager fout(outfile, "eventtree", event);
+    TFileOutputManager fout(move(outfile), "eventtree", event);
     
     TH1D * histo = new TH1D("h1", "h1", 100, 0, 1);
     fout.put("dir1/dir2/dir3/histname", histo);
     histo->Fill(0.5);
     
-    outfile->cd();
-    outfile->Write();
-    outfile->Close();
+    fout.close();
     
     // check that h1 was written as "outhist":
     TFile f("outhist_dir.root", "read");

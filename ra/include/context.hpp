@@ -187,12 +187,19 @@ public:
     
     void write_event();
     
-    TFileOutputManager(TFile * outfile, const std::string & event_treename, Event & event);
+    // write and close the underlying TFile. Any put or write after that is illegal.
+    // Called from the destructor automatically, so often no need to do it explicitly.
+    void close();
+    
+    // outfile ownership is taken by the TFileOutputManager.
+    TFileOutputManager(std::unique_ptr<TFile> outfile, const std::string & event_treename, Event & event);
+    
+    ~TFileOutputManager();
     
 private:
-    TFile * outfile;
+    std::unique_ptr<TFile> outfile;
     std::string event_treename;
-    TTree * event_tree;
+    TTree * event_tree; // owned by outfile
     std::vector<std::pair<ra::identifier, const std::type_info*>> event_members; // list of event members to read before the write; important for lazy read
     std::map<identifier, TTree*> trees; // additional trees beyond the event tree
     std::list<void*> ptrs; // keep a list of pointers, so we can give root the *address* of the pointer

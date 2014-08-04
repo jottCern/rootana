@@ -76,7 +76,6 @@ private:
     // per dataset:
     size_t current_idataset;
     std::string outfile_path;
-    std::unique_ptr<TFile> outfile;
     std::unique_ptr<ra::TFileOutputManager> out;
     std::unique_ptr<ra::Event> event;
     std::unique_ptr<ra::TTreeInputManager> in;

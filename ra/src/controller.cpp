@@ -42,13 +42,6 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
     in.reset();
     event.reset();
     out.reset();
-    // TODO: review outfile close sequence ...
-    if(outfile){
-        outfile->cd();
-        outfile->Write();
-        outfile->Close();
-        outfile.reset();
-    }
     
     current_idataset = idataset;
     if(idataset == size_t(-1)) return;
@@ -57,14 +50,14 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
         LOG_THROW("start_dataset ( idataset = " << idataset << "): idataset out of range");
     }
     // initialize all per-dataset infos:
-    outfile.reset(new TFile(new_outfile_path.c_str(), "recreate"));
+    std::unique_ptr<TFile> outfile(new TFile(new_outfile_path.c_str(), "recreate"));
     if(!outfile->IsOpen()){
         LOG_THROW("could not open output file '" + new_outfile_path + "'");
     }
     outfile_path = new_outfile_path;
     const s_dataset & dataset = config.datasets[current_idataset];
     event.reset(new Event());
-    out.reset(new TFileOutputManager(outfile.get(), dataset.treename, *event));
+    out.reset(new TFileOutputManager(move(outfile), dataset.treename, *event));
     in.reset(new TTreeInputManager(*event, config.options.lazy_read));
     for(auto & m : modules){
         m->begin_dataset(dataset, *in, *out);
