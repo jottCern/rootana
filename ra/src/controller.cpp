@@ -10,10 +10,6 @@
 using namespace ra;
 using namespace std;
 
-namespace {
-ra::identifier id_stop("stop");
-}
-
 AnalysisController::AnalysisController(const s_config & config_, bool parallel): logger(Logger::get("ra.AnalysisController")),
   config(config_), current_idataset(-1), current_ifile(-1), infile_nevents(0) {
     for(const string & sp : config.options.searchpaths){
@@ -138,9 +134,6 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
     if(imax < imin){
         LOG_THROW("process called with imax < imin");
     }
-    size_t dummy;
-    size_t & n_read = stats ? stats->nbytes_read : dummy;
-    n_read = 0;
     for(size_t ientry = imin; ientry < imax; ++ientry){
         try{
             in->read_entry(ientry);
@@ -160,14 +153,14 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
                           << current_dataset().files[current_ifile].path << "; re-throwing.");
                 throw;
             }
-            if(event->get_state<bool>(id_stop) == Event::state::valid && event->get<bool>(id_stop)){
+            if(event->get_state<bool>(fwid::stop) == Event::state::valid && event->get<bool>(fwid::stop)){
                 event_selected = false;
                 break;
             }
         }
-        n_read += in->nbytes_read();
         if(event_selected) out->write_event();
     }
+    if(stats) stats->nbytes_read = in->nbytes_read();
 }
 
 AnalysisController::~AnalysisController(){

@@ -7,6 +7,8 @@
 
 using namespace ra;
 
+identifier ra::fwid::stop("__stop");
+
 namespace {
     
 template<class T, class... Args>

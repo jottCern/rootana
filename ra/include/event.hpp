@@ -14,36 +14,36 @@
 
 namespace ra {
 
+// namespace for special, predefined event member ids used by the framework
+namespace fwid {
+    extern identifier stop; // the name of a 'bool' event member which -- if set to true -- signals the framework that event processing should be stopped after this AnalysisModule
+}
  
 /** \brief A generic event container saving arbitrary kind of data
  * 
  * This event container is a replacement of event data structs. It holds a number of named
  * pointers/references which can be accessed via 'set' and 'get' methods. 'set'ting a member
- * allocates memory and marks the member as 'valid'. It can be accessed with the same name via 'get'.
+ * allocates memory and marks the member as 'valid'. It can then be accessed via the same name and type via 'get'.
  * 
- * To invalidate the value of a data member, call 'set_state(..., invalid)'. This marks the member data as outdated
- * and makes a subsequent 'get' fail with an error. This is mainly a means to increase robustness against
- * re-using outdated data while at the same time avoiding frequent re-allocations
- * (see also the get_callback mechnism below for another use case). Once
- * a data member is 'set', its address is guaranteed to remain the same throughout the lifetime
- * of the Event class; in this sense it is similar to the old 'structs' and allows use of this class
- * e.g. with root and TTree::SetBranchAddress.
- * It also allows optimizations by saving the pointer/reference to a member which avoids looking it up frequently.
- *
  * Elements are identified by their type and name; it is possible to use the same name more than once for different types.
  * The exact same type has to be used for identifying an element in 'get' and 'set'; so it is NOT possible to 'get' via
  * a base class of what has been used to 'set' the data.
  * 
- * The data elements managed by the Event container are typically re-used a lot in the event loop with the same elements. To
- * optimize this use case, the Event object avoids frequent de-allocation and allocation by giving each element
- * three distinct states indicating the element's state, "nonexistent", "invalid", and "valid". "nonexistent"
- * means that the Event container has not information about the specified element whatsoever, "invalid" means that memory
- * has been allocated for that member, but no value has been set (yet), and "valid" means that memory has been allocated and
- * a value has been set.
+ * To invalidate the value of a data member, call 'set_state(..., invalid)'. This marks the member data as invalid
+ * and makes a subsequent 'get' fail with an error. This invalidation mechanism is mainly used as consistency check to prevent
+ * using outdated data from the previous event: Just before a new event is read, all data is marked as invalid. While such a mechanism
+ * could also be implemented via a "erase" method, that would entail frequent re-allocation in tight loops which is avoided
+ * here.
+ * 
+ * Once a data member is 'set', its address is guaranteed to remain the same throughout the lifetime
+ * of the Event class. there is also no mechanism to "erase" a data member. In this sense, it is similar to the
+ * 'structs' and allows to use this class e.g. with root and TTree::SetBranchAddress (which would be hard or impossible if
+ * the member addresses where allowed to change by erasing and re-setting a data member).
  * 
  * In addition to the get/set interface, it is also possible to register a callback via 'set_get_callback' that is
- * called if 'get' is called on an invalid. This is used for lazy evaluation of member values. Note that the callback
- * is not called for member data in 'valid' state.
+ * called if 'get' is called on an invalid data member. This allows implementing lazy evaluation (or lazy reads) for
+ * data. Note that the callback is *not* called for member data in 'valid' state, so it will only called again if the
+ * state is reset to 'invalid' again.
  */
 class Event {
 public:

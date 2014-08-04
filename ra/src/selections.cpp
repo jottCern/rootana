@@ -28,6 +28,17 @@ void Selections::process(Event & event){
 
 REGISTER_ANALYSIS_MODULE(Selections)
 
+stop_unless::stop_unless(const ptree & cfg){
+    selection = ptree_get<string>(cfg, "selection");
+}
+
+void stop_unless::process(Event & event){
+    if(event.get_state<bool>(selection) != Event::state::valid || !event.get<bool>(selection)){
+        event.set<bool>(fwid::stop, true);
+    }
+}
+
+REGISTER_ANALYSIS_MODULE(stop_unless)
 
 AndSelection::AndSelection(const ptree & cfg, OutputManager & out): cutflow(0), cutflow_raw(0){
     // get selections as string:
