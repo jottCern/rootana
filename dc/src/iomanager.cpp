@@ -34,8 +34,10 @@ timespec gettime(){
 }
 
 int signal_fd = -1;
+
+// FIXME: access to pending_signals from signal handler is unsafe because it might require memory allocation
 deque<siginfo_t> pending_signals;
-    
+
 void iomanager_signal_handler(int signo, siginfo_t * info, void * context){
     pending_signals.push_back(*info);
     const uint64_t one = 1;
