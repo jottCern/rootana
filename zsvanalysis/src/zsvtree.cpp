@@ -17,6 +17,7 @@ public:
     
     explicit zsvtree(const ptree & cfg){
         only_re = ptree_get<bool>(cfg, "only_re", false);
+        out = ptree_get<bool>(cfg, "out", false);
     }
     
     virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out);
@@ -25,9 +26,10 @@ public:
     
 private:
     bool only_re;
+    bool out;
 };
 
-void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
+void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out_){
     in.declare_event_input<int>("runNo");
     in.declare_event_input<int>("eventNo");
     
@@ -50,16 +52,49 @@ void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, Output
         in.declare_event_input<int>("npv");
     
         // MC info:
-        if(!dataset.tags.get<bool>("is_real_data")){
-            in.declare_event_input<float>("mc_true_pileup");
+        in.declare_event_input<float>("mc_true_pileup");
             
-            in.declare_event_input<vector<mcparticle>>("mc_leptons");
-            in.declare_event_input<vector<LorentzVector>>("mc_jets");
+        in.declare_event_input<vector<mcparticle>>("mc_leptons");
+        in.declare_event_input<vector<LorentzVector>>("mc_jets");
         
-            in.declare_event_input<int>("mc_n_me_finalstate");
+        in.declare_event_input<int>("mc_n_me_finalstate");
         
-            in.declare_event_input<vector<mcparticle>>("mc_bs");
-            in.declare_event_input<vector<mcparticle>>("mc_cs");
+        in.declare_event_input<vector<mcparticle>>("mc_bs");
+        in.declare_event_input<vector<mcparticle>>("mc_cs");
+    }
+    
+    if(out){
+        out_.declare_event_output<int>("runNo");
+        out_.declare_event_output<int>("eventNo");
+        
+        if(!only_re){
+            out_.declare_event_output<int>("lumiNo");
+
+            out_.declare_event_output<bool>("passed_reco_selection");
+        
+            out_.declare_event_output<float>("met");
+            out_.declare_event_output<float>("met_phi");
+        
+            out_.declare_event_output<lepton>("lepton_plus");
+            out_.declare_event_output<lepton>("lepton_minus");
+
+            out_.declare_event_output<vector<Bcand>>("selected_bcands");
+            out_.declare_event_output<vector<Bcand>>("additional_bcands");
+            
+            out_.declare_event_output<vector<jet>>("jets");
+            
+            out_.declare_event_output<int>("npv");
+        
+            // MC info:
+            out_.declare_event_output<float>("mc_true_pileup");
+                
+            out_.declare_event_output<vector<mcparticle>>("mc_leptons");
+            out_.declare_event_output<vector<LorentzVector>>("mc_jets");
+            
+            out_.declare_event_output<int>("mc_n_me_finalstate");
+            
+            out_.declare_event_output<vector<mcparticle>>("mc_bs");
+            out_.declare_event_output<vector<mcparticle>>("mc_cs");
         }
     }
 }

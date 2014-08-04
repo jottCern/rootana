@@ -30,5 +30,3 @@ DEFINE_ID(mc_cs);
 // calculated:
 DEFINE_ID(zp4);
 
-// framework:
-DEFINE_ID(stop);

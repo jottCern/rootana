@@ -36,9 +36,6 @@ DECLARE_ID(mc_cs);
 // calculated:
 DECLARE_ID(zp4);
 
-// framework:
-DECLARE_ID(stop);
-
 }
 }
 

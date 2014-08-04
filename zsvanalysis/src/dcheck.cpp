@@ -22,8 +22,8 @@ using namespace std;
  * \endcode
  * 
  * If one or more "dataset" lines are given, the filtering is only applied to datasets names listed; otherwise, filtering is always
- * applied. In case "verbose" is true, each duplicate entry found is printed to stdout.
- *
+ * applied. In case "verbose" is true, information about the duplicates found are printed to stdout (to keep the output
+ * manageable, not all duplicates are printed; see code below and modify if needed).
  */
 class dcheck: public AnalysisModule {
 public:
@@ -51,6 +51,7 @@ private:
     bool active;
     std::set<re> res;
     int ndup;
+    int divisor; // in case of verbose true, print out every XXX duplicate
 };
 
 dcheck::dcheck(const ptree & cfg): ndup(0){
@@ -74,6 +75,7 @@ void dcheck::begin_dataset(const s_dataset & dataset, InputManager & in, OutputM
     active = datasets.find(dataset.name) != datasets.end() || datasets.empty();
     res.clear();
     ndup = 0;
+    divisor = 1;
 }
 
 void dcheck::process(Event & event){
@@ -82,8 +84,16 @@ void dcheck::process(Event & event){
     re current_re{runid, eventid};
     if(res.find(current_re)!=res.end()){
         ++ndup;
-        event.set<bool>(zsv::id::stop, true);
-        if(verbose) cout << ndup << ". duplicate event found: runid=" << runid << "; eventid=" << eventid << endl;
+        event.set<bool>(ra::fwid::stop, true);
+        if(verbose){
+            if(ndup % divisor == 0){
+                cout << ndup << ". duplicate event found: runid=" << runid << "; eventid=" << eventid << endl;
+            }
+            if(ndup == 100 || ndup == 1000 || ndup == 10000){
+                divisor = ndup;
+                cout << "   So many duplicates! Only printing every " << divisor << "th duplicate in this dataset from now on." << endl;
+            }
+        }
     }
     else{
         res.insert(current_re);

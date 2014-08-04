@@ -116,14 +116,14 @@ REGISTER_SELECTION(gen_phasespace)
  * \endcode
  * 
  * Produces some the 2D histograms of the gen versus reco.
- * recostructed but not generated events (in particular all backgrounds) are filled in the gen overflow bin.
+ * reconstructed but not generated events (in particular all backgrounds) are filled in the gen overflow bin.
  * x-axis = reco, y-axis = gen
  * 
  * In addition, 1D genonly histograms are filled for signal (those will be empty for background). They correspond to
  * the generator-level distribution of the quantity. As such, they use a different weight than the overall event weight
  * as e.g. the overall event weight contains data/MC correction factors for different efficiencies which cannot (at least not
  * easily) be calculated for the non-reconstructed events. Therefore, for this histogram, the event weight saved as double
- * as genonly_weight is used; typically, this is the weight only based on mc/data luminosity ratio.
+ * as genonly_weight is used; typically, this weight is simply the mc/data luminosity ratio.
  */
 class fill_response: public AnalysisModule {
 public:

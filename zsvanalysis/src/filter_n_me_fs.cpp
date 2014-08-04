@@ -50,7 +50,7 @@ void filter_n_me_fs::process(Event & event){
     int n = event.get<int>(id::mc_n_me_finalstate);
     bool passed = (nmin < 0 || n >= nmin) && (nmax < 0 || n <= nmax);
     if(!passed){
-        event.set<bool>(id::stop, true);
+        event.set<bool>(fwid::stop, true);
     }
 }
 
