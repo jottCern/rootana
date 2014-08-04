@@ -27,7 +27,7 @@ testdeps := $(patsubst test/%.cpp,.bin/%.d,$(testsrc))
 
 -include $(testdeps)                                                                                                                                                                                                                                              
 
-$(TEST): $(testobj)
+$(TEST): $(testobj) $(LIBTARGET)
 	$(EXE_CMD) -l$(LIB)
 
 endif
