@@ -20,25 +20,18 @@ using namespace ra;
 
 namespace {
 
-std::set<int> exited_childs;
-    
-void chld_handler(int, siginfo_t* info, void*){
-    exited_childs.insert(info->si_pid);
-}
-    
-void setup_sigchild_handler(){
-    struct sigaction sa;
-    sa.sa_sigaction = &chld_handler;
-    sigfillset(&sa.sa_mask);
-    sa.sa_flags = SA_SIGINFO;
-    sa.sa_restorer = 0;
-    sa.sa_flags = SA_SIGINFO;
-    int res = sigaction(SIGCHLD, &sa, 0);
+void noop(int){}
+
+void signal_noop(int signo){
+    struct sigaction sa{0};
+    sa.sa_handler = &noop;
+    int res = sigaction(signo, &sa, 0);
     if(res < 0){
-        cerr << "error setting up SIGCHLD handler" << endl;
-        exit(1);
+        auto logger = Logger::get("dra.local");
+        LOG_THROW("error setting up signal_noop for signal " << signo << " (" << strsignal(signo) << "): " << strerror(errno));
     }
 }
+
 
 void signal_ignore(int signo){
     struct sigaction sa;
@@ -47,8 +40,8 @@ void signal_ignore(int signo){
     sa.sa_restorer = 0;
     int res = sigaction(signo, &sa, 0);
     if(res != 0){
-        cout << "error ignoring signal " << signo << "(" << strsignal(signo) << ")" << endl;
-        exit(1);
+        auto logger = Logger::get("dra.local");
+        LOG_THROW("signal_ignore " << signo << " (" << strsignal(signo) << "): " << strerror(errno));
     }
 }
 
@@ -154,14 +147,13 @@ bool run_worker(int socket){
 // returns true only if the child exits normally (=not due to a signal and with exit code 0).
 bool wait_for_child(int pid, float timeout, bool log){
     auto logger = Logger::get("dra.local_run");
-    bool result = true;
-    
-    sigset_t sigchld_set;
-    sigemptyset(&sigchld_set);
-    sigaddset(&sigchld_set, SIGCHLD);
     
     int status = 0;
     pid_t wpid = waitpid(pid, &status, WNOHANG);
+    if(wpid < 0){
+        LOG_ERRNO("waitpid for pid " << pid);
+        return false;
+    }
     if(wpid == 0){
         // sleep for a while:
         timespec req, rem;
@@ -170,16 +162,8 @@ bool wait_for_child(int pid, float timeout, bool log){
         do{
             int res = nanosleep(&req, &rem);
             if(res < 0 && errno == EINTR){ // we have been interrupted sleeping, maybe with SIGCHLD we are waiting for?
-                bool has_exited = false;
-                // make sure not to access exited_childs
-                // the same time as the signal handler does:
-                sigprocmask(SIG_BLOCK, &sigchld_set, 0);
-                if(exited_childs.find(pid)!=exited_childs.end()){
-                    exited_childs.erase(pid);
-                    has_exited = true;
-                }
-                sigprocmask(SIG_UNBLOCK, &sigchld_set, 0);
-                if(has_exited){
+                if(waitpid(pid, &status, WNOHANG) == pid){
+                    wpid = pid;
                     break;
                 }
                 req = rem; // sleep for the remaining time the next time
@@ -190,44 +174,51 @@ bool wait_for_child(int pid, float timeout, bool log){
             }
         } while(true);
         
-        // Timeout has passed or signal handler signalled that the child is ready, so
-        // try again waiting for it:
-        wpid = waitpid(pid, &status, WNOHANG);
-        if(wpid == 0){
+        // try again after sleeping:
+        if(wpid!=pid){
+            wpid = waitpid(pid, &status, WNOHANG);
+            if(wpid < 0){
+                LOG_ERRNO("waitpid after sleep for child pid " << pid);
+                return false;
+            }   
+        }
+        
+        // if still not waited for child successfully: kill it:
+        if(wpid != pid){
             LOG_INFO("Killing child process " << pid);
             kill(pid, SIGKILL);
             waitpid(pid, &status, 0);
             return false;
         }
     }
-    else if(wpid > 0){
-        if(WIFEXITED(status)){
-            int exitcode = WEXITSTATUS(status);
-            if(exitcode != 0){
-                if(log){
-                    LOG_ERROR("Child process with pid " << pid << " exited with status " << exitcode);
-                }
-                result = false;
+    
+    assert(wpid == pid);
+    
+    // handle wait status:
+    if(WIFEXITED(status)){
+        int exitcode = WEXITSTATUS(status);
+        if(exitcode != 0){
+            if(log){
+                LOG_ERROR("Child process with pid " << pid << " exited with status " << exitcode);
             }
+            return false;
         }
         else{
-            if(log){
-                LOG_ERROR("Child process with pid " << pid << " exited abnormally");
-            }
-            result = false;
+            return true;
         }
     }
-    else{ // should usually not happen.
-        LOG_ERRNO("waitpid for pid " << pid);
-        result = false;
+    else{
+        if(log){
+            LOG_ERROR("Child process with pid " << pid << " exited abnormally");
+        }
+        return false;
     }
-    return result;
 }
 
 }
 
 void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared_ptr<MasterObserver> & observer){
-    setup_sigchild_handler();
+    signal_noop(SIGCHLD); // note that signal_ignore (SIGCHLD) would mean we cannot wait for the children.
     signal_ignore(SIGINT);
     signal_ignore(SIGPIPE);
     
