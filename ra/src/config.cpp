@@ -149,7 +149,12 @@ s_dataset::s_dataset(const ptree & cfg){
     treename = ptree_get<string>(cfg, "treename");
     for(const auto & it : cfg){
         if(it.first == "file"){
-            files.emplace_back(it.second);
+            if(it.second.size()){ // full group
+                files.emplace_back(it.second);
+            }
+            else{ // only pathname string
+                files.emplace_back(it.second.data());
+            }
         }
         else if(it.first == "file-pattern"){
             vector<string> filenames = glob(it.second.data());
