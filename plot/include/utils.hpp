@@ -262,7 +262,7 @@ class Plotter {
 public:
     Plotter(const std::string & outdir, const std::vector<std::shared_ptr<ProcessHistograms> > & histograms, const Formatters & formatters);
     
-    void stackplots(const std::initializer_list<ra::identifier> & processes_to_stack);
+    void stackplots(const std::initializer_list<ra::identifier> & processes_to_stack, const std::string & filenamesuffix = "");
     
     void shapeplots(const std::initializer_list<ra::identifier> & processes_to_compare, const std::string & filenamesuffix = "");
     

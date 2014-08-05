@@ -749,7 +749,7 @@ std::vector<Histogram> Plotter::get_formatted_histograms(const std::vector<std::
     return histograms;
 }
 
-void Plotter::stackplots(const std::initializer_list<identifier> & processes_to_stack){
+void Plotter::stackplots(const std::initializer_list<identifier> & processes_to_stack, const std::string & filenamesuffix){
     // get list of histograms:
     std::vector<std::string> hnames = histos[0]->get_histogram_names();
     for(const string & hname : hnames){
@@ -782,7 +782,7 @@ void Plotter::stackplots(const std::initializer_list<identifier> & processes_to_
             histos_for_draw.emplace_back(move(h));
         }
         
-        string outfilename = outdir + hname + "_stacked.pdf";
+        string outfilename = outdir + hname + filenamesuffix + "_stacked.pdf";
         create_dir(outfilename);
         draw_histos(histos_for_draw, outfilename);
     }
