@@ -127,6 +127,7 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
     if(imax < imin){
         LOG_THROW("process called with imax < imin");
     }
+    size_t nevents_survived = 0;
     for(size_t ientry = imin; ientry < imax; ++ientry){
         try{
             in->read_entry(ientry);
@@ -151,9 +152,15 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
                 break;
             }
         }
-        if(event_selected) out->write_event();
+        if(event_selected){
+            ++nevents_survived;
+            out->write_event();
+        }
     }
-    if(stats) stats->nbytes_read = in->nbytes_read();
+    if(stats){
+        stats->nbytes_read = in->nbytes_read();
+        stats->nevents_survived = nevents_survived;
+    }
 }
 
 AnalysisController::~AnalysisController(){

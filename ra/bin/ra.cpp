@@ -26,7 +26,7 @@ void run(const s_config & config){
     AnalysisController controller(config, false);
     
     bool do_stop = false;
-    // nested loops to run over all datasets -> files -> events
+    // 3 nested loops to run over all datasets -> files -> events
     for(size_t idataset = 0; idataset < config.datasets.size(); idataset ++){
         if(do_stop) break;
         auto & dataset = config.datasets[idataset];
@@ -43,6 +43,7 @@ void run(const s_config & config){
         progress.print();
         size_t nevents_done = 0;
         size_t nbytes = 0;
+        size_t nevents_survived = 0;
         for(size_t ifile=0; ifile < dataset.files.size(); ++ifile){
             controller.start_file(ifile);
             size_t nevents = controller.get_file_size();
@@ -54,6 +55,7 @@ void run(const s_config & config){
                 AnalysisController::ProcessStatistics s;
                 controller.process(imin, imax, &s);
                 nbytes += s.nbytes_read;
+                nevents_survived += s.nevents_survived;
                 nevents_done += imax - imin;
                 progress.set(events, nevents_done);
                 progress.set(mbytes, nbytes * 1e-6);
@@ -73,6 +75,7 @@ void run(const s_config & config){
         if(do_stop || interrupted){
             break;
         }
+        cout << "Events survived for this dataset: " << nevents_survived << endl;
     }
     if(interrupted){
           LOG_WARNING("Interrupted by SIGINT, not all data has been processed.");

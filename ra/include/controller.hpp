@@ -15,13 +15,13 @@ namespace ra {
  * turn is constructed via a configuration file). Then, execute the start_dataset, start_file, and process methods
  * in turn to process all events in all datasets mentioned in the configuration.
  * 
- * This class mainly exists to avoid duplication between the serial local version (ra/ra) and the distributed versions
+ * This class avoids duplication between the serial local version (ra/ra) and the distributed versions
  * (e.g. dra/dra_local), which would otherwise contain the same code to construct the modules, initialize output, cleanup, etc.
  */
 class AnalysisController {
 public:
     
-    // Note that the only (!) effect of the \c check_for_parallel_safety flag is that all
+    // Note that the only effect of the \c check_for_parallel_safety flag is that all
     // AnalysisModules' is_parallel_safe methods are called and an exception is thrown if one of them
     // returns false.
     explicit AnalysisController(const s_config & config, bool check_for_parallel_safety);
@@ -42,7 +42,7 @@ public:
     const s_dataset & current_dataset() const;
     
     // initialize file ifile in the current dataset. Note that
-    // initializing the same file again is a no-op.
+    // initializing the same file again is a legal no-op.
     void start_file(size_t ifile);
     
     // get the number of events in the file last initialized with start_file
@@ -50,7 +50,7 @@ public:
     
     
     struct ProcessStatistics {
-        size_t nbytes_read;
+        size_t nbytes_read, nevents_survived;
     };
     
     // run over the given range [ifirst, ilast) of events in the current file.
@@ -84,9 +84,6 @@ private:
     size_t current_ifile;
     std::unique_ptr<TFile> infile;
     size_t infile_nevents;
-    
-    // statistics:
-    size_t n_read;
 };
 
 }

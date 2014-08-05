@@ -299,6 +299,7 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
     }
     catch(std::exception & ex){
         LOG_ERROR("Exception while running master: " << ex.what());
+        master_ok = false;
     }
     
     LOG_INFO("Waiting for all worker processes ... ");
@@ -307,7 +308,9 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
         bool child_result = wait_for_child(worker_pids[i], 1.0f, master_ok);
         if(!child_result){
             childs_successful = false;
-            LOG_WARNING("Worker process " << worker_pids[i] << " did not exit normally.")
+            if(master_ok){
+                LOG_WARNING("Worker process " << worker_pids[i] << " did not exit normally.")
+            }
         }
     }
     if(master_ok){
