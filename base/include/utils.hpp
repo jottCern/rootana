@@ -17,4 +17,14 @@ enum atfork_when { atfork_child = 1, atfork_parent = 1 << 1 };
 void atfork(std::function<void()> callback, int when);
 int dofork();
 
+
+// filesystem functions. Symlinks are followed to judge the type.
+// These routines also return false if there is not enough access permissions
+// (you can check errno to see whether this was the case).
+bool is_directory(const std::string & path);
+bool is_regular_file(const std::string & path);
+
+// fails with an exception in case realpath(3) returns an error
+std::string realpath(const std::string & path);
+
 #endif

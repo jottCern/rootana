@@ -1,8 +1,13 @@
 #include "utils.hpp"
-#include <cxxabi.h>
-#include <unistd.h>
 
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <cxxabi.h>
 #include <list>
+#include <system_error>
 
 std::string demangle(const char * typename_){
     int status;
@@ -42,4 +47,40 @@ int dofork(){
         }
     }
     return pid;
+}
+
+
+bool is_directory(const std::string & path){
+    struct stat s;
+    errno = 0;
+    int res = stat(path.c_str(), &s);
+    if(res < 0){
+        return false;
+    }
+    else{
+        return S_ISDIR(s.st_mode);
+    }
+}
+
+bool is_regular_file(const std::string & path){
+    struct stat s;
+    errno = 0;
+    int res = stat(path.c_str(), &s);
+    if(res < 0){
+        return false;
+    }
+    else{
+        return S_ISREG(s.st_mode);
+    }
+}
+
+
+std::string realpath(const std::string & path){
+    char * result = realpath(path.c_str(), NULL);
+    if(result == 0){
+        throw std::system_error(errno, std::system_category(), "realpath('" + path + "')");
+    }
+    std::string sresult(result);
+    free(result);
+    return sresult;
 }

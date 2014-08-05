@@ -1,6 +1,7 @@
 #include "master.hpp"
 #include "stategraph.hpp"
 
+#include "base/include/utils.hpp"
 #include "ra/include/config.hpp"
 #include "ra/include/root-utils.hpp"
 
@@ -198,14 +199,12 @@ Master::~Master(){}
 
 Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(dra::get_stategraph(), bind(&Master::worker_failed, this, ph::_1, ph::_2)), idataset(-1),
   stopping(false), failed_(false){
-    unique_ptr<char[]> path(new char[PATH_MAX]);
-    auto res = realpath(cfgfile_.c_str(), path.get());
-    if(res == 0){
-        LOG_ERRNO("realpath of '" << cfgfile_ << "'");
-        throw runtime_error("error in getting the realpath of the config file (see log)");
-    }
-    cfgfile = path.get();
+    cfgfile = realpath(cfgfile_);
     config.reset(new s_config(cfgfile));
+    if(!is_directory(config->options.output_dir)){
+        LOG_THROW("options.output dir '" << config->options.output_dir << "' does not exist, is not a directory, or insufficient access rights");
+    }
+    
     config->logger.apply(config->options.output_dir);
     if(config->datasets.empty()){
         LOG_THROW("no dataset to process");
