@@ -20,7 +20,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include "ra/include/config.hpp"
+#include "base/include/utils.hpp"
 
 using namespace std;
 using namespace ra;
@@ -531,7 +531,7 @@ ProcessHistogramsTFile::ProcessHistogramsTFile(const std::initializer_list<std::
 
 void ProcessHistogramsTFile::init_files(const std::initializer_list<std::string> & filenames){
     for(const auto & pattern : filenames){
-        auto filenames_matched = ra::glob(pattern);
+        auto filenames_matched = glob(pattern, false);
         if(filenames_matched.size() != 1) cout << "Note in ProcessHistogramsTFile: pattern '" << pattern << "' matched " << filenames_matched.size() << " files." << endl;
         for(const auto & filename : filenames_matched){
             TFile * file = new TFile(filename.c_str(), "read");

@@ -1,8 +1,12 @@
 #ifndef BASE_UTILS_HPP
 #define BASE_UTILS_HPP
 
+// various utilities, mostly C++-friendly wrappers around C standard library
+// functions.
+
 #include <string>
 #include <functional>
+#include <vector>
 
 std::string demangle(const char * typename_);
 
@@ -26,5 +30,11 @@ bool is_regular_file(const std::string & path);
 
 // fails with an exception in case realpath(3) returns an error
 std::string realpath(const std::string & path);
+
+
+// expand a glob expression to a list of (sorted) filenames. Throws exception
+// in case of error; allow_no_match controls whether or not the condition that no match was
+// found is considered as error.
+std::vector<std::string> glob(const std::string& pattern, bool allow_no_match = true);
 
 #endif

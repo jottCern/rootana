@@ -1,7 +1,7 @@
 #include "config.hpp"
 #include "base/include/log.hpp"
+#include "base/include/utils.hpp"
 
-#include <glob.h>
 #include <fstream>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
@@ -14,33 +14,6 @@ using namespace ra;
 
 
 namespace{
-    
-// note: glob is sorted!
-std::vector<std::string> glob(const std::string& pattern, bool allow_no_match = true){
-    glob_t glob_result;
-    int res = glob(pattern.c_str(), GLOB_TILDE | GLOB_BRACE | GLOB_ERR | GLOB_MARK, NULL, &glob_result);
-    vector<string> ret;
-    if(res != 0){
-        string errmsg;
-        if(res == GLOB_NOSPACE) errmsg = "out of memory";
-        else if(res == GLOB_ABORTED) errmsg = "I/O error";
-        else if(res == GLOB_NOMATCH){
-            if(allow_no_match){
-                return ret; // empty vector
-            }else{
-                errmsg = "no match";
-            }
-        }
-        else errmsg = "unknwon glob return value";
-        throw runtime_error("glob error for pattern '" + pattern + "': " + errmsg);
-    }
-    ret.reserve(glob_result.gl_pathc);
-    for(unsigned int i=0; i<glob_result.gl_pathc; ++i){
-        ret.emplace_back(glob_result.gl_pathv[i]);
-    }
-    globfree(&glob_result);
-    return ret;
-}
 
 // 'parse' sframe xml file for all filenames. Note that this is *not* a full-fledged xml parsing;
 // rather, it is assumed that each line contains exactly one statement of the form

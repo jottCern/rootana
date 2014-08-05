@@ -8,6 +8,7 @@
 #include <cxxabi.h>
 #include <list>
 #include <system_error>
+#include <glob.h>
 
 std::string demangle(const char * typename_){
     int status;
@@ -84,3 +85,32 @@ std::string realpath(const std::string & path){
     free(result);
     return sresult;
 }
+
+std::vector<std::string> glob(const std::string& pattern, bool allow_no_match){
+    glob_t glob_result;
+    int res = glob(pattern.c_str(), GLOB_TILDE | GLOB_BRACE | GLOB_ERR | GLOB_MARK, NULL, &glob_result);
+    std::vector<std::string> ret;
+    if(res != 0){
+        std::string errmsg;
+        if(res == GLOB_NOSPACE) errmsg = "out of memory";
+        else if(res == GLOB_ABORTED) errmsg = "I/O error";
+        else if(res == GLOB_NOMATCH){
+            if(allow_no_match){
+                return ret; // empty vector
+            }else{
+                errmsg = "no match";
+            }
+        }
+        else errmsg = "unknwon glob return value";
+        throw std::runtime_error("glob error for pattern '" + pattern + "': " + errmsg);
+    }
+    ret.reserve(glob_result.gl_pathc);
+    for(unsigned int i=0; i<glob_result.gl_pathc; ++i){
+        ret.emplace_back(glob_result.gl_pathv[i]);
+    }
+    globfree(&glob_result);
+    return ret;
+}
+
+
+
