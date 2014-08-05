@@ -9,12 +9,64 @@
 #include <typeindex>
 #include <iostream>
 
+
+/** \brief A central (program-wide) registry to build objects based on their name
+ * 
+ * This class is central in a plugin system, where objects of a concrete type that is unknown
+ * to a component should be constructed at runtime. This is done with this Registry class which
+ * can create objects of previously registered classes inheriting from a common base class.
+ * 
+ * Derived classes have to register at the registry before they can be build. This is usually done
+ * at startup of the program by using the register_ method from a global scope; see the REGISTER_DEFC
+ * macro as an example of how to do that.
+ * 
+ * Modules that want to instantiate classes can use the \c build method which accepts the key (for looking
+ * up the right type) and the constructor arguments to use.
+ * 
+ * Note that the registries for different \c base_types and \c ctypes... are completely separate. This means
+ * that the registry used to build an object has to be the same (in terms of \c base_type and \c ctypes...) as the
+ * one used to register the type previously. It also means that it is possible to register classes with the same derived
+ * type multiple times if this is done with different base classes and/or constructor types.
+ * 
+ * \c base_type_ is the base type of the object to construct, usually an abstract class
+ * 
+ * \c key_type_ is the key to use for looking up types; often a string
+ * 
+ * \c ctypes... are the constructor argument types required for constructing the concrete classes inheriting from \c base_type_
+ */
 template<typename base_type_, typename key_type_, typename... ctypes>
 class Registry{
 public:
-    
     typedef base_type_ base_type;
     typedef key_type_ key_type;
+    
+    /**
+     * Register T and allow it to be found under the given key.
+     * T has to derive from \c base_class and take \c ctypes... as constructor arguments
+     */
+    template<typename T>
+    static int register_(const key_type & key){
+        return instance().iregister<T>(key);
+    }
+    
+    
+    /// Build an object according to the given key and constructor arguments
+    static std::unique_ptr<base_type> build(const key_type & key, ctypes... params){
+        return instance().ibuild(key, params...);
+    }
+    
+    /// Lookup the key for the concrete type of b.
+    static key_type key(const base_type & b){
+        return instance().ikey(b);
+    }
+    
+    Registry(const Registry &) = delete;
+    Registry(Registry &&) = delete;
+private:
+    Registry(){}
+    
+    // implementation: each static method has a non-static counterpart
+    // which is called on the singleton returned by instance().
     
     static Registry & instance(){
         static Registry i;
@@ -26,26 +78,7 @@ public:
     template<typename T>
     int iregister(const key_type & key);
     
-    //const std::type_info & type(const key_type & key) const;
-    
     key_type ikey(const base_type & b) const;
-
-    
-    static std::unique_ptr<base_type> build(const key_type & key, ctypes... params){
-        return instance().ibuild(key, params...);
-    }
-    
-    static key_type key(const base_type & b){
-        return instance().ikey(b);
-    }
-    
-    template<typename T>
-    static int register_(const key_type & key){
-        return instance().iregister<T>(key);
-    }
-    
-private:
-    Registry(){}
     
     struct Factory{
         virtual std::unique_ptr<base_type> operator()(ctypes... params) const = 0;
@@ -75,7 +108,6 @@ int Registry<base_type, key_type, ctypes...>::iregister(const key_type & key){
         ss << "Registry: tried to register type with same key twice (key: <" << key << ">)";
         throw std::runtime_error(ss.str());
     }
-    //key_type keytmp = key;
     key_to_factory.insert(make_pair(key, std::unique_ptr<Factory>(new FactoryDefault<T>())));
     type_to_key[typeid(T)] = key;
     return 0;
@@ -111,7 +143,6 @@ std::unique_ptr<base_type> Registry<base_type, key_type, ctypes...>::ibuild(cons
         throw;
     }
 }
-
 
 // register a default-contructible type T with base type BT and key type KT with the given key
 #define REGISTER_DEFC(T, BT, KT, key) namespace { int dummy##T = ::Registry<BT,KT>::register_<T>(key); }

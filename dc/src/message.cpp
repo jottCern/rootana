@@ -9,7 +9,7 @@ uint64_t null_typecode = 0xffffffffffffffff;
 Message::~Message(){}
 
 Buffer & dc::operator<<(Buffer & out, const Message & m){
-    out << MessageTypeRegistry::instance().key(m);
+    out << MessageTypeRegistry::key(m);
     m.write_data(out);
     return out;
 }
@@ -28,7 +28,7 @@ Buffer & dc::operator>>(Buffer & in, std::unique_ptr<Message> & m){
        m.reset();
     }
     else{
-       m = MessageTypeRegistry::instance().build(typecode);
+       m = MessageTypeRegistry::build(typecode);
        m->read_data(in);
     }
     return in;
