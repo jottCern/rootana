@@ -180,6 +180,7 @@ private:
     void init_dataset(size_t idataset);
     void finalize_dataset(const WorkerId & last_worker);
     std::string get_unmerged_filename(int iworker) const;
+    std::string get_filename(int iworker) const;
     
     size_t get_n_unmerged() const;
     

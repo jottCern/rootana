@@ -26,11 +26,8 @@ using boost::property_tree::ptree;
 
 namespace ra {
 
-// expand the given pattern to a vector of filenames, using the glob rules
-std::vector<std::string> glob(const std::string& pattern);
-
 struct s_options{
-    enum e_mergemode { mm_master, mm_workers };
+    enum e_mergemode { mm_master, mm_workers, mm_nomerge };
     
     int blocksize;
     int maxevents_hint;

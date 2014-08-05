@@ -6,23 +6,34 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
 
+#include <set>
+
 using boost::property_tree::ptree;
 using namespace std;
 using namespace ra;
 
+
+namespace{
+    
 // note: glob is sorted!
-std::vector<std::string> ra::glob(const std::string& pattern){
+std::vector<std::string> glob(const std::string& pattern, bool allow_no_match = true){
     glob_t glob_result;
     int res = glob(pattern.c_str(), GLOB_TILDE | GLOB_BRACE | GLOB_ERR | GLOB_MARK, NULL, &glob_result);
+    vector<string> ret;
     if(res != 0){
         string errmsg;
         if(res == GLOB_NOSPACE) errmsg = "out of memory";
         else if(res == GLOB_ABORTED) errmsg = "I/O error";
-        else if(res == GLOB_NOMATCH) errmsg = "no match";
+        else if(res == GLOB_NOMATCH){
+            if(allow_no_match){
+                return ret; // empty vector
+            }else{
+                errmsg = "no match";
+            }
+        }
         else errmsg = "unknwon glob return value";
         throw runtime_error("glob error for pattern '" + pattern + "': " + errmsg);
     }
-    vector<string> ret;
     ret.reserve(glob_result.gl_pathc);
     for(unsigned int i=0; i<glob_result.gl_pathc; ++i){
         ret.emplace_back(glob_result.gl_pathv[i]);
@@ -30,8 +41,6 @@ std::vector<std::string> ra::glob(const std::string& pattern){
     globfree(&glob_result);
     return ret;
 }
-
-namespace{
 
 // 'parse' sframe xml file for all filenames. Note that this is *not* a full-fledged xml parsing;
 // rather, it is assumed that each line contains exactly one statement of the form
@@ -113,8 +122,14 @@ s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint
             if(cfg.second.data() == "workers"){
                 mergemode = mm_workers;
             }
-            else if(cfg.second.data() != "master"){
-                LOG_THROW("unknown mergemode='" << cfg.second.data() << "' (allowed values: 'master', 'workers')");
+            else if(cfg.second.data() == "master"){
+                mergemode = mm_master;
+            }
+            else if(cfg.second.data() == "nomerge"){
+                mergemode = mm_nomerge;
+            }
+            else{
+                LOG_THROW("unknown mergemode='" << cfg.second.data() << "' (allowed values: 'master', 'workers', 'nomerge')");
             }
         }
         else{
@@ -159,9 +174,6 @@ s_dataset::s_dataset(const ptree & cfg){
         else if(it.first == "file-pattern"){
             vector<string> filenames = glob(it.second.data());
             LOG_INFO("glob pattern '" << it.second.data() << "' matched " << filenames.size() << " files");
-            if(filenames.empty()){
-                throw runtime_error("file pattern '" + it.second.data() + "' did not match anything");
-            }
             for(std::string & f : filenames){
                 files.emplace_back(move(f));
             }
@@ -275,11 +287,15 @@ s_config::s_config(const std::string & filename) {
     options = s_options(cfg.get_child("options"));
     auto logger = Logger::get("ra.config");
     modules_cfg = cfg.get_child("modules");
+    std::set<std::string> dataset_names;
     for(const auto & it : cfg){
-        //if(it.first == "options" or it.first == "modules" or it.first == "input_tree") continue;
         if(it.first != "dataset") continue;
         try{
             datasets.emplace_back(it.second);
+            auto res = dataset_names.insert(datasets.back().name);
+            if(!res.second){
+                throw runtime_error("duplicate dataset name '" + datasets.back().name + "'");
+            }
         }
         catch(...){
             LOG_ERROR("exception while building dataset " << datasets.size() << "; re-throwing");

@@ -370,6 +370,13 @@ std::string Master::get_unmerged_filename(int iworker) const {
     return unmerged_outfilename.str();
 }
 
+// in case of nomerge:
+std::string Master::get_filename(int iworker) const {
+    stringstream unmerged_outfilename;
+    unmerged_outfilename << config->options.output_dir << "/" << config->datasets[idataset].name << "-" << iworker << ".root";
+    return unmerged_outfilename.str();
+}
+
 // last_worker is the worker that last merged files, i.e. the one whose output file contains everything
 void Master::finalize_dataset(const WorkerId & last_worker){
     assert(needs_merging[last_worker]);
@@ -507,10 +514,24 @@ void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> re
                         }
                     }
                 }
+                // TODO: remove unmerged files of failed workers!
                 // after merging is complete, move on to next dataset:
                 finalize_dataset(needs_merging.begin()->first);
             }
-            else{
+            else if(config->options.mergemode == s_options::mm_nomerge){
+                // just rename:
+                for(auto & w_nm : needs_merging){
+                    auto wid = w_nm.first.id();
+                    int res = rename(get_unmerged_filename(wid).c_str(), get_filename(wid).c_str());
+                    if(res < 0){
+                        LOG_ERRNO("renaming unmerged file '" << get_unmerged_filename(wid) << "' to '" << get_filename(wid) << "'");
+                        throw runtime_error("error renaming output file (see log for details)");
+                    }
+                }
+                // go on to next dataset:
+                init_dataset(idataset + 1);
+            }
+            else { // assuming  mergemode == mm_workers
                 // start distributing merge messages:
                 sm.deactivate_restriction_set(sm.get_graph().get_restriction_set("nomerge"));
                 sm.set_target_state(sm.get_graph().get_state("merge"));
