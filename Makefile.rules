@@ -63,7 +63,7 @@ endif
 
 # stick together all flags.
 # NOTE: unused-local-typedefs warnings appear a lot for gcc 4.8 in boost
-CXXFLAGS := -std=c++0x -O3 -Wall -Wfatal-errors -g -fPIC -Wno-unused-local-typedefs -I.. -Iinclude -pipe $(BOOST_CFLAGS) $(USERCXXFLAGS) $(USERINCLUDES)
+CXXFLAGS := -std=c++0x -O3 -Wall -g -fPIC -Wno-unused-local-typedefs -I.. -Iinclude -pipe $(BOOST_CFLAGS) $(USERCXXFLAGS) $(USERINCLUDES)
 LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../lib $(USERLDFLAGS)
 
 # compile commands, to be used in cubdirectory makefiles:
