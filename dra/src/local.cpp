@@ -272,13 +272,13 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
         Master master(cfgfile);
         iom.setup_signal_handler(SIGINT, [&](const siginfo_t &){ 
             if(!stopped){
-                cout << "SIGINT: stopping" << endl;
+                cout << endl << "SIGINT: stopping" << endl;
                 master.stop();
                 stopped = true;
                 return;
             }
             else if(!aborted){
-                cout << "SIGINT: aborting" << endl;
+                cout << endl << "SIGINT again: aborting" << endl;
                 master.abort();
                 aborted = true;
                 return;
@@ -319,7 +319,7 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
         }
     }
     if(!master_ok || stopped || aborted){
-        cerr << "Dataset has NOT been processed completely (see log for details)" << endl;
+        cerr << endl << "WARNING: Dataset has NOT been processed completely (see above / log for details)" << endl;
     }
 }
 
