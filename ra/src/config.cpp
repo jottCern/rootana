@@ -365,9 +365,6 @@ void read_config(const string & filename, ptree & cfg){
                 }
             }
         }
-        for(const auto & it : variables){
-            cout << it.first << "=" << it.second << endl;
-        }
         // now substitute:
         substitute(cfg, variables);
     }
