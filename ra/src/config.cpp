@@ -265,12 +265,15 @@ void substitute(ptree & cfg, const std::map<std::string, std::string> & variable
                 // at endpos + 1, but corrected for the string length differences of the replaces string:
                 p = endpos + 1 + v_it->second.size() - (endpos - p + 1);
             }
+            it.second = ptree(current_value);
         }
         else{
             substitute(it.second, variables, current_path + (current_path.empty() ? "" : ".") + it.first);
         }
     }
 }
+
+void read_config(const string & filename, ptree & cfg);
 
 // get all "dataset" configuration ptrees and -- recursively -- all "datasets.output_of"
 // "dataset" configuration ptrees by reading in all previous configuration files as well.
@@ -290,8 +293,7 @@ std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const boost::op
         if(it.first == "dataset_output_from"){
             // read in previous cfg file:
             ptree cfg_previous;
-            set_reset_cwd setter(dir_name(it.second.data()));
-            boost::property_tree::read_info(base_name(it.second.data()).c_str(), cfg_previous);
+            read_config(it.second.data(), cfg_previous);
             std::vector<ptree> datasets_cfgs_previous;
             if(level==0){
                 boost::optional<s_options> rewrite_options;
@@ -342,13 +344,11 @@ std::vector<s_dataset> get_datasets(const ptree & cfg){
     return move(result);
 }
 
-    
-}
 
-s_config::s_config(const std::string & filename) {
-    ptree cfg;
-    // change into directory of the config file, so that #includes
-    // are always resolved the same way:
+// read configuration with boost::property_tree::read_info, but do some common
+// processing, such as variables substitution and changing into the config file directory for
+// better include handling.
+void read_config(const string & filename, ptree & cfg){
     set_reset_cwd setter(dir_name(filename));
     boost::property_tree::read_info(base_name(filename).c_str(), cfg);
     if(cfg.count("variables") > 0){
@@ -371,6 +371,14 @@ s_config::s_config(const std::string & filename) {
         // now substitute:
         substitute(cfg, variables);
     }
+}
+
+    
+}
+
+s_config::s_config(const std::string & filename) {
+    ptree cfg;
+    read_config(filename, cfg);
     if(cfg.count("logger") > 0){
         logger = s_logger(cfg.get_child("logger"));
     }
@@ -379,12 +387,11 @@ s_config::s_config(const std::string & filename) {
         logger = s_logger(ptree());
     }
     options = s_options(cfg.get_child("options"));
-    auto logger = Logger::get("ra.config");
     modules_cfg = cfg.get_child("modules");
     // read in all 'dataset' and 'dataset_output_from' statements:
     datasets = get_datasets(cfg);
     if(datasets.empty()){
-        LOG_THROW("no datasets defined");
+        throw runtime_error("config: no datasets defined");
     }
 }
 
