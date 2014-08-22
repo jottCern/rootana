@@ -29,8 +29,16 @@ testdeps := $(patsubst test/%.cpp,.bin/%.d,$(testsrc))
 
 $(TEST): $(testobj) $(LIBTARGET)
 	$(EXE_CMD) -l$(LIB)
-
 endif
+
+ifneq ($(BIN),)
+all: $(BIN)
+
+bindeps := $(patsubst %,.bin/%.d,$(BIN))
+dummy := $(shell echo bindeps $(bindeps) )
+-include $(bindeps)
+endif
+
 
 # slightly more complicated: the dictionary target:
 ifneq ($(DICT),)
@@ -42,6 +50,7 @@ ifneq ($(DICT),)
 
 ../lib/lib$(LIB).so: .bin/dict__.o
 endif
+
 
 
 # allow the local Makefile to override some locations, e.g. for root and boost
@@ -58,13 +67,14 @@ endif
 
 ifeq ($(BOOST_CFLAGS),)
   BOOST_CFLAGS := -I$(call scramtag,boost,INCLUDE)
+  BOOST_LDFLAGS := -L$(call scramtag,boost,LIBDIR)
 endif
 
 
 # stick together all flags.
 # NOTE: unused-local-typedefs warnings appear a lot for gcc 4.8 in boost
 CXXFLAGS := -std=c++0x -O3 -Wall -g -fPIC -Wno-unused-local-typedefs -I.. -Iinclude -pipe $(BOOST_CFLAGS) $(USERCXXFLAGS) $(USERINCLUDES)
-LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../lib $(USERLDFLAGS)
+LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../lib $(BOOST_LDFLAGS) $(USERLDFLAGS)
 
 # compile commands, to be used in cubdirectory makefiles:
 SHARED_CMD = @echo creating $@; $(CXX) $+ -shared $(LDFLAGS) -o $@ 

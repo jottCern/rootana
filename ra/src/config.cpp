@@ -5,6 +5,7 @@
 #include <fstream>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
+#include <boost/utility/in_place_factory.hpp>
 
 #include <set>
 
@@ -241,6 +242,106 @@ struct set_reset_cwd {
     
     char * old_dir;
 };
+
+
+// current_path is used for error reporting only
+void substitute(ptree & cfg, const std::map<std::string, std::string> & variables, const string & current_path = ""){
+    for(auto & it : cfg){
+        if(it.second.size() == 0){
+            string current_value = it.second.data();
+            size_t p = 0;
+            while((p = current_value.find("${", p))!= string::npos){
+                size_t endpos = current_value.find('}', p);
+                if(endpos == string::npos){
+                    throw runtime_error("Could not substitute variables in malformed " + current_path + "." + it.first + "=" + current_value);
+                }
+                string varname = current_value.substr(p + 2, endpos - p - 2);
+                auto v_it = variables.find(varname);
+                if(v_it == variables.end()){
+                    throw runtime_error("Did not find variable '" + varname + "' required for " + current_path + "." + it.first + "=" + current_value) ;
+                }
+                current_value.replace(p, endpos - p + 1, v_it->second);
+                // to search for next "${", start searching at the position following the string we just replaced, i.e.
+                // at endpos + 1, but corrected for the string length differences of the replaces string:
+                p = endpos + 1 + v_it->second.size() - (endpos - p + 1);
+            }
+        }
+        else{
+            substitute(it.second, variables, current_path + (current_path.empty() ? "" : ".") + it.first);
+        }
+    }
+}
+
+// get all "dataset" configuration ptrees and -- recursively -- all "datasets.output_of"
+// "dataset" configuration ptrees by reading in all previous configuration files as well.
+//
+// The actual configuration-file parsed right now is the "first-level" file, the next inclusion
+// level (included via datasets.output_of) is the "second-level" file, and so on.
+//
+// filename_rewrite_options is the s_options object according to the module that actually produced
+// the files to be included, so it is alwazs set to the *second-level* file's 'options' setting. Use the default
+// for the first-level configuration file which does not any rewrite for the "dataset" statements
+std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const boost::optional<s_options> & filename_rewrite_options = boost::none, int level = 0){
+    if(level > 100){
+        throw runtime_error("error resolving indirect datasets: nesting level > 100 reached");
+    }
+    std::vector<ptree> result;
+    for(const auto & it : cfg){
+        if(it.first == "dataset_output_from"){
+            // read in previous cfg file:
+            ptree cfg_previous;
+            set_reset_cwd setter(dir_name(it.second.data()));
+            boost::property_tree::read_info(base_name(it.second.data()).c_str(), cfg_previous);
+            std::vector<ptree> datasets_cfgs_previous;
+            if(level==0){
+                boost::optional<s_options> rewrite_options;
+                rewrite_options = boost::in_place(cfg_previous.get_child("options"));
+                datasets_cfgs_previous = get_dataset_cfgs_recursive(cfg_previous, rewrite_options, 1);
+            }
+            else{
+                datasets_cfgs_previous = get_dataset_cfgs_recursive(cfg_previous, filename_rewrite_options, 1);
+            }
+            for(auto & d : datasets_cfgs_previous){
+                result.emplace_back(move(d));
+            }
+        }
+        else if(it.first == "dataset"){
+            result.emplace_back(it.second);
+            if(filename_rewrite_options){ // not true for first-level cfg file, but set to second-level file options if deeper
+                auto & dcfg = result.back();
+                dcfg.erase("file");
+                dcfg.erase("file-pattern");
+                dcfg.erase("sframe-xml-file");
+                string pattern = filename_rewrite_options->output_dir + ptree_get<string>(dcfg, "name");
+                if(filename_rewrite_options->mergemode == s_options::mm_nomerge){
+                    pattern += "-[0-9]*";
+                }
+                pattern += ".root";
+                cout << "using pattern " << pattern << endl;
+                dcfg.add_child("file-pattern", ptree(pattern));
+            }
+        }
+    }
+    return result;
+}
+
+
+// get all datasets of the top-level configuration cfg
+std::vector<s_dataset> get_datasets(const ptree & cfg){
+    std::vector<s_dataset> result;
+    auto cfgs = get_dataset_cfgs_recursive(cfg);
+    result.reserve(cfgs.size());
+    std::set<std::string> dataset_names;
+    for(const auto & cfg : cfgs){
+        result.emplace_back(cfg);
+        auto res = dataset_names.insert(result.back().name);
+        if(!res.second){
+            throw runtime_error("duplicate dataset name '" + result.back().name + "'");
+        }
+    }
+    return move(result);
+}
+
     
 }
 
@@ -250,31 +351,38 @@ s_config::s_config(const std::string & filename) {
     // are always resolved the same way:
     set_reset_cwd setter(dir_name(filename));
     boost::property_tree::read_info(base_name(filename).c_str(), cfg);
+    if(cfg.count("variables") > 0){
+        // there might be more than one variables, section, read them all:
+        std::map<string, string> variables;
+        auto range = cfg.equal_range("variables");
+        for(auto it = range.first; it != range.second; ++it){
+            for(const auto & var : it->second){
+                string varname = var.first;
+                string varvalue = var.second.data();
+                // do not overwrite: first variable definition wins!
+                if(variables.find(varname)==variables.end()){
+                    variables[varname] = varvalue;
+                }
+            }
+        }
+        for(const auto & it : variables){
+            cout << it.first << "=" << it.second << endl;
+        }
+        // now substitute:
+        substitute(cfg, variables);
+    }
     if(cfg.count("logger") > 0){
         logger = s_logger(cfg.get_child("logger"));
     }
     else{
-      // setup logging with default by using empty ptree:
-      logger = s_logger(ptree());
+        // setup logging with default by using empty ptree:
+        logger = s_logger(ptree());
     }
     options = s_options(cfg.get_child("options"));
     auto logger = Logger::get("ra.config");
     modules_cfg = cfg.get_child("modules");
-    std::set<std::string> dataset_names;
-    for(const auto & it : cfg){
-        if(it.first != "dataset") continue;
-        try{
-            datasets.emplace_back(it.second);
-            auto res = dataset_names.insert(datasets.back().name);
-            if(!res.second){
-                throw runtime_error("duplicate dataset name '" + datasets.back().name + "'");
-            }
-        }
-        catch(...){
-            LOG_ERROR("exception while building dataset " << datasets.size() << "; re-throwing");
-            throw;
-        }
-    }
+    // read in all 'dataset' and 'dataset_output_from' statements:
+    datasets = get_datasets(cfg);
     if(datasets.empty()){
         LOG_THROW("no datasets defined");
     }
