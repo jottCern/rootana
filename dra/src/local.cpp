@@ -217,7 +217,7 @@ bool wait_for_child(int pid, float timeout, bool log){
 
 }
 
-void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared_ptr<MasterObserver> & observer){
+bool dra::local_run(const std::string & cfgfile, int nworkers, const std::shared_ptr<MasterObserver> & observer){
     signal_noop(SIGCHLD); // note that signal_ignore (SIGCHLD) would mean we cannot wait for the children.
     signal_ignore(SIGINT);
     signal_ignore(SIGPIPE);
@@ -321,8 +321,10 @@ void dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
             LOG_INFO("all worker processes exited successfully.")
         }
     }
-    if(!master_ok || stopped || aborted){
+    if(!master_ok || stopped){
         cerr << endl << "WARNING: Dataset has NOT been processed completely (see above / log for details)" << endl;
+        return false;
     }
+    return true;
 }
 

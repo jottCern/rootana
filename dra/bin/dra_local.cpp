@@ -28,7 +28,9 @@ int main(int argc, char ** argv){
     
     try{
         std::shared_ptr<ProgressPrinter> pp(new ProgressPrinter());
-        dra::local_run(argv[1], nworkers, pp);
+        if(!dra::local_run(argv[1], nworkers, pp)){
+            exit(1);
+        }
     }
     catch(std::exception & ex){
         cerr << argv[0] << " in main: exception ocurred: " << ex.what() << endl;

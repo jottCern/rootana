@@ -32,7 +32,8 @@ private:
     dc::StateGraph::StateId s_start, s_configure, s_process, s_close, s_merge, s_stop, s_failed;
 };
     
-void local_run(const std::string & cfgfile, int nworkers, const std::shared_ptr<MasterObserver> & observer = std::shared_ptr<MasterObserver>());
+// returns whether succeffull
+bool local_run(const std::string & cfgfile, int nworkers, const std::shared_ptr<MasterObserver> & observer = std::shared_ptr<MasterObserver>());
 
 }
 
