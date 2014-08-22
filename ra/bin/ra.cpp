@@ -32,15 +32,15 @@ void run(const s_config & config){
         auto & dataset = config.datasets[idataset];
         string outfilename = config.options.output_dir + "/" + dataset.name + ".root";
         controller.start_dataset(idataset, outfilename);
-        progress_bar progress("Progress for dataset '%(dataset)s': files: %(files)4ld / %(files_total)4ld; events: %(events)10ld (%(events)|rate|7.1f/s); data: %(mbytes)7.2f MB (%(mbytes)|rate|5.2fMB/s)");
+        std::unique_ptr<progress_bar> p(new progress_bar("Progress for dataset '%(dataset)s': files: %(files)4ld / %(files_total)4ld; events: %(events)10ld (%(events)|rate|7.1f/s); data: %(mbytes)7.2f MB (%(mbytes)|rate|5.2fMB/s)"));
         identifier events("events");
         identifier mbytes("mbytes");
-        progress.set(mbytes, 0.0);
-        progress.set("files_total", dataset.files.size());
-        progress.set("dataset", dataset.name);
-        progress.set("files", 0);
-        progress.set("events", 0);
-        progress.print();
+        p->set(mbytes, 0.0);
+        p->set("files_total", dataset.files.size());
+        p->set("dataset", dataset.name);
+        p->set("files", 0);
+        p->set("events", 0);
+        p->print();
         size_t nevents_done = 0;
         size_t nbytes = 0;
         size_t nevents_survived = 0;
@@ -57,9 +57,9 @@ void run(const s_config & config){
                 nbytes += s.nbytes_read;
                 nevents_survived += s.nevents_survived;
                 nevents_done += imax - imin;
-                progress.set(events, nevents_done);
-                progress.set(mbytes, nbytes * 1e-6);
-                progress.check_autoprint();
+                p->set(events, nevents_done);
+                p->set(mbytes, nbytes * 1e-6);
+                p->check_autoprint();
                 if(config.options.maxevents_hint > 0){
                     if(nevents_done >= (size_t)config.options.maxevents_hint){
                         do_stop = true;
@@ -69,12 +69,13 @@ void run(const s_config & config){
                 imin = imax;
             }
             if(do_stop || interrupted) break;
-            progress.set("files", ifile + 1);
-            progress.print();
+            p->set("files", ifile + 1);
+            p->print();
         }
         if(do_stop || interrupted){
             break;
         }
+        p.reset();
         cout << "Events survived for this dataset: " << nevents_survived << endl;
     }
     if(interrupted){
