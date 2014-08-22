@@ -103,7 +103,7 @@ class HistFiller: public AnalysisModule{
 public:
     virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out);
     virtual void process(Event & event);
-    HistFiller(const ptree & cfg);
+    explicit HistFiller(const ptree & cfg);
     
 private:
     struct outdir{
@@ -113,6 +113,8 @@ private:
     };
     ptree cfg;
     std::vector<outdir> outdirs;
+    
+    static void parse_dir_cfg(const ptree & dircfg, outdir & od, const s_dataset & dataset, OutputManager & out);
 };
 
 typedef ::Registry< ::ra::Hists, std::string, const ptree &, const std::string&, const ::ra::s_dataset &, ::ra::OutputManager &> HistsRegistry;

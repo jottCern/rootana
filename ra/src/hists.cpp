@@ -2,6 +2,8 @@
 #include "TFile.h"
 #include "config.hpp"
 
+#include <boost/algorithm/string.hpp>
+
 #include <string>
 #include <vector>
 #include <fstream>
@@ -42,41 +44,66 @@ TH1* Hists::get(const identifier & id){
 
 HistFiller::HistFiller(const ptree & cfg_): cfg(cfg_){}
 
-void HistFiller::begin_dataset(const s_dataset & dataset, InputManager &, OutputManager & out){
-    outdirs.clear();
-    for(const auto & it : cfg){
-        if(it.first=="type") continue;
-        outdir od;
-        od.dirname = it.first;
-        od.selid = identifier(od.dirname);
-        const ptree & dircfg = it.second;
-        
-        for(const auto & it2 : dircfg){
-            if(it2.first == "hists"){
-                ptree hists_cfg;
-                std::string type;
-                if(it2.second.size() > 0){ // it's a group of settings:
-                    hists_cfg = it2.second;
-                    type = ptree_get<string>(hists_cfg, "type");
-                }
-                else{
-                    type = it2.second.data();
-                }
-                try{
-                    od.hists.emplace_back(HistsRegistry::build(type, hists_cfg, od.dirname, dataset, out));
-                }
-                catch(runtime_error & ex){
-                    throw runtime_error("Error while building Hists instance of type '" + type + "' for directory '" + od.dirname + "': " + ex.what());
-                }
-            }
-            else if(it2.first == "selection"){
-                od.selid = identifier(it2.second.data());
+// Fill od.hists
+// od.dirname and od.selid should be set to their defaults.
+void HistFiller::parse_dir_cfg(const ptree & dircfg, outdir & od, const s_dataset & dataset, OutputManager & out){
+    for(const auto & it : dircfg){
+        if(it.first == "hists"){
+            ptree hists_cfg;
+            std::string type;
+            if(it.second.size() > 0){ // it's a group of settings:
+                hists_cfg = it.second;
+                type = ptree_get<string>(hists_cfg, "type");
             }
             else{
-                throw runtime_error("unknown setting '" + it.first + "' in HistFiller directory '" + od.dirname + "'");
+                type = it.second.data();
+            }
+            try{
+                od.hists.emplace_back(HistsRegistry::build(type, hists_cfg, od.dirname, dataset, out));
+            }
+            catch(runtime_error & ex){
+                throw runtime_error("Error while building Hists instance of type '" + type + "' for directory '" + od.dirname + "': " + ex.what());
             }
         }
-        outdirs.emplace_back(move(od));
+        else if(it.first == "selection"){
+            od.selid = identifier(it.second.data());
+        }
+        else{
+            throw runtime_error("unknown setting '" + it.first + "' in HistFiller directory '" + od.dirname + "'");
+        }
+    }
+}
+
+void HistFiller::begin_dataset(const s_dataset & dataset, InputManager &, OutputManager & out){
+    outdirs.clear();
+    boost::optional<ptree> last_dir_cfg;
+    for(const auto & it : cfg){
+        if(it.first=="type") continue;
+        if(it.first=="_cfg"){
+            last_dir_cfg = it.second;
+        }
+        else if(it.first=="_dirs"){
+            if(!last_dir_cfg){
+                throw runtime_error("_cfg needed before _dir!");
+            }
+            string selections = it.second.data();
+            vector<string> vsels;
+            boost::split(vsels, selections, boost::algorithm::is_space(), boost::algorithm::token_compress_on);
+            for(const auto & sel : vsels){
+                outdir od;
+                od.dirname = sel;
+                od.selid = sel;
+                parse_dir_cfg(*last_dir_cfg, od, dataset, out);
+                outdirs.emplace_back(move(od));
+            }
+        }
+        else{
+            outdir od;
+            od.dirname = it.first;
+            od.selid = identifier(od.dirname);
+            parse_dir_cfg(it.second, od, dataset, out);
+            outdirs.emplace_back(move(od));
+        }
     }
 }
 
