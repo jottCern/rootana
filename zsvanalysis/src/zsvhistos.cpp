@@ -29,14 +29,6 @@ double max_abs_eta(const Event & e){
     double eta2 = e.get<lepton>(id::lepton_minus).p4.eta();
     return max(fabs(eta1), fabs(eta2));
 }
-        
-//     double get_dr_mcb_bcand(const mcparticle & mcb, const Bcand & bcand) {
-//         Vector mcb_flightdir = mcb.p4.Vect();
-//         Vector bcand_flightdir = bcand.flightdir;
-//         
-//         return deltaR(mcb_flightdir, bcand_flightdir);
-//     }
-
 
 // given a generator-level b mcb, find the matching reconstructed B candidates from bcands. Matching is done via
 // delta R < maxdr. In case of multiple matches, they are sorted by increasing distance (i.e. the closest is at index 0).
@@ -62,20 +54,7 @@ vector<const Bcand*> matching_bcands(const mcparticle & mcb, const vector<Bcand>
         result.push_back(m.second);
     }
     return result;
-}
-
-
-// count the number of mc_bs with |eta| < 2.4 and pt > 0
-int get_reco_bhad(const vector<mcparticle> & mc_bs){
-    int count = 0;
-    for (auto & mcb : mc_bs){
-        if (mcb.p4.eta() < 2.4 && mcb.p4.pt() > 0)
-            count++;
-    }
-    
-    return count;
-}
-    
+}    
     
 }
 
@@ -88,32 +67,245 @@ public:
         book_1d_autofill([=](Event & e){return e.get<lepton>(id::lepton_plus).p4.eta();}, "eta_lp", 100, -2.5, 2.5);
         book_1d_autofill([=](Event & e){return e.get<lepton>(id::lepton_minus).p4.eta();}, "eta_lm", 100, -2.5, 2.5);
         
-        book_1d_autofill(&maxpt_lepton, "max_pt_lep", 200, 0, 200);
-        book_1d_autofill(&max_abs_eta, "max_aeta_lep", 100, 0, 2.5);
+        //book_1d_autofill(&maxpt_lepton, "max_pt_lep", 200, 0, 200);
+        //book_1d_autofill(&max_abs_eta, "max_aeta_lep", 100, 0, 2.5);
         
         book_1d_autofill([=](Event & e){return e.get<LorentzVector>(id::zp4).M();}, "mll", 200, 0, 200);
         book_1d_autofill([=](Event & e){return e.get<LorentzVector>(id::zp4).pt();}, "ptz", 200, 0, 200);
-        book_1d_autofill([=](Event & e){return e.get<LorentzVector>(id::zp4).eta();}, "etaz", 200, 0, 200);
+        book_1d_autofill([=](Event & e){return e.get<LorentzVector>(id::zp4).eta();}, "etaz", 200, -5, 5);
         book_1d_autofill([=](Event & e){return e.get<float>(id::met);}, "met", 200, 0, 200);
         book_1d_autofill([=](Event & e){return e.get<vector<Bcand> >(id::selected_bcands).size();}, "nbcands", 10, 0, 10);
         book_1d_autofill([=](Event & e){return e.get<int>(id::mc_n_me_finalstate);}, "mc_n_me_finalstate", 10, 0, 10);
-        
         book_1d_autofill([=](Event & e){return e.get<int>(id::npv);}, "npv", 60, 0, 60);
     }
 };
 
 REGISTER_HISTS(BaseHists)
 
+class JetHists: public Hists {
+public:
+    JetHists(const ptree &, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
+        // jets:
+        book<TH1D>("nj", 10, 0, 10); // pt > 20, |\eta| < 2.4
+        book<TH1D>("ptj0", 60, 0, 180);
+        book<TH1D>("ptj1", 60, 0, 180);
+        book<TH1D>("etaj0", 60, -3, 3);
+        book<TH1D>("etaj1", 60, -3, 3);
+        
+        // does the leading jet match to a mc B with pt10/15/20 DR<0.2/0.3?
+        book<TH1D>("ptj0_mcb_r2", 60, 0, 180); // only filled if eta(j) < 1.8
+        book<TH1D>("ptj0_mcb_r3", 60, 0, 180);
+        book<TH1D>("etaj0_mcb_r2", 60, -3, 3);
+        book<TH1D>("etaj0_mcb_r3", 60, -3, 3);
+        
+        // does the second leading jet match to a mc B?
+        book<TH1D>("ptj1_mcb_r2", 60, 0, 180); // only filled if with eta(j) < 1.8
+        book<TH1D>("ptj1_mcb_r3", 60, 0, 180);
+        book<TH1D>("etaj1_mcb_r2", 60, -3, 3); // ptj > 20
+        book<TH1D>("etaj1_mcb_r3", 60, -3, 3);
+        
+        // actually found reco b:
+        book<TH1D>("ptj0_bc_r2", 60, 0, 180);
+        book<TH1D>("ptj0_bc_r3", 60, 0, 180);
+        book<TH1D>("etaj0_bc_r2", 60, -3, 3);
+        book<TH1D>("etaj0_bc_r3", 60, -3, 3);
+        
+        book<TH1D>("ptj1_bc_r2", 60, 0, 180);
+        book<TH1D>("ptj1_bc_r3", 60, 0, 180);
+        book<TH1D>("etaj1_bc_r2", 60, -3, 3);
+        book<TH1D>("etaj1_bc_r3", 60, -3, 3);
+        
+        
+        // tag + probe: in >= 2jet events, ask 1 jet to be b-tagged (dr < 0.2, 'tight')
+        // If it is, look at the other jet.
+        // Record the overall 'probe' jets and the tagged ones of those:
+        book<TH1D>("ptjp", 60, 0, 180); // all probes
+        book<TH1D>("etajp", 60, -3, 3);
+        book<TH1D>("ptjp_bc_r2", 60, 0, 180); // passing probes with 0.2
+        book<TH1D>("etajp_bc_r2", 60, -3, 3);
+        book<TH1D>("ptjp_bc_r3", 60, 0, 180);
+        book<TH1D>("etajp_bc_r3", 60, -3, 3);
+        
+        // control plot: how many probes are actually b?
+        book<TH1D>("ptjp_mcb_r2", 60, 0, 180);
+        book<TH1D>("etajp_mcb_r2", 60, -3, 3);
+        book<TH1D>("ptjp_mcb_r3", 60, 0, 180);
+        book<TH1D>("etajp_mcb_r3", 60, -3, 3);
+    }
+    
+    void fill(const identifier & id, double value){
+        get(id)->Fill(value, current_weight);
+    }
+    
+    virtual void process(Event & e);
+    
+private:
+    double current_weight;
+};
+
+void JetHists::process(Event & e){
+    current_weight = e.weight();
+    auto jets = e.get<vector<jet>>(id::jets);
+    const auto & lepton_plus = e.get<lepton>(id::lepton_plus);
+    const auto & lepton_minus = e.get<lepton>(id::lepton_minus);
+    sort(jets.begin(), jets.end(), [](const jet & j1, const jet & j2){return j1.p4.pt () > j2.p4.pt();});
+    for(size_t i=0; i<jets.size(); ++i){
+        if(fabs(jets[i].p4.eta()) > 2.4 || deltaR(jets[i].p4, lepton_plus.p4) < 0.5 || deltaR(jets[i].p4, lepton_minus.p4) < 0.5){
+            jets.erase(jets.begin() + i);
+            --i;
+            continue;
+        }
+        if(jets[i].p4.pt() < 20.0){
+            jets.erase(jets.begin() + i, jets.end());
+            break;
+        }
+    }
+    ID(nj);
+    size_t njets = jets.size();
+    fill(nj, njets);
+    if(njets==0) return;
+    
+    ID(ptj0); ID(etaj0);
+    ID(ptj1); ID(etaj1);
+    if(jets.size() >= 1){
+        fill(ptj0, jets[0].p4.pt());
+        fill(etaj0, jets[0].p4.eta());
+    }
+    if(jets.size() >= 2){
+        fill(ptj1, jets[1].p4.pt());
+        fill(etaj1, jets[1].p4.eta());
+    }
+    
+    
+
+    // match to mc bs:
+    double dr_mcb_j0 = numeric_limits<double>::infinity();
+    double dr_mcb_j1 = dr_mcb_j0;
+    auto & mc_bhads = e.get<vector<mcparticle> >(id::mc_bs);
+    for(const auto & mcb: mc_bhads){
+        dr_mcb_j0 = min(dr_mcb_j0, deltaR(mcb.p4, jets[0].p4));
+        if(njets > 1){
+            dr_mcb_j1 = min(dr_mcb_j1, deltaR(mcb.p4, jets[1].p4));
+        }
+    }
+    ID(ptj0_mcb_r2); ID(ptj0_mcb_r3);ID(etaj0_mcb_r2); ID(etaj0_mcb_r3);
+    if(dr_mcb_j0 < 0.2){
+        fill(ptj0_mcb_r2, jets[0].p4.pt());
+        fill(etaj0_mcb_r2, jets[0].p4.eta());
+    }
+    if(dr_mcb_j0 < 0.3){
+        fill(ptj0_mcb_r3, jets[0].p4.pt());
+        fill(etaj0_mcb_r3, jets[0].p4.eta());
+    }
+    if(jets.size() > 1){
+        ID(ptj1_mcb_r2); ID(ptj1_mcb_r3);ID(etaj1_mcb_r2); ID(etaj1_mcb_r3);
+        if(dr_mcb_j1 < 0.2){
+            fill(ptj1_mcb_r2, jets[1].p4.pt());
+            fill(etaj1_mcb_r2, jets[1].p4.eta());
+        }
+        if(dr_mcb_j1 < 0.3){
+            fill(ptj1_mcb_r3, jets[1].p4.pt());
+            fill(etaj1_mcb_r3, jets[1].p4.eta());
+        }
+    }
+    
+    // match to reco bs:
+    double dr_bc_j0 = numeric_limits<double>::infinity();
+    double dr_bc_j1 = dr_bc_j0;
+    auto & bcands = e.get<vector<Bcand> >(id::selected_bcands);
+    for(const auto & bc: bcands){
+        dr_bc_j0 = min(dr_bc_j0, deltaR(bc.p4, jets[0].p4));
+        if(njets > 1){
+            dr_bc_j1 = min(dr_bc_j1, deltaR(bc.p4, jets[1].p4));
+        }
+    }
+    ID(ptj0_bc_r2); ID(ptj0_bc_r3);ID(etaj0_bc_r2); ID(etaj0_bc_r3);
+    if(dr_bc_j0 < 0.2){
+        fill(ptj0_bc_r2, jets[0].p4.pt());
+        fill(etaj0_bc_r2, jets[0].p4.eta());
+    }
+    if(dr_bc_j0 < 0.3){
+        fill(ptj0_bc_r3, jets[0].p4.pt());
+        fill(etaj0_bc_r3, jets[0].p4.eta());
+    }
+    if(jets.size() > 1){
+        ID(ptj1_bc_r2); ID(ptj1_bc_r3);ID(etaj1_bc_r2); ID(etaj1_bc_r3);
+        if(dr_bc_j1 < 0.2){
+            fill(ptj1_bc_r2, jets[1].p4.pt());
+            fill(etaj1_bc_r2, jets[1].p4.eta());
+        }
+        if(dr_bc_j1 < 0.3){
+            fill(ptj1_bc_r3, jets[1].p4.pt());
+            fill(etaj1_bc_r3, jets[1].p4.eta());
+        }
+    }
+    
+    // tag and probe:
+    if(njets >= 2){
+        ID(ptjp); ID(etajp);
+        ID(ptjp_bc_r2); ID(etajp_bc_r2);ID(ptjp_bc_r3); ID(etajp_bc_r3);
+        ID(ptjp_mcb_r2); ID(etajp_mcb_r2); ID(ptjp_mcb_r3); ID(etajp_mcb_r3);
+        // j0 is tag?
+        if(dr_bc_j0 < 0.2){
+            // j1 is probe:
+            fill(ptjp, jets[1].p4.pt());
+            fill(etajp, jets[1].p4.eta());
+            if(dr_bc_j1 < 0.2){
+                fill(ptjp_bc_r2, jets[1].p4.pt());
+                fill(etajp_bc_r2, jets[1].p4.eta());
+            }
+            if(dr_bc_j1 < 0.3){
+                fill(ptjp_bc_r3, jets[1].p4.pt());
+                fill(etajp_bc_r3, jets[1].p4.eta());
+            }
+            if(dr_mcb_j1 < 0.2){
+                fill(ptjp_mcb_r2, jets[1].p4.pt());
+                fill(etajp_mcb_r2, jets[1].p4.eta());
+            }
+            if(dr_mcb_j1 < 0.3){
+                fill(ptjp_mcb_r3, jets[1].p4.pt());
+                fill(etajp_mcb_r3, jets[1].p4.eta());
+            }
+        }
+        // j1 is tag?
+        if(dr_bc_j1 < 0.2){
+            // j0 is probe:
+            fill(ptjp, jets[0].p4.pt());
+            fill(etajp, jets[0].p4.eta());
+            if(dr_bc_j0 < 0.2){
+                fill(ptjp_bc_r2, jets[0].p4.pt());
+                fill(etajp_bc_r2, jets[0].p4.eta());
+            }
+            if(dr_bc_j0 < 0.3){
+                fill(ptjp_bc_r3, jets[0].p4.pt());
+                fill(etajp_bc_r3, jets[0].p4.eta());
+            }
+            if(dr_mcb_j0 < 0.2){
+                fill(ptjp_mcb_r2, jets[0].p4.pt());
+                fill(etajp_mcb_r2, jets[0].p4.eta());
+            }
+            if(dr_mcb_j0 < 0.3){
+                fill(ptjp_mcb_r3, jets[0].p4.pt());
+                fill(etajp_mcb_r3, jets[0].p4.eta());
+            }
+        }
+    }
+}
+
+
+REGISTER_HISTS(JetHists)
 
 
 class BcandHists: public Hists{
 public:
     BcandHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
-        mcb_input = ptree_get<string>(cfg, "mcb_input");
+        mcb_input = ptree_get<string>(cfg, "mcb_input", "mc_bs");
         
         book<TH1D>("Bmass", 60, 0, 6);
         book<TH1D>("Bpt", 200, 0, 200);
         book<TH1D>("Beta", 100, -3, 3);
+        book<TH1D>("Bntracks", 20, 0, 20);
+        book<TH1D>("Bnsv", 5, 0, 5);
         
         book<TH1D>("svdist3d", 100, 0, 10);
         book<TH1D>("svdist2d", 100, 0, 10);
@@ -121,19 +313,13 @@ public:
         book<TH1D>("svdist2dsig", 100, 0, 200);
         book<TH1D>("DR_ZB", 50, 0, 5);
     
-        book<TH1D>("DR_BB", 50, 0, 5);
-        book<TH1D>("DPhi_BB", 32, 0, 3.2);
+        book<TH1D>("DR_BB", 100, 0, 5);
+        book<TH1D>("DPhi_BB", 64, 0, 3.2);
         book<TH1D>("m_BB", 100, 0, 200);
-        book<TH1D>("m_all", 100, 0, 800);
     
-        book<TH1D>("DR_VV", 50, 0, 5);
-        book<TH1D>("DPhi_VV", 32, 0, 3.2);
-        book<TH1D>("dist_VV", 50, 0, 10);
-    
-        book<TH1D>("min_DR_ZB", 50, 0, 5);
+        book<TH1D>("min_DR_ZB", 100, 0, 5);
         book<TH1D>("A_ZBB", 50, 0, 1);
 
-        
         // b efficiency:
         book<TH1D>("number_mcbs", 10, 0, 10);
         
@@ -186,11 +372,6 @@ public:
         ID(DR_BB);
         ID(DPhi_BB);
         ID(m_BB);
-        ID(m_all);
-    
-        ID(DR_VV);
-        ID(DPhi_VV);
-        ID(dist_VV);
     
         ID(min_DR_ZB);
         ID(A_ZBB);
@@ -208,6 +389,8 @@ public:
         ID(mcb_bcand_deta);
         ID(mcb_bcand_angle);
         ID(number_mcbs);
+        ID(Bntracks);
+        ID(Bnsv);
         
         /*ID(double_mcb_lower_pt);
         ID(double_mcb_higher_pt);
@@ -229,28 +412,25 @@ public:
         for(auto & b : bcands){
             fill(Bmass, b.p4.M());
             fill(Bpt, b.p4.pt());
-            fill(Beta, b.p4.eta());
+            fill(Beta, b.flightdir.eta());
+            fill(Bntracks, b.ntracks);
+            fill(Bnsv, b.nv);
             
             fill(svdist2d, b.dist2D);
             fill(svdist3d, b.dist3D);
             fill(svdist2dsig, b.distSig2D);
             fill(svdist3dsig, b.distSig3D);
             
-            fill(DR_ZB, deltaR(b.p4, p4Z));
+            fill(DR_ZB, deltaR(b.flightdir, p4Z));
         }
         
         if(bcands.size()==2){
             const Bcand & b0 = bcands[0];
             const Bcand & b1 = bcands[1];
             
-            fill(DR_BB, deltaR(b0.p4, b1.p4));
-            fill(DPhi_BB, deltaPhi(b0.p4, b1.p4));
+            fill(DR_BB, deltaR(b0.flightdir, b1.flightdir));
+            fill(DPhi_BB, deltaPhi(b0.flightdir, b1.flightdir));
             fill(m_BB, (b0.p4 + b1.p4).M());
-            fill(m_all, (p4Z+b0.p4+b1.p4).M());
-            
-            fill(DR_VV, deltaR(b0.flightdir, b1.flightdir));
-            fill(DPhi_VV, deltaPhi(b0.flightdir, b1.flightdir));
-            fill(dist_VV, sqrt((b0.flightdir -  b1.flightdir).Mag2()));
             
             double dr0 = deltaR(p4Z, b0.p4);
             double dr1 = deltaR(p4Z, b1.p4);

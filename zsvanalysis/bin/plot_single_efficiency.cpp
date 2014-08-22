@@ -7,7 +7,7 @@ using namespace std;
 using namespace ra;
 
 namespace {
-string outputdir = "eps/";
+string outputdir = "plot_single_efficiency_out/";
 string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/single_ivf_efficiency/";
 const double pt_bins[] = {0., 8., 10., 12., 14., 16., 18., 20., 22., 24., 26., 28., 30., 32., 34., 36., 38., 40., 42., 44., 46., 48., 50., 52., 54., 56., 58., 60., 62., 64., 66., 68., 70., 72., 74., 76., 78., 80., 84., 88., 92., 96., 100., 104., 108., 112., 116., 120., 130., 140., 160., 200.};
 }
@@ -55,6 +55,7 @@ int main(){
        ("mcbs_pt", "xtext", "p_{T}(B_{true}) [GeV]")
        ("mcbs_eta", "xtext", "#eta(B_{true}) [GeV]")
        ("mcb_bcand_dr", "xtext", "#Delta R(B_{true}, B_{reco})")
+       ("matched_mcb_pt", "xtext", "p_{T}(B_{true}) [GeV]")
        ("mcb_bcand_d*", "xmin", "0.0")
        ("mcb_bcand_dr", "xmax", "0.1")
        ("mcb_bcand_dphi", "xtext", "#Delta #phi(B_{true}, B_{reco})")
@@ -65,7 +66,7 @@ int main(){
     
        
     // 1. shape plots for all histograms, comparing processes:
-    Formatters formatters(formatters_x);
+    /*Formatters formatters(formatters_x);
     //formatters.add("*", SetLineColor(1));
     formatters.add<SetFillColor>("ttbar:", 810) ("dy:", kBlue);
     //formatters.add<SetLineColor>("ttbar:", 810) ("dy:", 414) ("dyexcl:", kMagenta);
@@ -73,7 +74,7 @@ int main(){
     formatters.add<SetLegends>("ttbar:", "t#bar{t}+Jets", "$\\ttbar$") ("dy:", "Z/#gamma*+Jets (MG)", "$Z/\\gamma^*$+Jets");
     formatters.add<SetOption>("*", "ytext", "events");
     Plotter p1(outputdir, {ttbar, dy}, formatters);
-    p1.shapeplots({"ttbar", "dy"});
+    p1.shapeplots({"ttbar", "dy"});*/
     
     
     // 2. some efficiency comparisons
@@ -91,7 +92,7 @@ int main(){
     compare_eff_processes({ttbar, dy}, "mcb_pt20/matched_mcb_eta", "mcb_pt20/mcbs_eta", format_eff, "mcb_pt20/");
     
     // 3. compare different selections for same process:
-    Formatters formatters_selcomp(formatters_x);
+    /*Formatters formatters_selcomp(formatters_x);
     formatters_selcomp.add<SetLineWidth>("*", 2);
     formatters_selcomp.add<SetLineColor>(":all/", 810) (":mcb_pt10/", 414) (":mcb_pt20/", kMagenta) (":mcb_central/", kBlue)(":mcb_forward/", kGreen);
     formatters_selcomp.add<SetLegends>(":mcb_pt20/", "p_{T}(B) > 20 GeV")(":mcb_pt10/", "p_{T}(B) > 10 GeV")(":all/", "all") (":mcb_central/", "|#eta(B)| < 1")
@@ -100,6 +101,6 @@ int main(){
     Plotter p2(outputdir, {ttbar, dy}, formatters_selcomp);
     p2.selcomp_plots({"all", "mcb_pt10", "mcb_pt20"}, {"mcbs_pt", "mcbs_eta"}, "selcomp");
     p2.selcomp_plots({"mcb_central", "mcb_forward"}, {"mcb_bcand_deta", "mcb_bcand_dphi"}, "selcomp_eta");
-    p2.selcomp_plots({"all", "mcb_pt10", "mcb_pt20"}, {"mcb_bcand_deta", "mcb_bcand_dphi"}, "selcomp_pt");
+    p2.selcomp_plots({"all", "mcb_pt10", "mcb_pt20"}, {"mcb_bcand_deta", "mcb_bcand_dphi"}, "selcomp_pt");*/
 }
 

@@ -9,22 +9,45 @@ using namespace zsv;
 class NBCandSelection: public Selection{
 public:
     NBCandSelection(const ptree & cfg, OutputManager &){
+        input = ptree_get<string>(cfg, "input", "selected_bcands");
         nmin = ptree_get<int>(cfg, "nmin", -1);
         nmax = ptree_get<int>(cfg, "nmax", -1);
     }
     
     bool operator()(const Event & event){
-        const vector<Bcand> & bcands = event.get<vector<Bcand>>(id::selected_bcands);
+        const vector<Bcand> & bcands = event.get<vector<Bcand>>(input);
         return (nmin < 0 || bcands.size() >= static_cast<size_t>(nmin)) && (nmax < 0 || bcands.size() <= static_cast<size_t>(nmax));
     }
     
 private:
     int nmin, nmax;
+    identifier input;
 };
 
 
 REGISTER_SELECTION(NBCandSelection)
 
+
+class NJetSelection: public Selection{
+public:
+    NJetSelection(const ptree & cfg, OutputManager &){
+        nmin = ptree_get<int>(cfg, "nmin", -1);
+        nmax = ptree_get<int>(cfg, "nmax", -1);
+        input = ptree_get<string>(cfg, "input");
+    }
+    
+    bool operator()(const Event & event){
+        const vector<jet> & jets = event.get<vector<jet>>(input);
+        return (nmin < 0 || jets.size() >= static_cast<size_t>(nmin)) && (nmax < 0 || jets.size() <= static_cast<size_t>(nmax));
+    }
+    
+private:
+    int nmin, nmax;
+    identifier input;
+};
+
+
+REGISTER_SELECTION(NJetSelection)
 
 
 class PtZSelection: public Selection{
@@ -68,8 +91,8 @@ REGISTER_SELECTION(MllSelection)
 class MetSelection: public Selection{
 public:
     MetSelection(const ptree & cfg, OutputManager &){
-        metmin = ptree_get<float>(cfg, "metmin");
-        metmax = ptree_get<float>(cfg, "metmax");
+        metmin = ptree_get<float>(cfg, "metmin", -1.0);
+        metmax = ptree_get<float>(cfg, "metmax", -1.0);
     }
     
     bool operator()(const Event & event){
@@ -84,4 +107,35 @@ private:
 
 REGISTER_SELECTION(MetSelection)
 
+class LeptonFlavorSelection: public Selection{
+public:
+    LeptonFlavorSelection(const ptree & cfg, OutputManager &){
+        string sf = ptree_get<string>(cfg, "select_flavor");
+        if(sf=="ee"){
+            select_flavor = ee;
+        }
+        else if(sf=="mm"){
+            select_flavor=mm;
+        }
+        else if (sf=="me"){
+            select_flavor = me;
+        }
+        else{
+            throw runtime_error("invalid select_flavor='" + sf + "' (allowed: ee, mm, me)");
+        }
+    }
+    
+    bool operator()(const Event & event){
+        const auto & lp = event.get<lepton>(id::lepton_plus);
+        const auto & lm = event.get<lepton>(id::lepton_minus);
+        int flsum = abs(lp.pdgid) + abs(lm.pdgid);
+        return (select_flavor == ee && flsum == 22) || (select_flavor == mm && flsum == 26) || (select_flavor == me && flsum == 24);
+    }
+    
+private:
+    enum e_select_flavor {ee, mm, me };
+    e_select_flavor select_flavor;
+};
 
+
+REGISTER_SELECTION(LeptonFlavorSelection)
