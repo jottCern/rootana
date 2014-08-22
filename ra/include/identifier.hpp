@@ -55,15 +55,21 @@ namespace std{
     
 template<>
 struct hash< ra::identifier>{
-    typedef ra::identifier argument_type;
-    typedef size_t result_type;
-    
     std::hash<ssize_t> hasher;
     
-    result_type operator()(const ra::identifier & id) const{
+    size_t operator()(const ra::identifier & id) const{
         return hasher(id.id());
     }
 };
+
+}
+
+namespace boost {
+
+inline std::size_t hash_value(const ra::identifier & id){
+    std::hash<ssize_t> hasher;
+    return hasher(id.id());
+}
 
 }
 

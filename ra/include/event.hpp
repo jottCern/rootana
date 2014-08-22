@@ -5,12 +5,26 @@
 #include "identifier.hpp"
 
 #include <boost/optional.hpp>
+#include <boost/functional/hash.hpp> // for hash of std::pair
 
-#include <map>
+#include <unordered_map>
+#include <utility>
 #include <typeinfo>
 #include <typeindex>
 #include <algorithm>
 #include <memory>
+
+
+namespace std{
+    
+template<>
+struct hash<std::pair<std::type_index, ra::identifier>> {
+    size_t operator()(const std::pair<std::type_index, ra::identifier> & arg) const{
+        return boost::hash_value(arg);
+    }
+};
+
+}
 
 namespace ra {
 
@@ -31,16 +45,16 @@ namespace fwid {
  * 
  * To invalidate the value of a data member, call 'set_state(..., invalid)'. This marks the member data as invalid
  * and makes a subsequent 'get' fail with an error. This invalidation mechanism is mainly used as consistency check to prevent
- * using outdated data from the previous event: Just before a new event is read, all data is marked as invalid. While such a mechanism
+ * using outdated data from the previous event: Just before a new event is read, all data is marked as invalid. (While such a mechanism
  * could also be implemented via a "erase" method, that would entail frequent re-allocation in tight loops which is avoided
- * here.
+ * here. Also, erase has other problems, see below)
  * 
  * Once a data member is 'set', its address is guaranteed to remain the same throughout the lifetime
- * of the Event class. there is also no mechanism to "erase" a data member. In this sense, it is similar to the
+ * of the Event class. There is also no mechanism to "erase" a data member. In this sense, it is similar to the
  * 'structs' and allows to use this class e.g. with root and TTree::SetBranchAddress (which would be hard or impossible if
  * the member addresses where allowed to change by erasing and re-setting a data member).
  * 
- * In addition to the get/set interface, it is also possible to register a callback via 'set_get_callback' that is
+ * In addition to the get/set interface, it is also possible to register a callback via 'set_get_callback' which is
  * called if 'get' is called on an invalid data member. This allows implementing lazy evaluation (or lazy reads) for
  * data. Note that the callback is *not* called for member data in 'valid' state, so it will only called again if the
  * state is reset to 'invalid' again.
@@ -204,8 +218,9 @@ private:
     typedef std::pair<std::type_index, identifier> ti_id;
     
     double weight_;
-    mutable std::map<ti_id, element> data; // note: mutable required for lazy generation of data with const access
+    mutable std::unordered_map<ti_id, element> data; // note: mutable required for lazy generation of data with const access
 };
+
 
 std::ostream & operator<<(std::ostream & out, Event::state s);
 
