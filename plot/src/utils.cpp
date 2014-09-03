@@ -570,15 +570,13 @@ void ProcessHistogramsTFile::init_files(const std::initializer_list<std::string>
     }
 }
 
-namespace{
-    
 // get all names of the objects in the TDirectory dir and fill them into result.
 // if 'recursive' is true, will follow into subdirectories and report names
 //  there as well (as 'subdir/name')
 //
 // T must be constructible with a std string, so result can be vector<string>.
 template<typename T>
-void get_names_of_type(std::vector<T> & result, TDirectory * dir, const char * type, bool recursive = false, const string & prefix = ""){
+void get_names_of_type(std::vector<T> & result, TDirectory * dir, const char * type, bool recursive, const string & prefix){
     TList * keys = dir->GetListOfKeys();
     TObjLink *lnk = keys->FirstLink();
     while (lnk) {
@@ -595,7 +593,8 @@ void get_names_of_type(std::vector<T> & result, TDirectory * dir, const char * t
     }
 }
 
-}
+template
+void get_names_of_type<string>(std::vector<string> & result, TDirectory * dir, const char * type, bool recursive, const string & prefix);
 
 std::vector<selection_type> ProcessHistogramsTFile::get_selections(){
     std::vector<selection_type> result;

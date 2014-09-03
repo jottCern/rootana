@@ -47,6 +47,9 @@ void draw_histos(const std::vector<Histogram> & histos, const std::string & file
 
 void create_dir(const std::string & filename);
 
+// use T = string
+template<typename T>
+void get_names_of_type(std::vector<T> & result, TDirectory * dir, const char * type, bool recursive = false, const std::string & prefix = "");
 
 // abstract class of a source of histograms for one process (like ttbar, wjets).
 // histograms are organized in two levels: a source has a list of selections, and there is a list of histograms for each selection.
