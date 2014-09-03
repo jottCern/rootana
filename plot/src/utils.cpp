@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <stdlib.h> // for strtol
+#include <iomanip>
 
 #include <list>
 #include <set>
@@ -118,7 +119,7 @@ void trim(string & s){
 // * "xlabel_factor" and "ylabel_factor": values > 1.0 increase the distance of axis / axis legend (default: 1.0)
 // * "xmin", "xmax" to override the x range of histos[0] which is drawn. Note that this only works if both, xmin and xmax, are set.
 // * "ymin", "ymax" to override the y range of the histogram
-// * "more_ymax": incrase space in y direction (for legend, etc.), as fraction of pad height
+// * "more_ymax": set higher maximum for y axis to increase space in y direction for legend and titles, as fraction of pad height (default: 0.0)
 // * "ylog": if non-empty, logarithmic y axis
 //
 // * "auto_linestyles": if non-empty, use different line styles for all non-filled histograms for better b/w readability
@@ -703,7 +704,10 @@ void Formatters::add(const std::string & histos_, const formatter_type & formatt
             hname_mode = fspec::mm_suffix;
             hname = histos.substr(1);
         }
-        else{ // match all
+        else if(histos[0]=='*' && histos.size() == 1){
+            // do nothing: leave at match any
+        }
+        else{ // match full name
             hname_mode = fspec::mm_full;
             hname = histos;
         }
@@ -902,7 +906,7 @@ void Plotter::print_integrals(const selection_type & selection, const hname_type
     out << title << endl;
     auto histograms = get_formatted_histograms(histos, selection, hname);
     for(auto & h : histograms){
-        out << h.latex_legend << ": " << h.histo->Integral(0, h.histo->GetNbinsX() + 1) << "  (N_unweighted: " << h.histo->GetEntries() << ")" << endl;
+        out << h.latex_legend << ": " << setprecision(10) << h.histo->Integral(0, h.histo->GetNbinsX() + 1) << "  (N_unweighted: " << h.histo->GetEntries() << ")" << endl;
     }
     out << endl;
 }

@@ -269,7 +269,7 @@ public:
     Plotter(const std::string & outdir, const std::vector<std::shared_ptr<ProcessHistograms> > & histograms, const Formatters & formatters);
     
     // make stackplots overlaying data with background stack. The processes to stack are given in
-    // processes_to_stack (in the roder to stack them)
+    // processes_to_stack (in the order to stack them)
     // filename_suffix is a string to append to the filename, in case you want to call stackplots multiple times with different options
     // 
     // relevant options:
@@ -286,7 +286,7 @@ public:
                        const std::string & outputname);
     
     // set global options (per-histogram options are set by the filters).
-    // For current options, see the *plots methods
+    // For valid options, see the *plots methods
     void set_option(const std::string & name, const std::string & value){
         options[name] = value;
     }
