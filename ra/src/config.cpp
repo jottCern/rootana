@@ -73,6 +73,9 @@ s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint
         }
         else if(cfg.first == "output_dir"){
             output_dir = cfg.second.data();
+            if(!output_dir.empty() && output_dir[output_dir.size()-1]=='/'){
+                output_dir = output_dir.substr(0, output_dir.size()-1);
+            }
         }
         else if(cfg.first == "maxevents_hint"){
             maxevents_hint = try_cast<int>("options.maxevents_hint", cfg.second.data());
@@ -284,7 +287,8 @@ void read_config(const string & filename, ptree & cfg);
 // filename_rewrite_options is the s_options object according to the module that actually produced
 // the files to be included, so it is alwazs set to the *second-level* file's 'options' setting. Use the default
 // for the first-level configuration file which does not any rewrite for the "dataset" statements
-std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const boost::optional<s_options> & filename_rewrite_options = boost::none, int level = 0){
+std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const string & dsetname_suffix  = "",
+                                              const boost::optional<s_options> & filename_rewrite_options = boost::none, int level = 0){
     if(level > 100){
         throw runtime_error("error resolving indirect datasets: nesting level > 100 reached");
     }
@@ -292,16 +296,19 @@ std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const boost::op
     for(const auto & it : cfg){
         if(it.first == "dataset_output_from"){
             // read in previous cfg file:
+            string cfg_filename = ptree_get<string>(it.second, "cfgfile");
+            string suffix = ptree_get<string>(it.second, "dataset_name_suffix", "");
+            set_reset_cwd setter(dir_name(cfg_filename));
             ptree cfg_previous;
-            read_config(it.second.data(), cfg_previous);
+            read_config(base_name(cfg_filename), cfg_previous);
             std::vector<ptree> datasets_cfgs_previous;
             if(level==0){
                 boost::optional<s_options> rewrite_options;
                 rewrite_options = boost::in_place(cfg_previous.get_child("options"));
-                datasets_cfgs_previous = get_dataset_cfgs_recursive(cfg_previous, rewrite_options, 1);
+                datasets_cfgs_previous = get_dataset_cfgs_recursive(cfg_previous, dsetname_suffix + suffix, rewrite_options, 1);
             }
             else{
-                datasets_cfgs_previous = get_dataset_cfgs_recursive(cfg_previous, filename_rewrite_options, 1);
+                datasets_cfgs_previous = get_dataset_cfgs_recursive(cfg_previous, dsetname_suffix + suffix, filename_rewrite_options, 1);
             }
             for(auto & d : datasets_cfgs_previous){
                 result.emplace_back(move(d));
@@ -314,14 +321,16 @@ std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const boost::op
                 dcfg.erase("file");
                 dcfg.erase("file-pattern");
                 dcfg.erase("sframe-xml-file");
-                string pattern = filename_rewrite_options->output_dir + ptree_get<string>(dcfg, "name");
+                string pattern = filename_rewrite_options->output_dir + "/" + ptree_get<string>(dcfg, "name");
                 if(filename_rewrite_options->mergemode == s_options::mm_nomerge){
                     pattern += "-[0-9]*";
                 }
                 pattern += ".root";
                 cout << "using pattern " << pattern << endl;
                 dcfg.add_child("file-pattern", ptree(pattern));
+                dcfg.get_child("name").data() += dsetname_suffix;
             }
+            
         }
     }
     return result;
@@ -345,12 +354,12 @@ std::vector<s_dataset> get_datasets(const ptree & cfg){
 }
 
 
-// read configuration with boost::property_tree::read_info, but do some common
-// processing, such as variables substitution and changing into the config file directory for
-// better include handling.
+// read configuration with boost::property_tree::read_info, but also do the 
+// variable substitution.
+// Note that changing the directory into the one of the cfg file (for include resolution and
+// datasets_from_output resolution) has to be done outside of this method.
 void read_config(const string & filename, ptree & cfg){
-    set_reset_cwd setter(dir_name(filename));
-    boost::property_tree::read_info(base_name(filename).c_str(), cfg);
+    boost::property_tree::read_info(filename.c_str(), cfg);
     if(cfg.count("variables") > 0){
         // there might be more than one variables, section, read them all:
         std::map<string, string> variables;
@@ -365,7 +374,6 @@ void read_config(const string & filename, ptree & cfg){
                 }
             }
         }
-        // now substitute:
         substitute(cfg, variables);
     }
 }
@@ -375,7 +383,8 @@ void read_config(const string & filename, ptree & cfg){
 
 s_config::s_config(const std::string & filename) {
     ptree cfg;
-    read_config(filename, cfg);
+    set_reset_cwd setter(dir_name(filename));
+    read_config(base_name(filename), cfg);
     if(cfg.count("logger") > 0){
         logger = s_logger(cfg.get_child("logger"));
     }
