@@ -65,7 +65,7 @@ AndSelection::AndSelection(const ptree & cfg, OutputManager & out): cutflow(0), 
 }
     
 bool AndSelection::operator()(const Event & event){
-    auto w = event.weight();
+    auto w = event.get<double>(fwid::weight);
     bool result = true;
     float x = 0.5;
     if(cutflow){

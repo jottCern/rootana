@@ -8,6 +8,7 @@
 using namespace ra;
 
 identifier ra::fwid::stop("__stop");
+identifier ra::fwid::weight("__weight");
 
 namespace {
     
@@ -33,14 +34,17 @@ void Event::fail(const std::type_info & ti, const identifier & id) const{
     throw std::runtime_error("Event: did not find member with name '" + id.name() + "' of type '" + demangle(ti.name()) + "'");
 }
 
-void * Event::get_raw(const std::type_info & ti, const identifier & name, bool fail_){
-    return const_cast<void*>(static_cast<const Event*>(this)->get_raw(ti, name, fail_));
+void * Event::get_raw(const std::type_info & ti, const identifier & name, bool fail_, bool allow_null){
+    return const_cast<void*>(static_cast<const Event*>(this)->get_raw(ti, name, fail_, allow_null));
 }
 
-const void * Event::get_raw(const std::type_info & ti, const identifier & name, bool fail_) const{
+const void * Event::get_raw(const std::type_info & ti, const identifier & name, bool fail_, bool allow_null) const{
     ti_id key{ti, name};
     auto it = data.find(key);
-    if(it==data.end()) fail(ti, name); // fail does not return
+    if(it==data.end()){
+        if(allow_null) return 0;
+        else fail(ti, name); // fail does not return
+    }
     element & e = it->second;
     if(e.valid){
         return e.data;
@@ -116,7 +120,8 @@ void Event::invalidate_all(){
     for(auto & it : data){
         it.second.valid = false;
     }
-    weight_ = 1.0;
+    set(fwid::weight, 1.0);
+    //weight_ = 1.0;
 }
 
 void Event::set_get_callback(const std::type_info & ti, const identifier & name, const std::function<void ()> & callback){

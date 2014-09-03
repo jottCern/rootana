@@ -31,6 +31,7 @@ namespace ra {
 // namespace for special, predefined event member ids used by the framework
 namespace fwid {
     extern identifier stop; // the name of a 'bool' event member which -- if set to true -- signals the framework that event processing should be stopped after this AnalysisModule
+    extern identifier weight; // the name of a 'double' event member to use as the default event weight.
 }
  
 /** \brief A generic event container saving arbitrary kind of data
@@ -64,19 +65,11 @@ public:
     
     enum class state { nonexistent, invalid, valid };
     
-    Event(): weight_(1.0){}
+    Event(){}
     
     // prevent copying, and moving, as we manage memory
     Event(const Event &) = delete;
     Event(Event &&) = delete;
-    
-    double weight() const{
-        return weight_;
-    }
-    
-    void set_weight(double w){
-        weight_ = w;
-    }
 
     /** \brief Get an element of this event
      *
@@ -92,10 +85,34 @@ public:
     const T & get(const identifier & name, bool check_valid = true) const{
         return *(reinterpret_cast<const T*>(get_raw(typeid(T), name, check_valid)));
     }
+    
+    // get with a default fallback in case the member does not exist or is invalid (and cannot be made valid
+    // by a callback).
+    template<typename T>
+    T & get_default(const identifier & name, T & default_value){
+        auto res = get_raw(typeid(T), name, true, true);
+        if(res==0){
+            return default_value;
+        }
+        else{
+            return *reinterpret_cast<T*>(res);
+        }
+    }
+    
+    template<typename T>
+    const T & get_default(const identifier & name, const T & default_value) const{
+        auto res = get_raw(typeid(T), name, true, true);
+        if(res==0){
+            return default_value;
+        }
+        else{
+            return *reinterpret_cast<const T*>(res);
+        }
+    }
 
     // type-erased versions:
-    void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true);
-    const void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true) const;
+    void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true, bool allow_null = false);
+    const void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true, bool allow_null = false) const;
     
     /** \brief Set an element, allocating memory if necessary
      *

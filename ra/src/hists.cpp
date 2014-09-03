@@ -21,18 +21,31 @@ Hists::Hists(const std::string & dirname_, const s_dataset & dataset, OutputMana
 
 Hists::~Hists(){}
 
-void Hists::book_1d_autofill(event_functor f, const char * name, int nbins, double xmin, double xmax){
+void Hists::book_1d_autofill(event_functor f, const char * name, int nbins, double xmin, double xmax, boost::optional<identifier> weight){
     TH1D * histo = book<TH1D>(name, nbins, xmin, xmax);
-    autofill_histos.emplace_back(std::move(f), histo);
+    autofill_histos.emplace_back(autofill_histo{move(f), move(weight), histo});
 }
 
 void Hists::process_all(Event & e){
     process(e);
+    double lastweight_value = 1.0; // note: 1.0 is never used; this is just to make compiler happy
+    identifier lastweight_id;
     for(const auto & it : autofill_histos){
-        double value = it.first(e);
-        if(!std::isnan(value)){
-            it.second->Fill(value, e.weight());
+        double value = it.f(e);
+        if(std::isnan(value)) continue;
+        double weight = 1.0;
+        if(it.weight){
+            // optimize for the case that weight is usually the same for all histos:
+            if(*it.weight == lastweight_id){
+                weight = lastweight_value;
+            }
+            else{
+                weight = e.get<double>(*it.weight);
+                lastweight_value = weight;
+                lastweight_id = *it.weight;
+            }
         }
+        it.histo->Fill(value, weight);
     }
 }
 

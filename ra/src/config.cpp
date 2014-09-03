@@ -289,6 +289,7 @@ void read_config(const string & filename, ptree & cfg);
 // for the first-level configuration file which does not any rewrite for the "dataset" statements
 std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const string & dsetname_suffix  = "",
                                               const boost::optional<s_options> & filename_rewrite_options = boost::none, int level = 0){
+    auto logger = Logger::get("ra.config.dataset");
     if(level > 100){
         throw runtime_error("error resolving indirect datasets: nesting level > 100 reached");
     }
@@ -326,9 +327,9 @@ std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const string & 
                     pattern += "-[0-9]*";
                 }
                 pattern += ".root";
-                cout << "using pattern " << pattern << endl;
                 dcfg.add_child("file-pattern", ptree(pattern));
                 dcfg.get_child("name").data() += dsetname_suffix;
+                LOG_DEBUG("dataset_output_from: using pattern '" << pattern << "' for dataset '" << dcfg.get_child("name").data() << "'");
             }
             
         }

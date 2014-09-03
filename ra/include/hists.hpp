@@ -4,9 +4,11 @@
 #include "TH1.h"
 #include "context.hpp"
 #include "analysis.hpp"
+#include "event.hpp"
 
 #include "base/include/registry.hpp"
 
+#include <boost/optional.hpp>
 
 #include <type_traits>
 #include <functional>
@@ -46,7 +48,7 @@ public:
     
     // the functor should return not-a-number to prevent filling
     typedef std::function<double (Event &)> event_functor;
-    void book_1d_autofill(event_functor f, const char * name, int nbins, double xmin, double xmax);
+    void book_1d_autofill(event_functor f, const char * name, int nbins, double xmin, double xmax, boost::optional<identifier> weight = fwid::weight);
 
     // get a histogram booked with book:
     TH1 * get(const identifier & id);
@@ -58,9 +60,15 @@ public:
     
 private:
     
+    struct autofill_histo {
+        event_functor f;
+        boost::optional<identifier> weight;
+        TH1* histo;
+    };
+    
     std::string dirname; // including the final '/'
     OutputManager & out;
-    std::vector<std::pair<event_functor, TH1*> > autofill_histos;
+    std::vector<autofill_histo> autofill_histos;
     std::map<identifier, TH1*> i2h; // name to histos
 };
 
