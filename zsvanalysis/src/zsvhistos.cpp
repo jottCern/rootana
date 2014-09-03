@@ -337,6 +337,10 @@ public:
         book<TH1D>("mcb_bcand_angle", 100, 0, 0.2);
         book<TH1D>("mcb_bcand_deta", 100, 0, 0.2);
         
+        // g->bb study for ttbar: look how often we have more than one b-pair
+        // as a function of DR(B,B). x-axis = DRBB, y-axis = number of mcb / 2
+        book<TH2D>("Nmcbpair_vs_DRBB", 100, 0, 5, 4, 0, 4);
+        
         // double b efficiency:
         /*book<TH1D>("double_mcb_lower_pt", 200, 0, 200);
         book<TH1D>("double_mcb_higher_pt", 200, 0, 200);
@@ -428,7 +432,9 @@ public:
             const Bcand & b0 = bcands[0];
             const Bcand & b1 = bcands[1];
             
-            fill(DR_BB, deltaR(b0.flightdir, b1.flightdir));
+            auto drbb = deltaR(b0.flightdir, b1.flightdir);
+            
+            fill(DR_BB, drbb);
             fill(DPhi_BB, deltaPhi(b0.flightdir, b1.flightdir));
             fill(m_BB, (b0.p4 + b1.p4).M());
             
@@ -441,6 +447,8 @@ public:
             fill(DR_ZB, dr1);
             fill(min_DR_ZB, min_dr);
             fill(A_ZBB, (max_dr - min_dr) / (max_dr + min_dr));
+            ID(Nmcbpair_vs_DRBB);
+            fill(Nmcbpair_vs_DRBB, drbb, mc_bhads.size() / 2);
         }
 
         fill(number_mcbs, mc_bhads.size());

@@ -57,7 +57,7 @@ void elesf::begin_dataset(const s_dataset & dataset, InputManager & in, OutputMa
 }
 
 double elesf::getsf(const lepton & lep){
-    assert(isfinite(lep.sc_eta)); // to catch acidental muons ...
+    assert(isfinite(lep.sc_eta)); // to catch accidental muons or other problems
     int ibin_x = sfs->GetXaxis()->FindBin(fabs(lep.sc_eta));
     if(ibin_x < 1 || ibin_x > sfs->GetXaxis()->GetNbins()){
         cout << "sc_eta=" << lep.sc_eta << endl;

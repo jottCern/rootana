@@ -8,25 +8,25 @@ using namespace ra;
 
 namespace {
 string outputdir = "plot_single_efficiency_out/";
-string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/single_ivf_efficiency/";
+string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/single_ivf_efficiency/";
 const double pt_bins[] = {0., 8., 10., 12., 14., 16., 18., 20., 22., 24., 26., 28., 30., 32., 34., 36., 38., 40., 42., 44., 46., 48., 50., 52., 54., 56., 58., 60., 62., 64., 66., 68., 70., 72., 74., 76., 78., 80., 84., 88., 92., 96., 100., 104., 108., 112., 116., 120., 130., 140., 160., 200.};
 }
 
-Histogram get_eff_hist(const shared_ptr<ProcessHistograms> & ph, const string & num, const string & denom, const Formatters & format){
-    Histogram hnum = ph->get_histogram(num);
-    Histogram hden = ph->get_histogram(denom);
+Histogram get_eff_hist(const shared_ptr<ProcessHistograms> & ph, const selection_type & selection, const string & num, const string & denom, const Formatters & format){
+    Histogram hnum = ph->get_histogram(selection, num);
+    Histogram hden = ph->get_histogram(selection, denom);
     format(hnum);
     format(hden);
     hnum.histo->Divide(hden.histo.get());
     return move(hnum);
 }
 
-void compare_eff_processes(const vector<shared_ptr<ProcessHistograms> > & phs, const string & num, const string & denom, const Formatters & format, const string & name){
+void compare_eff_processes(const vector<shared_ptr<ProcessHistograms> > & phs, const selection_type & selection, const string & num, const string & denom, const Formatters & format, const string & name){
     vector<Histogram> histos;
     for(const auto & ph : phs){
-        histos.emplace_back(get_eff_hist(ph, num, denom, format));
+        histos.emplace_back(get_eff_hist(ph, selection, num, denom, format));
     }
-    string outfilename = outputdir + name + histos[0].hname.name() + "_effp.pdf";
+    string outfilename = outputdir + name + nameof(histos[0].hname) + "_effp.pdf";
     draw_histos(histos, outfilename);
 }
 
@@ -85,11 +85,11 @@ int main(){
     format_eff.add<SetOption>("*", "ytext", "efficiency") ("*", "use_errors", "1");
     //format_eff.add<SetFillColor>("*", 0);
     
-    compare_eff_processes({ttbar, dy}, "all/matched_mcb_pt", "all/mcbs_pt", format_eff, "all/");
-    compare_eff_processes({ttbar, dy}, "mcb_forward/matched_mcb_pt", "mcb_forward/mcbs_pt", format_eff, "mcb_forward/");
-    compare_eff_processes({ttbar, dy}, "mcb_central/matched_mcb_pt", "mcb_central/mcbs_pt", format_eff, "mcb_central/");
+    compare_eff_processes({ttbar, dy}, "all", "matched_mcb_pt", "mcbs_pt", format_eff, "all/");
+    compare_eff_processes({ttbar, dy}, "mcb_forward", "matched_mcb_pt", "mcbs_pt", format_eff, "mcb_forward/");
+    compare_eff_processes({ttbar, dy}, "mcb_central", "matched_mcb_pt", "mcbs_pt", format_eff, "mcb_central/");
     
-    compare_eff_processes({ttbar, dy}, "mcb_pt20/matched_mcb_eta", "mcb_pt20/mcbs_eta", format_eff, "mcb_pt20/");
+    compare_eff_processes({ttbar, dy}, "mcb_pt20", "matched_mcb_eta", "mcbs_eta", format_eff, "mcb_pt20/");
     
     // 3. compare different selections for same process:
     /*Formatters formatters_selcomp(formatters_x);

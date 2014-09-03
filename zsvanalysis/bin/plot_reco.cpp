@@ -11,22 +11,22 @@ string outputdir = "plot_reco_out/";
 }
 
 int main(){
-    //const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/recoplots/";
-    const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/plot_me/";
+    const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/recoplots/";
+    //const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/plot_me/";
     
     //shared_ptr<ProcessHistograms> dy_all(new ProcessHistogramsTFile(inputdir + "dy[0-4]jets*.root", "dy_all"));
     
-    shared_ptr<ProcessHistograms> dybbvis(new ProcessHistogramsTFile(inputdir + "dy[0-4]jets-zbbvis.root", "dybbvis"));
-    shared_ptr<ProcessHistograms> dybbother(new ProcessHistogramsTFile(inputdir + "dy[0-4]jets-zbbother.root", "dybbother"));
-    shared_ptr<ProcessHistograms> dybbany(new ProcessHistogramsTFile(inputdir + "dy[0-4]jets-zbb*.root", "dybbany"));
-    shared_ptr<ProcessHistograms> dycc(new ProcessHistogramsTFile(inputdir + "dy[0-4]jets-zcc*.root", "dycc"));
-    shared_ptr<ProcessHistograms> dylight(new ProcessHistogramsTFile(inputdir + "dy[0-4]jets-zother*.root", "dylight"));
+    shared_ptr<ProcessHistograms> dybbvis(new ProcessHistogramsTFile(inputdir + "dy{[0-4]jets,}bbvis.root", "dybbvis"));
+    shared_ptr<ProcessHistograms> dybbother(new ProcessHistogramsTFile(inputdir + "dy{[0-4]jets,}bbother.root", "dybbother"));
+    shared_ptr<ProcessHistograms> dybbany(new ProcessHistogramsTFile(inputdir + "dy{[0-4]jets,}bb{vis,other}.root", "dybbany"));
+    shared_ptr<ProcessHistograms> dycc(new ProcessHistogramsTFile(inputdir + "dy{[0-4]jets,}cc.root", "dycc"));
+    shared_ptr<ProcessHistograms> dylight(new ProcessHistogramsTFile(inputdir + "dy{[0-4]jets,}other.root", "dylight"));
     
-    shared_ptr<ProcessHistograms> dybb4f_bbvis(new ProcessHistogramsTFile(inputdir + "dybb4f-zbbvis.root", "dybb4f_bbvis"));
-    shared_ptr<ProcessHistograms> dybbm_bbvis(new ProcessHistogramsTFile(inputdir + "dybbm-zbbvis.root", "dybbm_bbvis"));
+    shared_ptr<ProcessHistograms> dybb4f_bbvis(new ProcessHistogramsTFile(inputdir + "dybb4fbbvis.root", "dybb4f_bbvis"));
+    shared_ptr<ProcessHistograms> dybbm_bbvis(new ProcessHistogramsTFile(inputdir + "dybbmbbvis.root", "dybbm_bbvis"));
     
-    shared_ptr<ProcessHistograms> dybb4f_bbother(new ProcessHistogramsTFile(inputdir + "dybb4f-zbbother.root", "dybb4f_bbother"));
-    shared_ptr<ProcessHistograms> dybbm_bbother(new ProcessHistogramsTFile(inputdir + "dybbm-zbbother.root", "dybbm_bbother"));
+    shared_ptr<ProcessHistograms> dybb4f_bbother(new ProcessHistogramsTFile(inputdir + "dybb4fbbother.root", "dybb4f_bbother"));
+    shared_ptr<ProcessHistograms> dybbm_bbother(new ProcessHistogramsTFile(inputdir + "dybbmbbother.root", "dybbm_bbother"));
     
     //shared_ptr<ProcessHistograms> dybb4f_bbany(new ProcessHistogramsTFile(inputdir + "dybb4f-zbb*.root", "dybb4f_bbany"));
     //shared_ptr<ProcessHistograms> dybbm_bbany(new ProcessHistogramsTFile(inputdir + "dybbm-zbb*.root", "dybbm_bbany"));
@@ -36,12 +36,12 @@ int main(){
     shared_ptr<ProcessHistograms> st(new ProcessHistogramsTFile(inputdir + "st*.root", "st"));
     shared_ptr<ProcessHistograms> diboson(new ProcessHistogramsTFile({inputdir + "ww.root", inputdir + "wz.root", inputdir + "zz.root"}, "diboson"));
     
-    //shared_ptr<ProcessHistograms> mm_data(new ProcessHistogramsTFile(inputdir + "dmu*.root", "data"));
-    //shared_ptr<ProcessHistograms> ee_data(new ProcessHistogramsTFile(inputdir + "dele*.root", "data"));
+    shared_ptr<ProcessHistograms> mm_data(new ProcessHistogramsTFile(inputdir + "dmu*.root", "data"));
+    shared_ptr<ProcessHistograms> ee_data(new ProcessHistogramsTFile(inputdir + "dele*.root", "data"));
     shared_ptr<ProcessHistograms> me_data(new ProcessHistogramsTFile(inputdir + "mue*.root", "data"));
     
     Formatters formatters;
-    formatters.add<SetLineColor>("*", 0)
+    formatters.add<SetLineColor>("*", 1)
         ("dybbm_bbvis:", kCyan + 2) ("dybb4f_bbvis:", kYellow + 2) ("dybbvis:", kGray + 2)
         ("dybbm_bbother:", kCyan + 2) ("dybb4f_bbother:", kYellow + 2) ("dybbother:", kGray + 2)
         ("dybbm_bbany:", kCyan + 2) ("dybb4f_bbany:", kYellow + 2) ("dybbany:", kGray + 2);
@@ -70,11 +70,11 @@ int main(){
        (":fs_bc2_mlli/", "title_ul", "N_{B}=2, Z veto")
        (":fs_bc1/", "title_ul", "N_{B}=1")
        (":fs_bc2_mll_met/", "title_ul", "final (N_{B}=2, Z, MET<50GeV)")
-       ("mll", "draw_ratio", "1")
+       ("*", "draw_ratio", "data / bkg")
        ("*", "ratio_ymax", "1.5")
        ("*", "ratio_ymin", "0.5")
-       ("*", "legend_fontsize", "0.025")
-       ("*", "more_ymax", "0.3")
+       ("*", "legend_fontsize", "0.03")
+       ("*", "more_ymax", "0.2")
        ("*", "ytext", "events")
        ("*", "ylabel_factor", "1.3")
        ("mll", "xtext", "m_{ll} [GeV]")
@@ -88,15 +88,13 @@ int main(){
        ("min_DR_ZB", "xtext", "min #Delta R(Z,B)")
        ("DPhi_BB", "xtext", "#Delta #phi(B,B)")
        ("nbh", "xtext", "N_{B}")
-       ("DR_BB", "ratio_ymin", "0.5")
-       ("DR_BB", "ratio_ymax", "1.5")
        ("cutflow*", "ylog", "1")
        //("nbh", "ymax", "300")
        ;
     formatters.add<RebinFactor>("mll", 4)("ptz", 4)("Bpt",4)("Beta",4)("DPhi_BB", 2)("DR_BB", 2)("m_BB", 4)("bc_pt_over_bj_pt", 4);
     
-    // add DY+Jets NLO k-factor:
-    formatters.add<Scale>("dybbvis:", 1.197)("dybbany:", 1.197)("dybbother:", 1.197)("dycc:", 1.197)("dylight:", 1.197)
+    // add DY+Jets NLO k-factor. NOTE: only for the special Dy+bb samples; factor already applied for includsive madgraph Z+4j sample
+    formatters.add<Scale> //("dybbvis:", 1.197)("dybbany:", 1.197)("dybbother:", 1.197)("dycc:", 1.197)("dylight:", 1.197)
         ("dybbm_bbvis:", 1.197)
         ("dybb4f_bbvis:", 1.197)
         ("dybbm_bbany:", 1.197)
@@ -109,34 +107,47 @@ int main(){
      //Plotter p(outputdir, {top, diboson, dylight, dycc, dybbany, dybbm_bbany, dybb4f_bbany, data}, formatters);
      //p.stackplots({"dycc", "dylight", "diboson", "top"}, "", true);
      
-    
-     // separate visible and invisible
-     //Plotter p(outputdir, {top, diboson, dylight, dycc, dybbother, dybbm_bbvis, dybb4f_bbvis, data}, formatters);
-     //p.set_option("add_nonstacked_to_stack", "1");
-     //p.stackplots({"dybbother", "dycc", "dylight", "diboson", "top"}, "bbsep");
-     
      // plot me selections:
      {
         Plotter p(outputdir, {ttbar, st, diboson, dylight, dycc, dybbany, me_data}, formatters);
-        //p.set_histogram_filter(RegexFilter(".*", ".*_me_.*|presel_me", ".*"));
-        //p.print_integrals("presel_me", "mll", "yields.txt", "presel me", false);
+        p.set_histogram_filter(RegexFilter(".*", ".*_me_.*|presel_me", ".*"));
+        p.print_integrals("presel_me", "mll", "yields.txt", "presel me", false);
         p.stackplots({"ttbar", "st", "diboson", "dylight", "dycc", "dybbany" });
      }
      
      // mm selection:
      /*{
-        Plotter p(outputdir, {top, diboson, dylight, dycc, dybbany, mm_data}, formatters);
+        Plotter p(outputdir, {ttbar, st, diboson, dylight, dycc, dybbother, dybbvis, dybbm_bbvis, dybb4f_bbvis, mm_data}, formatters);
         p.set_histogram_filter(RegexFilter(".*", "fs_mm_.*|presel_mm", ".*"));
-        p.stackplots({"top", "diboson", "dylight", "dycc", "dybbany" });
-     }*/
+        p.set_option("add_nonstacked_to_stack", "1");
+        p.stackplots({"ttbar", "st", "diboson", "dylight", "dycc", "dybbother" });
+        
+     }
      
      // ee selection:
-     /*{
-        Plotter p(outputdir, {top, diboson, dylight, dycc, dybbany, ee_data}, formatters);
+     {
+        Plotter p(outputdir, {ttbar, st, diboson, dylight, dycc, dybbother, dybbvis, dybbm_bbvis, dybb4f_bbvis, ee_data}, formatters);
         p.set_histogram_filter(RegexFilter(".*", "fs_ee_.*|presel_ee", ".*"));
-        p.stackplots({"top", "diboson", "dylight", "dycc", "dybbany" });
-        p.set_histogram_filter(RegexFilter(".*", "", ".*"));
-        p.stackplots({"top", "diboson", "dylight", "dycc", "dybbany" });
+        p.set_option("add_nonstacked_to_stack", "1");
+        p.stackplots({"ttbar", "st", "diboson", "dylight", "dycc", "dybbother" });
+        
+        // top-level (control) histos:
+        //p.set_histogram_filter(RegexFilter(".*", "", ".*"));
+        //p.stackplots({"top", "diboson", "dylight", "dycc", "dybbother" });
+     }*/
+     
+     // yields:
+     /*{
+        Plotter p(outputdir, {ttbar, st, diboson, dylight, dycc, dybbother, dybbvis, dybbm_bbvis, dybb4f_bbvis, dybbm_bbother, dybb4f_bbother, mm_data, ee_data}, formatters);
+        // mm
+        p.print_integrals("presel_mm", "mll", "mm_yields.txt", "presel", false);
+        p.print_integrals("fs_mm_bc2_mll", "mll", "mm_yields.txt", "bc2_mll");
+        p.print_integrals("fs_mm_bc2_mll_met", "mll", "mm_yields.txt", "bc2_mll_met");
+        
+        // ee
+        p.print_integrals("presel_ee", "mll", "ee_yields.txt", "presel", false);
+        p.print_integrals("fs_ee_bc2_mll", "mll", "ee_yields.txt", "bc2_mll");
+        p.print_integrals("fs_ee_bc2_mll_met", "mll", "ee_yields.txt", "bc2_mll_met");
      }*/
      
      // compare the invisible component of different samples
