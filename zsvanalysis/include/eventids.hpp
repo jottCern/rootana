@@ -35,6 +35,9 @@ DECLARE_ID(mc_cs);
 
 // calculated:
 DECLARE_ID(zp4);
+DECLARE_ID(elesf);
+DECLARE_ID(musf);
+DECLARE_ID(pileupsf);
 
 }
 }

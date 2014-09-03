@@ -93,7 +93,7 @@ void BcandMistagHists::process(Event & e){
     if(!e.get<bool>(id::passed_reco_selection)){
          return;
     }
-    current_weight = e.weight();
+    current_weight = e.get<double>(fwid::weight);
     const auto & bcands = e.get<vector<Bcand> >(id::selected_bcands);
     const auto & mc_bs = e.get<vector<mcparticle> >(id::mc_bs);
     const auto & mc_cs = e.get<vector<mcparticle> >(id::mc_cs);

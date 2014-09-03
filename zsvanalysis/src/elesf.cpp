@@ -34,8 +34,6 @@ private:
     
     bool is_real_data;
     unique_ptr<TH2F> sfs;
-    
-    TH1D * elesf_control; // belongs to output
 };
 
 elesf::elesf(const ptree & cfg){
@@ -49,11 +47,6 @@ elesf::elesf(const ptree & cfg){
 
 void elesf::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
     is_real_data = dataset.tags.get<bool>("is_real_data");
-    if(is_real_data){
-        return;
-    }
-    elesf_control = new TH1D("elesf_control", "elescale_control", 100, 0.0, 2.0);
-    out.put("elesf_control", elesf_control);
 }
 
 double elesf::getsf(const lepton & lep){
@@ -77,7 +70,7 @@ void elesf::process(Event & event){
     const auto & lp = event.get<lepton>(id::lepton_plus);
     const auto & lm = event.get<lepton>(id::lepton_minus);
     
-    double sf = 1.0;
+    float sf = 1.0f;
     // x-axis is eta:
     if(abs(lp.pdgid)==11){
         sf *= getsf(lp);
@@ -85,8 +78,8 @@ void elesf::process(Event & event){
     if(abs(lm.pdgid)==11){
         sf *= getsf(lm);
     }
-    elesf_control->Fill(sf);
-    event.set_weight(sf * event.weight());
+    event.set(id::elesf, sf);
+    event.get<double>(fwid::weight) *= sf;
 }
 
 REGISTER_ANALYSIS_MODULE(elesf)

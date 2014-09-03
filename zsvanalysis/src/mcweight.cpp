@@ -44,7 +44,7 @@ void mcweight::begin_dataset(const s_dataset & dataset, InputManager & in, Outpu
 
 void mcweight::process(Event & event){
     double weight = is_real_data ? 1.0 : target_lumi / dataset_lumi;
-    event.set_weight(weight);
+    event.set(fwid::weight, weight);
     if(output){
         event.set<double>(*output, weight);
     }

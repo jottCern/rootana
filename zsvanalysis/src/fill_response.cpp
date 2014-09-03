@@ -84,6 +84,8 @@ void fill_response::process(Event & event){
     double dphi_gen = numeric_limits<double>::infinity();
     double dr_gen = numeric_limits<double>::infinity();
     
+    double weight = event.get<double>(fwid::weight);
+    
     if(gen){
         auto & mc_bs = event.get<vector<mcparticle>>(input_mc_bs);
         if(mc_bs.size() != 2) throw runtime_error("gen-selected event but mc_bs.size() != 2!");
@@ -100,8 +102,8 @@ void fill_response::process(Event & event){
         double dr_reco = deltaR(reco_bs[0].flightdir, reco_bs[1].flightdir);
         
         // this is ok also if !gen, as gen is +infinity then, and those events end up in the gen overflow bin
-        reco_gen_dphi->Fill(dphi_reco, dphi_gen, event.weight());
-        reco_gen_dr->Fill(dr_reco, dr_gen, event.weight());
+        reco_gen_dphi->Fill(dphi_reco, dphi_gen, weight);
+        reco_gen_dr->Fill(dr_reco, dr_gen, weight);
     }
 }
 

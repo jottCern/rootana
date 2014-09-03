@@ -159,7 +159,8 @@ void dimusf::process(Event & event){
     }
     
     sf_out->Fill(total_sf);
-    event.set_weight(event.weight() * total_sf);
+    event.set(id::musf, total_sf);
+    event.get<double>(fwid::weight) *= total_sf;
 }
 
 REGISTER_ANALYSIS_MODULE(dimusf)

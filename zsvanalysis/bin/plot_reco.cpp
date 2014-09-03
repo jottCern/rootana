@@ -10,6 +10,16 @@ namespace {
 string outputdir = "plot_reco_out/";
 }
 
+void print_sfs(const shared_ptr<ProcessHistograms> & ph, const selection_type & selection){
+    auto h = ph->get_histogram(selection, "musf");
+    cout << "musf: " << h.histo->GetMean() << endl;
+    h = ph->get_histogram(selection, "elesf");
+    cout << "elesf: " << h.histo->GetMean() << endl;
+    h = ph->get_histogram(selection, "pileupsf");
+    cout << "pileup: " << h.histo->GetMean() << endl;
+}
+
+
 int main(){
     const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/recoplots/";
     //const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/plot_me/";
@@ -73,7 +83,7 @@ int main(){
        ("*", "draw_ratio", "data / bkg")
        ("*", "ratio_ymax", "1.5")
        ("*", "ratio_ymin", "0.5")
-       ("*", "legend_fontsize", "0.03")
+       ("*", "legend_fontsize", "0.035")
        ("*", "more_ymax", "0.2")
        ("*", "ytext", "events")
        ("*", "ylabel_factor", "1.3")
@@ -91,7 +101,7 @@ int main(){
        ("cutflow*", "ylog", "1")
        //("nbh", "ymax", "300")
        ;
-    formatters.add<RebinFactor>("mll", 4)("ptz", 4)("Bpt",4)("Beta",4)("DPhi_BB", 2)("DR_BB", 2)("m_BB", 4)("bc_pt_over_bj_pt", 4);
+    formatters.add<RebinFactor>("mll", 4)("ptz", 4)("Bpt",4)("Beta",4)("DPhi_BB", 2)("DR_BB", 2)("m_BB", 4)("bc_pt_over_bj_pt", 4)("met", 4);
     
     // add DY+Jets NLO k-factor. NOTE: only for the special Dy+bb samples; factor already applied for includsive madgraph Z+4j sample
     formatters.add<Scale> //("dybbvis:", 1.197)("dybbany:", 1.197)("dybbother:", 1.197)("dycc:", 1.197)("dylight:", 1.197)
@@ -107,12 +117,33 @@ int main(){
      //Plotter p(outputdir, {top, diboson, dylight, dycc, dybbany, dybbm_bbany, dybb4f_bbany, data}, formatters);
      //p.stackplots({"dycc", "dylight", "diboson", "top"}, "", true);
      
+    
+    cout << "ttbar sfs me:" << endl;
+    print_sfs(ttbar, "presel_me");
+    
+    cout << "ttbar sfs mm:" << endl;
+    print_sfs(ttbar, "presel_mm");
+    
+    cout << "ttbar sfs ee:" << endl;
+    print_sfs(ttbar, "presel_ee");
+    
+    cout << "dylight sfs me:" << endl;
+    print_sfs(dylight, "presel_me");
+    
+    cout << "dylight sfs mm:" << endl;
+    print_sfs(dylight, "presel_mm");
+    
+    cout << "dylight sfs ee:" << endl;
+    print_sfs(dylight, "presel_ee");
+    
      // plot me selections:
      {
         Plotter p(outputdir, {ttbar, st, diboson, dylight, dycc, dybbany, me_data}, formatters);
         p.set_histogram_filter(RegexFilter(".*", ".*_me_.*|presel_me", ".*"));
-        p.print_integrals("presel_me", "mll", "yields.txt", "presel me", false);
-        p.stackplots({"ttbar", "st", "diboson", "dylight", "dycc", "dybbany" });
+        p.print_integrals("presel_me", "mll", "me_yields.txt", "presel me", false);
+        p.print_integrals("presel_me_mll80", "mll", "me_yields.txt", "mll > 80");
+        p.print_integrals("fs_me_bc2", "mll", "me_yields.txt", "N_b = 2");
+        //p.stackplots({"ttbar", "st", "diboson", "dylight", "dycc", "dybbany" });
      }
      
      // mm selection:
@@ -137,18 +168,20 @@ int main(){
      }*/
      
      // yields:
-     /*{
+     {
         Plotter p(outputdir, {ttbar, st, diboson, dylight, dycc, dybbother, dybbvis, dybbm_bbvis, dybb4f_bbvis, dybbm_bbother, dybb4f_bbother, mm_data, ee_data}, formatters);
         // mm
         p.print_integrals("presel_mm", "mll", "mm_yields.txt", "presel", false);
         p.print_integrals("fs_mm_bc2_mll", "mll", "mm_yields.txt", "bc2_mll");
         p.print_integrals("fs_mm_bc2_mll_met", "mll", "mm_yields.txt", "bc2_mll_met");
+        p.print_integrals("fs_mm_bc2_mlli", "mll", "mm_yields.txt", "mll sideband (bc2_mlli)");
         
         // ee
         p.print_integrals("presel_ee", "mll", "ee_yields.txt", "presel", false);
         p.print_integrals("fs_ee_bc2_mll", "mll", "ee_yields.txt", "bc2_mll");
         p.print_integrals("fs_ee_bc2_mll_met", "mll", "ee_yields.txt", "bc2_mll_met");
-     }*/
+        p.print_integrals("fs_ee_bc2_mlli", "mll", "ee_yields.txt", "mll sideband (bc2_mlli)");
+     }
      
      // compare the invisible component of different samples
      /*Plotter p3(outputdir, {dybbother, dybbm_bbother, dybb4f_bbother}, formatters);

@@ -44,8 +44,6 @@ private:
     bool strict;
     std::unique_ptr<TH1D> target;
     std::unique_ptr<TH1D> weights;
-    
-    TH1D * hpileup_reweight;
 };
 
 namespace {
@@ -84,8 +82,6 @@ pileup_reweight::pileup_reweight(const ptree & cfg){
 
 void pileup_reweight::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
     weights.reset(0);
-    hpileup_reweight = new TH1D("pileup_reweight", "pileup_reweight", 200, 0, 5);
-    out.put("pileup_reweight", hpileup_reweight);
     bool is_real_data = dataset.tags.get<bool>("is_real_data");
     if(is_real_data) return;
     string pileup = dataset.tags.get<string>("pileup", "");
@@ -122,8 +118,8 @@ void pileup_reweight::process(Event & event){
     float tp = event.get<float>(id::mc_true_pileup);
     int ibin = weights->FindBin(tp);
     float weight = weights->GetBinContent(ibin);
-    hpileup_reweight->Fill(weight);
-    event.set_weight(event.weight() * weight);
+    event.set(id::pileupsf, weight);
+    event.get<double>(fwid::weight) *= weight;
 }
 
 REGISTER_ANALYSIS_MODULE(pileup_reweight)

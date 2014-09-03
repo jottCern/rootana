@@ -77,6 +77,16 @@ public:
         book_1d_autofill([=](Event & e){return e.get<vector<Bcand> >(id::selected_bcands).size();}, "nbcands", 10, 0, 10);
         book_1d_autofill([=](Event & e){return e.get<int>(id::mc_n_me_finalstate);}, "mc_n_me_finalstate", 10, 0, 10);
         book_1d_autofill([=](Event & e){return e.get<int>(id::npv);}, "npv", 60, 0, 60);
+        
+        ID(one);
+        book_1d_autofill([=](Event & e){return e.get_default<float>(id::pileupsf, NAN);}, "pileupsf", 100, 0, 4, one);
+        book_1d_autofill([=](Event & e){return e.get_default<float>(id::elesf, NAN);}, "elesf", 100, 0, 4, one);
+        book_1d_autofill([=](Event & e){return e.get_default<float>(id::musf, NAN);}, "musf", 100, 0, 4, one);
+    }
+    
+    virtual void process(Event & event){
+        ID(one);
+        event.set<double>(one, 1.0);
     }
 };
 
@@ -144,7 +154,7 @@ private:
 };
 
 void JetHists::process(Event & e){
-    current_weight = e.weight();
+    current_weight = e.get<double>(fwid::weight);
     auto jets = e.get<vector<jet>>(id::jets);
     const auto & lepton_plus = e.get<lepton>(id::lepton_plus);
     const auto & lepton_minus = e.get<lepton>(id::lepton_minus);
@@ -407,7 +417,7 @@ public:
         
         ID(dR_mc_reco_diff);*/
         
-        current_weight = e.weight();
+        current_weight = e.get<double>(fwid::weight);
 
         auto & bcands = e.get<vector<Bcand> >(id::selected_bcands);
         auto & mc_bhads = e.get<vector<mcparticle> >(mcb_input);

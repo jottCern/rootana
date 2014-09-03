@@ -65,7 +65,7 @@ public:
     }
     
     void process(Event & e){
-        current_weight = e.weight();
+        current_weight = e.get<double>(fwid::weight);
         vector<mcparticle> bs = e.get<vector<mcparticle>>(mc_bs_input);
         sort(bs.begin(), bs.end(), [](const mcparticle & i, const mcparticle & j){ return i.p4.pt() > j.p4.pt();});
         

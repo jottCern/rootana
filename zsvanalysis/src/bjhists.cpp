@@ -46,7 +46,7 @@ public:
         
         ID(bjets);
         
-        current_weight = e.weight();
+        current_weight = e.get<double>(fwid::weight);
 
         auto & bcands = e.get<vector<Bcand> >(id::selected_bcands);
         auto & b_jets = e.get<vector<jet> >(bjets);

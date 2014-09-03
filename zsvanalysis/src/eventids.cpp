@@ -29,4 +29,6 @@ DEFINE_ID(mc_cs);
 
 // calculated:
 DEFINE_ID(zp4);
-
+DEFINE_ID(elesf);
+DEFINE_ID(musf);
+DEFINE_ID(pileupsf);
