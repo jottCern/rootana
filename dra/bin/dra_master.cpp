@@ -97,7 +97,7 @@ int main(int argc, char ** argv){
         acc.start([&](unique_ptr<Channel> c){ master.add_worker(move(c)); }, "*", port);
         iom.process();
         pp.reset();
-        success = !master.failed() && !stopped;
+        success = master.completed();
         // remove signal handler which refers to master which is about to be destroyed
         iom.reset_signal_handler(SIGINT, 0);
     }
