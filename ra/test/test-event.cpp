@@ -41,99 +41,119 @@ BOOST_AUTO_TEST_SUITE(event)
 
 BOOST_AUTO_TEST_CASE(simple){
     Event e;
-    BOOST_CHECK(e.get_state<int>("test") == Event::state::nonexistent);
-    BOOST_CHECK_THROW(e.get<int>("test"), std::runtime_error);
+    auto h = e.get_handle<int>("test");
+    BOOST_CHECK(e.get_state(h) == Event::state::nonexistent);
+    BOOST_CHECK_THROW(e.get(h), std::runtime_error);
     
-    e.set<int>("test", 5);
-    BOOST_CHECK_EQUAL(e.get<int>("test"), 5);
+    e.set(h, 5);
+    BOOST_CHECK_EQUAL(e.get(h), 5);
     
-    e.get<int>("test") = 10;
-    BOOST_CHECK_EQUAL(e.get<int>("test"), 10);
+    e.get(h) = 10;
+    BOOST_CHECK_EQUAL(e.get(h), 10);
     
-    int * ptr = &e.get<int>("test");
+    int * ptr = &e.get(h);
     
-    e.set_state<int>("test", Event::state::invalid);
-    BOOST_CHECK_THROW(e.get<int>("test"), std::runtime_error);
-    BOOST_CHECK_EQUAL(&e.get<int>("test", false), ptr);
+    e.set_validity(h, false);
+    BOOST_CHECK_THROW(e.get(h), std::runtime_error);
+    BOOST_CHECK_EQUAL(&e.get(h, false), ptr);
 }
+
 
 // test that addresses of the data in Event do not change across calls to 'set'.
 BOOST_AUTO_TEST_CASE(addresses){
     Event e;
-    e.set<int>("test", 5);
+    auto h = e.get_handle<int>("test");
+    e.set(h, 5);
     
-    int & idata = e.get<int>("test");
+    int & idata = e.get(h);
     BOOST_CHECK_EQUAL(idata, 5);
     
-    e.set<int>("test", 8);
+    e.set(h, 8);
     BOOST_CHECK_EQUAL(idata, 8);
-    BOOST_CHECK_EQUAL(&(e.get<int>("test")), &idata);
+    BOOST_CHECK_EQUAL(&(e.get(h)), &idata);
+}
+
+// check that getting handles with same name/type is the same:
+BOOST_AUTO_TEST_CASE(handles){
+    Event e;
+    auto h0 = e.get_handle<int>("test");
+    e.set(h0, 5);
+    
+    BOOST_CHECK_EQUAL(e.name(h0), "test");
+    
+    auto h1 = e.get_handle<int>("test");
+    BOOST_CHECK_EQUAL(e.get(h1), 5);
+    
+    BOOST_CHECK_EQUAL(e.name(h1), "test");
+    
+    // same name, other type:
+    auto h2 = e.get_handle<float>("test");
+    BOOST_CHECK_EQUAL(e.get_state(h2), Event::state::nonexistent);
+    BOOST_CHECK_EQUAL(e.name(h2), "test");
 }
 
 BOOST_AUTO_TEST_CASE(unset){
     Event e;
-    BOOST_CHECK_EQUAL(e.get_state<int>("itest"), Event::state::nonexistent);
+    auto h_itest = e.get_handle<int>("itest");
+    BOOST_CHECK_EQUAL(e.get_state(h_itest), Event::state::nonexistent);
     
-    e.set<int>("itest", 17);
-    BOOST_CHECK_EQUAL(e.get_state<int>("itest"), Event::state::valid);
-    BOOST_REQUIRE_EQUAL(e.get<int>("itest"), 17);
-    const void * itestptr0 = &e.get<int>("itest");
+    e.set(h_itest, 17);
+    BOOST_CHECK_EQUAL(e.get_state(h_itest), Event::state::valid);
+    BOOST_REQUIRE_EQUAL(e.get(h_itest), 17);
+    const void * itestptr0 = &e.get(h_itest);
     
     // unsetting makes present and allocated and 'get' behave as expected:
-    e.set_state<int>("itest", Event::state::invalid);
-    BOOST_CHECK_EQUAL(e.get_state<int>("itest"), Event::state::invalid);
-    BOOST_CHECK_THROW(e.get<int>("itest"), std::runtime_error);
+    e.set_validity(h_itest, false);
+    BOOST_CHECK_EQUAL(e.get_state(h_itest), Event::state::invalid);
+    BOOST_CHECK_THROW(e.get(h_itest), std::runtime_error);
     
     // unsetting twice does not harm:
-    e.set_state<int>("itest", Event::state::invalid);
-    BOOST_CHECK_EQUAL(e.get_state<int>("itest"), Event::state::invalid);
+    e.set_validity(h_itest, false);
+    BOOST_CHECK_EQUAL(e.get_state(h_itest), Event::state::invalid);
     
-    e.set<int>("itest", 23);
-    BOOST_REQUIRE_EQUAL(e.get<int>("itest"), 23);
-    const void * itestptr1 = &e.get<int>("itest");
+    e.set(h_itest, 23);
+    BOOST_REQUIRE_EQUAL(e.get(h_itest), 23);
+    const void * itestptr1 = &e.get(h_itest);
     BOOST_CHECK_EQUAL(itestptr0, itestptr1);
-    
-    // setting to nonexistent is not allowed:
-    BOOST_CHECK_THROW(e.set_state<int>("itest", Event::state::nonexistent), std::invalid_argument);
-    // setting a nonexistent member to valid/invalid is not allowed:
-    BOOST_CHECK_THROW(e.set_state<int>("itest_nonexistent", Event::state::valid), std::invalid_argument);
-    BOOST_CHECK_THROW(e.set_state<int>("itest_nonexistent", Event::state::invalid), std::invalid_argument);
 }
+
 
 BOOST_AUTO_TEST_CASE(get_callback){
     Event e;
-    BOOST_CHECK_EQUAL(e.get_state<int>("itest"), Event::state::nonexistent);
+    auto h = e.get_handle<int>("itest");
+    BOOST_CHECK_EQUAL(e.get_state(h), Event::state::nonexistent);
     
     int n_callback_called = 0;
-    e.set<int>("itest", -1);
-    int & iref = e.get<int>("itest");
+    e.set(h, -1);
+    int & iref = e.get(h);
     auto callback = [&](){++n_callback_called; iref = 5;};
-    e.set_get_callback<int>("itest", callback);
+    boost::optional<std::function<void ()>> cb(callback);
+    e.set_get_callback(h, cb);
     
     // set_get_callback should reset status to allocated:
-    BOOST_CHECK_EQUAL(e.get_state<int>("itest"), Event::state::invalid);
+    BOOST_CHECK_EQUAL(e.get_state(h), Event::state::invalid);
     
-    int iresult = e.get<int>("itest");
+    int iresult = e.get(h);
     BOOST_CHECK_EQUAL(iresult, 5);
     BOOST_CHECK_EQUAL(n_callback_called, 1);
     
     // calling 'get' again should not call callback again:
-    iresult = e.get<int>("itest");
+    iresult = e.get(h);
     BOOST_CHECK_EQUAL(iresult, 5);
     BOOST_CHECK_EQUAL(n_callback_called, 1);
     
     // but should call callback again if presence is reset:
-    e.set_state<int>("itest", Event::state::invalid);
+    e.set_validity(h, false);
     iref = 0;
-    iresult = e.get<int>("itest");
+    iresult = e.get(h);
     BOOST_CHECK_EQUAL(iresult, 5);
     BOOST_CHECK_EQUAL(n_callback_called, 2);
     
     // check resetting the callback:
-    e.set_state<int>("itest", Event::state::invalid);
-    e.reset_get_callback<int>("itest");
+    e.set_validity(h, false);
+    e.set_get_callback(h, boost::none);
     iref = 0;
-    BOOST_CHECK_THROW(iresult = e.get<int>("itest"), std::runtime_error);
+    BOOST_CHECK_THROW(iresult = e.get(h), std::runtime_error);
 }
 
 
@@ -150,17 +170,16 @@ BOOST_AUTO_TEST_CASE(read){
     in.declare_event_input<int>("intdata");
     in.setup_tree(tree);
     
-    identifier intdata("intdata");
+    auto h_intdata = event.get_handle<int>("intdata");
     
     BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
     for(int i=0; i<100; ++i){
         in.read_entry(i);
-        int idata = event.get<int>(intdata);
+        int idata = event.get(h_intdata);
         BOOST_CHECK_EQUAL(idata, i+1);
     }
-    BOOST_CHECK_THROW(event.get<double>("doubledata"), std::runtime_error);
+    //BOOST_CHECK_THROW(event.get<double>("doubledata"), std::runtime_error);
 }
-
 
 BOOST_AUTO_TEST_CASE(read_lazy){
     TFile f("tree.root", "read");
@@ -171,14 +190,13 @@ BOOST_AUTO_TEST_CASE(read_lazy){
     Event event;
     TTreeInputManager in(event, true);
     in.declare_event_input<int>("intdata");
+    auto h_intdata = in.get_handle<int>("intdata");
     in.setup_tree(tree);
-    
-    identifier intdata("intdata");
     
     BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
     for(int i=0; i<100; ++i){
         in.read_entry(i);
-        int idata = event.get<int>(intdata);
+        int idata = event.get(h_intdata);
         BOOST_CHECK_EQUAL(idata, i+1);
     }
     // we should have read 100 ints now:
@@ -220,17 +238,19 @@ BOOST_AUTO_TEST_CASE(read_wrong_type){
 
 
 BOOST_AUTO_TEST_CASE(outtree){
+    { // create output file:
     Event event;
     unique_ptr<TFile> outfile(new TFile("out.root", "recreate"));
     TFileOutputManager fout(move(outfile), "eventtree", event);
     OutputManager & out = fout;
     
     out.declare_event_output<int>("my_int");
+    auto h_my_int = event.get_handle<int>("my_int");
     for(int i=0; i<100; ++i){
-        event.get<int>("my_int") = i;
+        event.get(h_my_int) = i;
         fout.write_event();
     }
-    fout.close();
+    }
     
     // check that the output file is Ok:
     TFile f("out.root", "read");
@@ -239,11 +259,12 @@ BOOST_AUTO_TEST_CASE(outtree){
     Event inevent;
     TTreeInputManager in(inevent);
     in.declare_event_input<int>("my_int");
+    auto h_my_int = in.get_handle<int>("my_int");
     in.setup_tree(tree);
     BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
     for(int i=0; i<100; ++i){
         in.read_entry(i);
-        int idata = inevent.get<int>("my_int");
+        int idata = inevent.get(h_my_int);
         BOOST_CHECK_EQUAL(idata, i);
     }
 }
@@ -251,18 +272,19 @@ BOOST_AUTO_TEST_CASE(outtree){
 
 // output tree in a directory within the output file:
 BOOST_AUTO_TEST_CASE(outtree_dir){
+    {
     Event event;
     unique_ptr<TFile> outfile(new TFile("out.root", "recreate"));
     TFileOutputManager fout(move(outfile), "dir/eventtree", event);
     OutputManager & out = fout;
     
     out.declare_event_output<int>("my_int");
+    auto h_my_int = event.get_handle<int>("my_int");
     for(int i=0; i<100; ++i){
-        event.get<int>("my_int") = i;
+        event.get(h_my_int) = i;
         fout.write_event();
     }
-    
-    fout.close();
+    }
     
     // check that the output file is Ok:
     TFile f("out.root", "read");
@@ -272,10 +294,11 @@ BOOST_AUTO_TEST_CASE(outtree_dir){
     TTreeInputManager in(inevent);
     in.declare_event_input<int>("my_int");
     in.setup_tree(tree);
+    auto h_my_int = in.get_handle<int>("my_int");
     BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
     for(int i=0; i<100; ++i){
         in.read_entry(i);
-        int idata = inevent.get<int>("my_int");
+        int idata = inevent.get(h_my_int);
         BOOST_CHECK_EQUAL(idata, i);
     }
 }
@@ -316,23 +339,6 @@ BOOST_AUTO_TEST_CASE(outhist_dir){
     BOOST_REQUIRE(inhist);
     BOOST_CHECK_EQUAL(inhist->GetEntries(), 1);
 }
-
-/*
-BOOST_AUTO_TEST_CASE(visitor){
-    Event event;
-    event.set<int>("membername", 15);
-    
-    std::vector<Event::Element> elements;
-    event.visit([&elements](Event::Element elem){
-            elements.emplace_back(move(elem));
-        });
-    
-    BOOST_REQUIRE_EQUAL(elements.size(), 1);
-    BOOST_CHECK_EQUAL(get<0>(elements[0]).name(), "membername");
-    BOOST_CHECK_EQUAL(get<1>(elements[0]).name(), typeid(int).name());
-    BOOST_CHECK_EQUAL(*reinterpret_cast<const int*>(get<2>(elements[0])), 15);
-    BOOST_CHECK_EQUAL(get<3>(elements[0]), true);     
-}*/
 
 BOOST_AUTO_TEST_SUITE_END()
 

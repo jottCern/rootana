@@ -1,6 +1,7 @@
 #include "ra/include/analysis.hpp"
 #include "ra/include/event.hpp"
 #include "ra/include/config.hpp"
+#include "ra/include/context.hpp"
 
 using namespace ra;
 using namespace std;
@@ -27,7 +28,8 @@ private:
     double target_lumi;
     double dataset_lumi;
     bool is_real_data;
-    boost::optional<identifier> output;
+    Event::Handle<double> h_weight, h_output;
+    boost::optional<std::string> output;
 };
 
 mcweight::mcweight(const ptree & cfg){
@@ -40,13 +42,17 @@ void mcweight::begin_dataset(const s_dataset & dataset, InputManager & in, Outpu
     if(!is_real_data){
         dataset_lumi = dataset.tags.get<double>("lumi");
     }
+    h_weight = in.get_handle<double>("weight");
+    if(output){
+        h_output = in.get_handle<double>(*output);
+    }
 }
 
 void mcweight::process(Event & event){
     double weight = is_real_data ? 1.0 : target_lumi / dataset_lumi;
-    event.set(fwid::weight, weight);
+    event.set(h_weight, weight);
     if(output){
-        event.set<double>(*output, weight);
+        event.set(h_output, weight);
     }
 }
 

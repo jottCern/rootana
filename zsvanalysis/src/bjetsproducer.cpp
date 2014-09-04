@@ -28,22 +28,30 @@ class BJetsProducer: public AnalysisModule {
 public:
     
     explicit BJetsProducer(const ptree & cfg);
-    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){}
+    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out);
     virtual void process(Event & event);
 private:
     float drmax, ptjmin;
-    identifier output;
+    string s_output;
+    Event::Handle<vector<jet>> h_jets, h_output;
+    Event::Handle<vector<Bcand>> h_selected_bcands;
 };
+
+void BJetsProducer::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
+    h_output = in.get_handle<vector<jet>>(s_output);
+    h_jets = in.get_handle<vector<jet>>("jet");
+    h_selected_bcands = in.get_handle<vector<Bcand>>("selected_bcands");
+}
 
 BJetsProducer::BJetsProducer(const ptree & cfg){
     ptjmin = ptree_get<float>(cfg, "ptjmin");
     drmax = ptree_get<float>(cfg, "drmax");
-    output = ptree_get<string>(cfg, "output");
+    s_output = ptree_get<string>(cfg, "output");
 }
 
 void BJetsProducer::process(Event & event){
-    const auto & jets = event.get<vector<jet>>(id::jets);
-    const auto & bcands = event.get<vector<Bcand> >(id::selected_bcands);
+    const auto & jets = event.get<vector<jet>>(h_jets);
+    const auto & bcands = event.get<vector<Bcand> >(h_selected_bcands);
     
     vector<jet> bjets;
     
@@ -55,7 +63,7 @@ void BJetsProducer::process(Event & event){
             }
         }
     }
-    event.set(output, bjets);
+    event.set(h_output, move(bjets));
 }
 
 REGISTER_ANALYSIS_MODULE(BJetsProducer)

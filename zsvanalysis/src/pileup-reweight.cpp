@@ -44,6 +44,9 @@ private:
     bool strict;
     std::unique_ptr<TH1D> target;
     std::unique_ptr<TH1D> weights;
+    
+    Event::Handle<double> h_weight, h_pileupsf;
+    Event::Handle<float> h_mc_true_pileup;
 };
 
 namespace {
@@ -111,15 +114,19 @@ void pileup_reweight::begin_dataset(const s_dataset & dataset, InputManager & in
     else{
         throw runtime_error("unknown pileup scenario '" + pileup + "'");
     }
+    
+    h_mc_true_pileup = in.get_handle<float>("mc_true_pileup");
+    h_weight = in.get_handle<double>("weight");
+    h_pileupsf = in.get_handle<double>("pileupsf");
 }
 
 void pileup_reweight::process(Event & event){
     if(!weights) return;
-    float tp = event.get<float>(id::mc_true_pileup);
+    float tp = event.get<float>(h_mc_true_pileup);
     int ibin = weights->FindBin(tp);
-    float weight = weights->GetBinContent(ibin);
-    event.set(id::pileupsf, weight);
-    event.get<double>(fwid::weight) *= weight;
+    double weight = weights->GetBinContent(ibin);
+    event.set(h_pileupsf, weight);
+    event.get<double>(h_weight) *= weight;
 }
 
 REGISTER_ANALYSIS_MODULE(pileup_reweight)

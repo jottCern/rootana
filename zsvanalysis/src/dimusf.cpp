@@ -46,6 +46,9 @@ private:
     unique_ptr<TGraphAsymmErrors> sf_iso_lt09, sf_iso_09t12, sf_iso_12t21, sf_iso_21t24;
     
     TH1D * sf_out;
+    
+    Event::Handle<double> h_weight, h_musf;
+    Event::Handle<lepton> h_lepton_minus, h_lepton_plus;
 };
 
 
@@ -124,16 +127,20 @@ void dimusf::begin_dataset(const s_dataset & dataset, InputManager & in, OutputM
         sf_out = new TH1D("dimusf", "dimusf", 100, 0.0, 2.0);
         out.put("dimusf", sf_out);
     }
+    h_weight = in.get_handle<double>("weight");
+    h_musf = in.get_handle<double>("musf");
+    h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+    h_lepton_minus = in.get_handle<lepton>("lepton_minus");
 }
 
 void dimusf::process(Event & event){
     if(is_real_data){
         return;
     }
-    const auto & lp = event.get<lepton>(id::lepton_plus);
-    const auto & lm = event.get<lepton>(id::lepton_minus);
+    const auto & lp = event.get<lepton>(h_lepton_plus);
+    const auto & lm = event.get<lepton>(h_lepton_minus);
     
-    float total_sf = 1.0f;
+    double total_sf = 1.0;
     
     // Dimuon trigger scale factor. NOTE: currently no scale factor for mu leg of mu-e trigger, but maybe not needed(?)
     if(abs(lp.pdgid) == 13 && abs(lm.pdgid) == 13){
@@ -159,8 +166,8 @@ void dimusf::process(Event & event){
     }
     
     sf_out->Fill(total_sf);
-    event.set(id::musf, total_sf);
-    event.get<double>(fwid::weight) *= total_sf;
+    event.set(h_musf, total_sf);
+    event.get<double>(h_weight) *= total_sf;
 }
 
 REGISTER_ANALYSIS_MODULE(dimusf)

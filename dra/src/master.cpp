@@ -198,7 +198,7 @@ MasterObserver::~MasterObserver(){}
 Master::~Master(){}
 
 Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(dra::get_stategraph(), bind(&Master::worker_failed, this, ph::_1, ph::_2)), idataset(-1),
-  stopping(false), failed_(false){
+  stopped_(false), aborted_(false), completed_(false){
     cfgfile = realpath(cfgfile_);
     config.reset(new s_config(cfgfile));
     if(!is_directory(config->options.output_dir)){
@@ -256,6 +256,7 @@ void Master::init_dataset(size_t id){
     if(last){
         erm.reset();
         sm.activate_restriction_set(sm.get_graph().get_restriction_set("noprocess")); // note: nomerge is active anyway
+        completed_ = true;
         stop();
     }
     else{
@@ -270,6 +271,7 @@ void Master::init_dataset(size_t id){
 }
 
 void Master::start(){
+    assert(!stopped_ && !aborted_ && !completed_);
     assert(idataset == -1);
     init_dataset(0);
 }
@@ -320,10 +322,9 @@ std::unique_ptr<Stop> Master::generate_stop(const WorkerId & wid){
 }
 
 void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateId & last_state){
-    LOG_WARNING("Worker " << worker.id() << " failed in state " << sm.get_graph().name(last_state));
     if(last_state == sm.get_graph().get_state("merge")){
-        failed_ = true;
-        LOG_THROW("Worker " << worker.id() << " failed while merging; this is not recoverable");
+        LOG_ERROR("Worker " << worker.id() << " failed while merging; this is not recoverable");
+        abort();
         // TODO: better error handling / reporting: could re-start whole dataset (but: careful with endless loops ...)
     }
     else if(last_state == sm.get_graph().get_state("close")){
@@ -331,8 +332,8 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
             LOG_WARNING("Worker " << worker.id() << " failed while idling in close state; ignoring that");
         }
         else{
-            failed_ = true;
-            LOG_THROW("Worker " << worker.id() << " failed while closing; this is not recoverable");
+            LOG_ERROR("Worker " << worker.id() << " failed while closing; this is not recoverable");
+            abort();
         }
     }
     else if(last_state == sm.get_graph().get_state("process")){
@@ -340,7 +341,7 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
         assert(wr!=worker_ranges.end());
         assert(!wr->second.empty());
         auto & last_er = wr->second.back();
-        LOG_WARNING("Worker failed while processing events in file "
+        LOG_WARNING("Worker " << worker.id() << " failed while processing events in file "
                     << last_er.ifile << " (" << config->datasets[idataset].files[last_er.ifile].path
                     << "): " << last_er.first << "--" << last_er.last);
         size_t s_before = erm->nevents_left();
@@ -360,6 +361,7 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
     }
     // otherwise, the state was start or configure or stop; in both cases, no events are lost ...
     else{
+        LOG_WARNING("Worker " << worker.id() << " failed in state " << sm.get_graph().name(last_state) << "; ignoring.");
         assert(last_state == sm.get_graph().get_state("start") || last_state == sm.get_graph().get_state("configure") || last_state == sm.get_graph().get_state("stop"));
     }
 }
@@ -398,7 +400,7 @@ size_t Master::get_n_unmerged() const{
 
 
 void Master::merge_complete(const WorkerId & worker, std::unique_ptr<Message> result){
-    if(stopping) return;
+    if(stopped_) return;
     // we need to merge the file of the merged worker again.
     Merge & merge = dynamic_cast<Merge&>(*result);
     needs_merging[WorkerId(merge.iworker1)] = true;
@@ -436,7 +438,7 @@ void Master::merge_complete(const WorkerId & worker, std::unique_ptr<Message> re
 
 void Master::stop_complete(const WorkerId & worker, std::unique_ptr<dc::Message> result){
     LOG_DEBUG("stop complete for worker " << worker.id());
-    if(!stopping) return;
+    if(!stopped_) return;
     auto all_workers = sm.get_workers();
     bool all_idle = none_of(all_workers.begin(), all_workers.end(), [this](const WorkerId & w){return sm.state(w).second;});
     if(all_idle){
@@ -469,17 +471,17 @@ std::unique_ptr<Merge> Master::generate_merge(const WorkerId & wid){
 }
 
 void Master::abort(){
-    failed_ = true;
+    aborted_ = true;
     sm.abort();
 }
 
 void Master::stop(){
-    stopping = true;
+    stopped_ = true;
     sm.set_target_state(sm.get_graph().get_state("stop"));
 }
 
 void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> result){
-    if(stopping) return;
+    if(stopped_) return;
     closed[worker] = true;
     needs_merging[worker] = true;
     bool all_closed = all_of(closed.begin(), closed.end(), [](const pair<const WorkerId, bool> & wc){return wc.second;});
@@ -541,7 +543,7 @@ void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> re
 }
 
 void Master::process_complete(const WorkerId & worker, std::unique_ptr<Message> result){
-    if(stopping) return;
+    if(stopped_) return;
     LOG_DEBUG("process complete for worker " << worker.id());
     // update file info erm:
     assert(result);

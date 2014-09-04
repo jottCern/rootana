@@ -23,11 +23,15 @@ OutputManager::~OutputManager(){}
 InputManager::~InputManager(){}
 
 
-void TTreeInputManager::declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti){
+void TTreeInputManager::declare_input(const char * bname, const string & event_member_name, void * addr, const std::type_info & ti){
     if(bname2bi.find(bname) != bname2bi.end()){
          throw runtime_error("InputManager: input for branch name '" + string(bname) + "' declared multiple times. This is not allowed.");
     }
-    bname2bi.insert(pair<string, branchinfo>(bname, branchinfo(0, ti, event_member_name, addr)));
+    Event::RawHandle handle; // the invalid handle
+    if(!event_member_name.empty()){
+        handle = event.get_raw_handle(ti, event_member_name);
+    }
+    bname2bi.insert(pair<string, branchinfo>(bname, branchinfo(0, ti, handle, addr)));
 }
 
 namespace{
@@ -95,7 +99,8 @@ void TTreeInputManager::setup_tree(TTree * tree){
         bi.branch = branch;
         // if we're lazy, install the callbacks:
         if(lazy){
-            event.set_get_callback(bi.ti, bi.name, std::bind(&TTreeInputManager::read_branch, this, ref(bi)));
+            boost::optional<std::function< void()> > callback(std::bind(&TTreeInputManager::read_branch, this, ref(bi)));
+            event.set_get_callback(bi.ti, bi.handle, std::move(callback));
         }
     }
     nentries = tree->GetEntries();
@@ -118,10 +123,11 @@ void TTreeInputManager::read_entry(size_t ientry){
     event.invalidate_all();
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
     current_ientry = ientry;
+    const Event::RawHandle invalid_handle;
     if(lazy){
         // in case we're lazy: only read the stuff not handled via the event container:
         for(auto & name_bi : bname2bi){
-            if(name_bi.second.name == empty){
+            if(name_bi.second.handle == invalid_handle){
                 read_branch(name_bi.second);
             }
         }
@@ -130,8 +136,8 @@ void TTreeInputManager::read_entry(size_t ientry){
         // otherwise: read all:
         for(auto & name_bi : bname2bi){
             read_branch(name_bi.second);
-            if(name_bi.second.name != empty){
-                event.set_state(name_bi.second.ti, name_bi.second.name, Event::state::valid);
+            if(!(name_bi.second.handle == invalid_handle)){
+                event.set_validity(name_bi.second.ti, name_bi.second.handle, true);
             }
         }
     }
@@ -267,16 +273,16 @@ void TFileOutputManager::put(const char * name_, TH1 * histo){
     histo->SetDirectory(gDirectory);
 }
 
-void TFileOutputManager::declare_event_output(const char * name, const identifier & event_member_name, const void * caddr, const std::type_info & ti){
+void TFileOutputManager::declare_event_output(const char * name, const string & event_member_name, const void * caddr, const std::type_info & ti){
     if(!event_tree){
         event_tree = create_ttree(*outfile, event_treename);
     }
     void * addr = const_cast<void*>(caddr);
     ptrs.push_back(addr);
     void *& ptrptr = ptrs.back();
-    static identifier empty("");
-    if(event_member_name != empty){
-        event_members.emplace_back(event_member_name, &ti);
+    if(!event_member_name.empty()){
+        auto handle = event.get_raw_handle(ti, event_member_name);
+        event_members.emplace_back(handle, &ti);
     }
     ttree_branch(event_tree, name, addr, &ptrptr, ti);
 }
@@ -305,9 +311,9 @@ void TFileOutputManager::write_output(const identifier & tree_id){
 void TFileOutputManager::write_event(){
     assert(outfile);
     if(event_tree){
-        // read all event members; to make sure info is up to dat in case of lazy reads:
+        // read all event members; to make sure info is up to date in case of lazy reads:
         for(const auto & em : event_members){
-            event.get_raw(*em.second, em.first);
+            event.get(*em.second, em.first);
         }
         event_tree->Fill();
     }

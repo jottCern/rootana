@@ -11,6 +11,7 @@
 
 #include <fstream>
 #include <set>
+#include <sys/mman.h>
 
 using namespace dra;
 using namespace ra;
@@ -49,17 +50,24 @@ vector<int> get_tree_intdata(const string & filename, const string & branchname)
     return result;
 }
 
-int fail_on = -1;
+struct fail_info {
+    bool active;
+    bool make_inactive_on_fail;
+    // the data to fail on:
+    int intdata;
+};
+
+fail_info * fi = 0;
 
 class test_module: public ra::AnalysisModule {
 public:
     test_module(const ptree & cfg);
     virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out);
     virtual void process(Event & event);
-    //virtual void begin_in_file(TFile & file){}
 private:
     int offset;
     int outdata;
+    Event::Handle<int> h_intdata, h_intdata_out;
 };
 
 
@@ -70,14 +78,19 @@ test_module::test_module(const ptree & cfg){
 void test_module::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
     in.declare_event_input<int>("intdata");
     out.declare_event_output<int>("intdata_out");
+    h_intdata = in.get_handle<int>("intdata");
+    h_intdata_out = in.get_handle<int>("intdata_out");
 }
 
 void test_module::process(Event & event){
-    int data = event.get<int>("intdata");
-    if(fail_on != -1 && fail_on == data){
-        throw runtime_error("failure");
+    int data = event.get<int>(h_intdata);
+    if(fi!=0 && fi->active && fi->intdata == data){
+        if(fi->make_inactive_on_fail){
+            fi->active = false;
+        }
+        throw runtime_error("test failure");
     }
-    event.set<int>("intdata_out", data + offset);
+    event.set<int>(h_intdata_out, data + offset);
 }
 
 REGISTER_ANALYSIS_MODULE(test_module);
@@ -96,6 +109,11 @@ void write_config(const string & outfilename, const string & in_pattern, const s
     out << "options {\n"
      " blocksize 237\n"
      " output_dir " << outdir << "\n"
+     "}\n"
+     "logger {\n"
+     "   \"\" {\n"
+     "    threshold INFO\n"
+     "  }\n"
      "}\n"
      "dataset {\n"
      " name testdataset\n"
@@ -160,6 +178,71 @@ BOOST_AUTO_TEST_CASE(processing2){
     BOOST_REQUIRE_EQUAL(expected_data.size(), 2000);
     BOOST_CHECK(std::equal(out_data.begin(), out_data.end(), expected_data.begin()));
 }
+
+// two workers, one failing
+BOOST_AUTO_TEST_CASE(processing2_failing1){
+    const int offset = 2835985;
+    const int offset_processing = 23;
+    string tmpdir = maketempdir();
+    cout << "processing2_failing test in " << tmpdir << endl;
+    create_test_tree(tmpdir + "/testA.root", offset, 1000);
+    create_test_tree(tmpdir + "/testB.root", offset + 2000, 1000);
+    write_config(tmpdir + "/cfg.cfg", tmpdir + "/test*.root", tmpdir, offset_processing);
+    
+    // make fail_on point to memory shared between the two worker processes, s.t.
+    // the first one fails, but the second does not:
+    void * maddr = mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    fi = reinterpret_cast<fail_info*>(maddr);
+    fi->intdata = offset + 250;
+    fi->active = true;
+    fi->make_inactive_on_fail = true;
+    bool success = local_run(tmpdir + "/cfg.cfg", 2);
+    munmap(maddr, 4096);
+    fi = 0;
+    BOOST_CHECK(success);
+    
+    // check output, this time as set:
+    set<int> expected_data;
+    for(int i=0; i<1000; ++i){
+        expected_data.insert(offset + offset_processing + i);
+        expected_data.insert(offset + offset_processing + 2000 + i);
+    }
+    
+    string outfilename = tmpdir + "/testdataset.root";
+    auto data = get_tree_intdata(outfilename, "intdata_out");
+    BOOST_REQUIRE_EQUAL(data.size(), 2000);
+    
+    set<int> out_data;
+    out_data.insert(data.begin(), data.end());
+    BOOST_REQUIRE_EQUAL(out_data.size(), 2000);
+    BOOST_REQUIRE_EQUAL(expected_data.size(), 2000);
+    BOOST_CHECK(std::equal(out_data.begin(), out_data.end(), expected_data.begin()));
+}
+
+
+BOOST_AUTO_TEST_CASE(processing2_failing2){
+    const int offset = 2835985;
+    const int offset_processing = 23;
+    string tmpdir = maketempdir();
+    cout << "processing2_failing test in " << tmpdir << endl;
+    create_test_tree(tmpdir + "/testA.root", offset, 1000);
+    create_test_tree(tmpdir + "/testB.root", offset + 2000, 1000);
+    write_config(tmpdir + "/cfg.cfg", tmpdir + "/test*.root", tmpdir, offset_processing);
+    
+    // make fail_on point to memory shared between the two worker processes, s.t.
+    // the first one fails, but the second does not:
+    void * maddr = mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    fi = reinterpret_cast<fail_info*>(maddr);
+    fi->intdata = offset + 250;
+    fi->active = true;
+    fi->make_inactive_on_fail = false;
+    bool success = local_run(tmpdir + "/cfg.cfg", 2);
+    munmap(maddr, 4096);
+    fi = 0;
+    
+    BOOST_REQUIRE(not success);
+}
+
 
 BOOST_AUTO_TEST_CASE(processing3){
     const int offset = 2835985;
@@ -251,9 +334,5 @@ BOOST_AUTO_TEST_CASE(datasets){
 
     }
 }
-
-
-// TODO: test failing workers!
-
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -6,7 +6,6 @@
 #include "ra/include/utils.hpp"
 #include "ra/include/root-utils.hpp"
 
-#include "eventids.hpp"
 #include "zsvtree.hpp"
 #include "TH1D.h"
 #include "TH2F.h"
@@ -14,8 +13,6 @@
 
 using namespace ra;
 using namespace std;
-using namespace zsv;
-
 
 // apply electron data/MC efficiency correction factors for tight MVA ID, see
 // https://twiki.cern.ch/twiki/bin/view/CMS/MultivariateElectronIdentification#Triggering_MVA
@@ -34,6 +31,9 @@ private:
     
     bool is_real_data;
     unique_ptr<TH2F> sfs;
+    
+    Event::Handle<double> h_weight, h_elesf;
+    Event::Handle<lepton> h_lepton_minus, h_lepton_plus;
 };
 
 elesf::elesf(const ptree & cfg){
@@ -47,6 +47,10 @@ elesf::elesf(const ptree & cfg){
 
 void elesf::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
     is_real_data = dataset.tags.get<bool>("is_real_data");
+    h_weight = in.get_handle<double>("weight");
+    h_elesf = in.get_handle<double>("elesf");
+    h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+    h_lepton_minus = in.get_handle<lepton>("lepton_minus");
 }
 
 double elesf::getsf(const lepton & lep){
@@ -67,10 +71,10 @@ void elesf::process(Event & event){
     if(is_real_data){
         return;
     }
-    const auto & lp = event.get<lepton>(id::lepton_plus);
-    const auto & lm = event.get<lepton>(id::lepton_minus);
+    const auto & lp = event.get<lepton>(h_lepton_plus);
+    const auto & lm = event.get<lepton>(h_lepton_minus);
     
-    float sf = 1.0f;
+    double sf = 1.0;
     // x-axis is eta:
     if(abs(lp.pdgid)==11){
         sf *= getsf(lp);
@@ -78,8 +82,8 @@ void elesf::process(Event & event){
     if(abs(lm.pdgid)==11){
         sf *= getsf(lm);
     }
-    event.set(id::elesf, sf);
-    event.get<double>(fwid::weight) *= sf;
+    event.set(h_elesf, sf);
+    event.get<double>(h_weight) *= sf;
 }
 
 REGISTER_ANALYSIS_MODULE(elesf)

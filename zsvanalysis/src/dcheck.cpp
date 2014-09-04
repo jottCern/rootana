@@ -1,6 +1,7 @@
 #include "ra/include/analysis.hpp"
 #include "ra/include/event.hpp"
 #include "ra/include/config.hpp"
+#include "ra/include/context.hpp"
 
 #include "eventids.hpp"
 
@@ -52,6 +53,9 @@ private:
     std::set<re> res;
     int ndup;
     int divisor; // in case of verbose true, print out every XXX duplicate
+    
+    Event::Handle<bool> h_stop;
+    Event::Handle<int> h_runNo, h_eventNo;
 };
 
 dcheck::dcheck(const ptree & cfg): ndup(0){
@@ -76,15 +80,18 @@ void dcheck::begin_dataset(const s_dataset & dataset, InputManager & in, OutputM
     res.clear();
     ndup = 0;
     divisor = 1;
+    h_stop = in.get_handle<bool>("stop");
+    h_runNo = in.get_handle<int>("runNo");
+    h_eventNo = in.get_handle<int>("eventNo");
 }
 
 void dcheck::process(Event & event){
-    int runid = event.get<int>("runNo");
-    int eventid = event.get<int>("eventNo");
+    int runid = event.get(h_runNo);
+    int eventid = event.get(h_eventNo);
     re current_re{runid, eventid};
     if(res.find(current_re)!=res.end()){
         ++ndup;
-        event.set<bool>(ra::fwid::stop, true);
+        event.set(h_stop, true);
         if(verbose){
             if(ndup % divisor == 0){
                 cout << ndup << ". duplicate event found: runid=" << runid << "; eventid=" << eventid << endl;

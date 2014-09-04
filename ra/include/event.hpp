@@ -1,5 +1,5 @@
-#ifndef RA_EVENT_HPP
-#define RA_EVENT_HPP
+#ifndef RA_EVENT2_HPP
+#define RA_EVENT2_HPP
 
 #include "fwd.hpp"
 #include "identifier.hpp"
@@ -14,44 +14,32 @@
 #include <algorithm>
 #include <memory>
 
-
-namespace std{
-    
-template<>
-struct hash<std::pair<std::type_index, ra::identifier>> {
-    size_t operator()(const std::pair<std::type_index, ra::identifier> & arg) const{
-        return boost::hash_value(arg);
-    }
-};
-
-}
-
 namespace ra {
 
-// namespace for special, predefined event member ids used by the framework
-namespace fwid {
-    extern identifier stop; // the name of a 'bool' event member which -- if set to true -- signals the framework that event processing should be stopped after this AnalysisModule
-    extern identifier weight; // the name of a 'double' event member to use as the default event weight.
-}
- 
 /** \brief A generic event container saving arbitrary kind of data
  * 
  * This event container is a replacement of event data structs. It holds a number of named
  * pointers/references which can be accessed via 'set' and 'get' methods. 'set'ting a member
  * allocates memory and marks the member as 'valid'. It can then be accessed via the same name and type via 'get'.
  * 
+ * While members are referred to by name, actual access is done in two steps: first, a handle is created using the type and
+ * the name pf the member, Then, this handle is used to actually access the data in a second step. This separation
+ * is mainly an optimization: The typical use is that handles are created outside the event loop once and then used
+ * a lot in the event loop. This means that while creating a new handle (which requires e.g. string manipulation) in general
+ * is 'costly'in terms of CPU time, using the handle to set/get data is very 'cheap'.
+ * 
  * Elements are identified by their type and name; it is possible to use the same name more than once for different types.
  * The exact same type has to be used for identifying an element in 'get' and 'set'; so it is NOT possible to 'get' via
  * a base class of what has been used to 'set' the data.
  * 
- * To invalidate the value of a data member, call 'set_state(..., invalid)'. This marks the member data as invalid
+ * To invalidate the value of a data member, call 'set_validity(..., false)'. This marks the member data as invalid
  * and makes a subsequent 'get' fail with an error. This invalidation mechanism is mainly used as consistency check to prevent
  * using outdated data from the previous event: Just before a new event is read, all data is marked as invalid. (While such a mechanism
  * could also be implemented via a "erase" method, that would entail frequent re-allocation in tight loops which is avoided
- * here. Also, erase has other problems, see below)
+ * here. Also, erase has other problems, see below.)
  * 
  * Once a data member is 'set', its address is guaranteed to remain the same throughout the lifetime
- * of the Event class. There is also no mechanism to "erase" a data member. In this sense, it is similar to the
+ * of the Event object. There is also no mechanism to "erase" a data member. In this sense, it is similar to the
  * 'structs' and allows to use this class e.g. with root and TTree::SetBranchAddress (which would be hard or impossible if
  * the member addresses where allowed to change by erasing and re-setting a data member).
  * 
@@ -60,75 +48,114 @@ namespace fwid {
  * data. Note that the callback is *not* called for member data in 'valid' state, so it will only called again if the
  * state is reset to 'invalid' again.
  */
+class Event;
 class Event {
 public:
+    class RawHandle;
+    
+    template<typename T>
+    class Handle {
+        friend class Event;
+        uint64_t index;
+        Handle<T>(const RawHandle & handle): index(handle.index){}
+    public:
+        Handle<T>(): index(-1){}
+        bool operator==(const Handle<T> & other) const{
+            return index == other.index;
+        }
+    };
+    
+    class RawHandle {
+        friend class Event;
+        uint64_t index;
+        template<typename T>
+        RawHandle(const Handle<T> & h): index(h.index){}
+        explicit RawHandle(uint64_t index_): index(index_){}
+        
+    public:
+        RawHandle(): index(-1){}
+        bool operator==(const RawHandle & other) const {
+            return index == other.index;
+        }
+    };
     
     enum class state { nonexistent, invalid, valid };
     
     Event(){}
     
-    // prevent copying, and moving, as we manage memory
+    // prevent copying and moving, as we manage memory
     Event(const Event &) = delete;
     Event(Event &&) = delete;
+    
+    template<typename T>
+    Handle<T> get_handle(const std::string & name){
+        return Handle<T>(get_raw_handle(typeid(T), name));
+    }
+    
+    RawHandle get_raw_handle(const std::type_info & ti, const std::string & name);
+    
+    template<typename T>
+    std::string name(const Handle<T> & handle){
+        return name(RawHandle(handle));
+    }
+    
+    std::string name(const RawHandle & handle);
 
     /** \brief Get an element of this event
      *
-     * If check_valid is true, the member has to be in state 'valid'; otherwise also 'invalid'
-     * data members are returned.
+     * If the data member does not exist (state 'nonexistent'), an exception is thrown.
+     * 
+     * In other states, the behavior depends on 'check_valid':
+     * check_valid is true and the member is in state 'invalid', and exception is thrown, otherwise
+     * a reference to the member data is returned.
      */
     template<typename T>
-    T & get(const identifier & name, bool check_valid = true){
-        return *(reinterpret_cast<T*>(get_raw(typeid(T), name, check_valid)));
+    T & get(const Handle<T> & handle, bool check_valid = true){
+        return *(reinterpret_cast<T*>(get(typeid(T), handle, check_valid, false)));
     }
     
     template<typename T>
-    const T & get(const identifier & name, bool check_valid = true) const{
-        return *(reinterpret_cast<const T*>(get_raw(typeid(T), name, check_valid)));
+    const T & get(const Handle<T> & handle, bool check_valid = true) const{
+        return *(reinterpret_cast<const T*>(get(typeid(T), handle, check_valid, false)));
     }
     
-    // get with a default fallback in case the member does not exist or is invalid (and cannot be made valid
-    // by a callback).
     template<typename T>
-    T & get_default(const identifier & name, T & default_value){
-        auto res = get_raw(typeid(T), name, true, true);
-        if(res==0){
+    T & get_default(const Handle<T> & handle, T & default_value){
+        T * result = reinterpret_cast<T*>(get(typeid(T), handle, true, true));
+        if(result == 0){
             return default_value;
         }
         else{
-            return *reinterpret_cast<T*>(res);
+            return *result;
         }
     }
     
     template<typename T>
-    const T & get_default(const identifier & name, const T & default_value) const{
-        auto res = get_raw(typeid(T), name, true, true);
-        if(res==0){
-            return default_value;
-        }
-        else{
-            return *reinterpret_cast<const T*>(res);
-        }
+    const T & get_default(const Handle<T> & handle, const T & default_value) const{
+        return const_cast<Event*>(this)->get_default(handle, const_cast<T&>(default_value));
     }
-
+    
     // type-erased versions:
-    void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true, bool allow_null = false);
-    const void * get_raw(const std::type_info & ti, const identifier & name, bool check_present = true, bool allow_null = false) const;
+    void * get(const std::type_info & ti, const RawHandle & handle, bool check_valid = true, bool allow_null = false);
+    const void * get(const std::type_info & ti, const RawHandle & handle, bool check_valid = true, bool allow_null = false) const;
     
     /** \brief Set an element, allocating memory if necessary
      *
      * The element's new presence state will be 'valid'.
      */
     template<typename T>
-    void set(const identifier & name, T value){
-        ti_id key{typeid(T), name};
-        auto it = data.find(key);
-        if(it!=data.end()){
-            *(reinterpret_cast<T*>(it->second.data)) = std::move(value);
-            it->second.valid = true;
+    void set(const Handle<T> & handle, T value){
+        assert(handle.index < elements.size());
+        element & e = elements[handle.index];
+        assert(e.type == typeid(T));
+        if(e.data != 0){
+            *(reinterpret_cast<T*>(e.data)) = std::move(value);
         }
         else{
-            data.insert(std::make_pair(key, element(true, new T(std::move(value)), new eraser<T>(), &typeid(T))));
+            e.data = new T(std::move(value));
+            e.eraser.reset(new eraser<T>());
         }
+        e.valid = true;
     }
     
     /** \brief Install a get callback
@@ -141,41 +168,33 @@ public:
      * invalid to trigger the callback on the next call to 'get'.
      */
     template<typename T>
-    void set_get_callback(const identifier & name, const std::function<void ()> & callback){
-        set_get_callback(typeid(T), name, callback);
+    void set_get_callback(const Handle<T> & handle, boost::optional<std::function<void ()>> callback){
+        set_get_callback(typeid(T), handle, std::move(callback));
     }
     
-    void set_get_callback(const std::type_info & ti, const identifier & name, const std::function<void ()> & callback);
+    void set_get_callback(const std::type_info & ti, const RawHandle & handle, boost::optional<std::function<void ()>> callback);
     
-    
-    /** \brief Clear the get callback for the given member
-     */
-    template<typename T>
-    void reset_get_callback(const identifier & name){
-        reset_get_callback(typeid(T), name);
-    }
-    
-    /** \brief Set the state flag of an element
+    /** \brief Set the validity flag of an element
      * 
-     * This can be used to manully change the flag from 'valid' to 'invalid' and vice versa.
-     * Note that setting from/to nonexistent is not allowed and results in a invalid_argument exception.
+     * This can be used to manually change the flag from 'valid' to 'invalid' and vice versa.
      */
     template<typename T>
-    void set_state(const identifier & name, state s){
-        set_state(typeid(T), name, s);
+    void set_validity(const Handle<T> & handle, bool valid){
+        set_validity(typeid(T), handle, valid);
     }
+    
+    void set_validity(const std::type_info & ti, const RawHandle & handle, bool valid);
     
     /** \brief Get the current state of an element
      */
     template<typename T>
-    state get_state(const identifier & name) const{
-        return get_state(typeid(T), name);
+    state get_state(const Handle<T> & handle) const{
+        return get_state(typeid(T), handle);
     }
     
-    void set_state(const std::type_info & ti, const identifier & name, state p);
-    state get_state(const std::type_info & ti, const identifier & name) const;
+    state get_state(const std::type_info & ti, const RawHandle & handle) const;
     
-    /** \brief Set all member data states to invalid and reset the weight to 1.0
+    /** \brief Set all member data states to invalid
      * 
      * This is usually called just before reading a new event, to mark all previous
      * data (from the previous event) as invalid to catch unwanted re-use of old data.
@@ -185,10 +204,7 @@ public:
     ~Event();
     
 private:
-    
-    void set_raw(const std::type_info & ti, const identifier & name, void * obj, const std::function<void (void*)> & eraser);
-    void reset_get_callback(const std::type_info & ti, const identifier & name);
-    void fail(const std::type_info & ti, const identifier & id) const;
+    void fail(const std::type_info & ti, const RawHandle & handle, const char * msg) const;
     
     struct eraser_base{
         virtual ~eraser_base(){}
@@ -203,39 +219,31 @@ private:
         }
     };
     
-    struct eraser_f_wrapper: public eraser_base{
-        std::function<void (void*)> f;
-        
-        explicit eraser_f_wrapper(const std::function<void (void*)> & f_): f(f_){}
-        
-        virtual void operator()(void * p){
-            f(p);
-        }
-    };
-    
-    // type-erased data member:
+    // type-erased data member.
+    // Life-cycle: it is created upon handle creation with data=0, eraser=0, generator=none, valid=false. At this point, it is considered nonexistent
+    // 'set' sets data, eraser, valid=true. Now, it is 'valid'.
+    // 'set_validity' can be used to set it to 'invalid' or 'valid' now.
+    // 'set_generator' sets generator
+    // destructor calls the eraser on data, if eraser is set.
     struct element {
         bool valid;
-        void * data; // managed by eraser
+        std::string name;
+        void * data; // managed by eraser. Can be 0 if not 'set' yet, but handle exists
         std::unique_ptr<eraser_base> eraser;
-        const std::type_info * type; // points to static global data
+        const std::type_info & type; // points to static global data
         boost::optional<std::function<void ()>> generator;
         
         ~element();
         element(const element &) = delete;
-        element(element &&);
+        element(element &&) = default; // note: default is save although this class manages the memory of 'data', as a move will make 'eraser' null, preventing double delete of data.
         void operator=(const element & other) = delete;
         void operator=(element && other) = delete;
         
         // element takes memory ownership of d and e.
-        element(bool v, void * d, eraser_base *e, const std::type_info *t, boost::optional<std::function<void ()>> g = boost::none):
-           valid(v), data(d), eraser(e), type(t), generator(std::move(g)){}
+        element(bool v, std::string name_, void * d, eraser_base *e, const std::type_info & t, boost::optional<std::function<void ()>> g = boost::none):
+           valid(v), name(std::move(name_)), data(d), eraser(e), type(t), generator(std::move(g)){}
     };
-    
-    typedef std::pair<std::type_index, identifier> ti_id;
-    
-    double weight_;
-    mutable std::unordered_map<ti_id, element> data; // note: mutable required for lazy generation of data with const access
+    mutable std::vector<element> elements; // note: mutable required for lazy generation of data with const access
 };
 
 

@@ -13,40 +13,43 @@ void Selections::begin_dataset(const s_dataset & dataset, InputManager & in, Out
     selections.clear();
     for(const auto & setting : cfg){
         if(setting.first == "type") continue;
-        identifier id(setting.first);
-        selections.emplace_back(id, SelectionRegistry::build(setting.second.get<string>("type"), setting.second, out));
+        selections.emplace_back(in.get_handle<bool>(setting.first), SelectionRegistry::build(setting.second.get<string>("type"), setting.second, in, out));
     }
 }
     
 void Selections::process(Event & event){
-    for(const auto & id_sel : selections){
-        Selection & sel = *(get<1>(id_sel));
-        bool passed = sel(event);
-        event.set<bool>(get<0>(id_sel), passed);
+    for(const auto & h_sel : selections){
+        Selection & sel = *(get<1>(h_sel));
+        event.set(get<0>(h_sel), sel(event));
     }
 }
 
 REGISTER_ANALYSIS_MODULE(Selections)
 
 stop_unless::stop_unless(const ptree & cfg){
-    selection = ptree_get<string>(cfg, "selection");
+    s_selection = ptree_get<string>(cfg, "selection");
 }
 
 void stop_unless::process(Event & event){
-    if(event.get_state<bool>(selection) != Event::state::valid || !event.get<bool>(selection)){
-        event.set<bool>(fwid::stop, true);
+    if(event.get_state(selection) != Event::state::valid || !event.get(selection)){
+        event.set<bool>(stop_handle, true);
     }
+}
+
+void stop_unless::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
+    selection = in.get_handle<bool>(s_selection);
+    stop_handle = in.get_handle<bool>("stop");
 }
 
 REGISTER_ANALYSIS_MODULE(stop_unless)
 
-AndSelection::AndSelection(const ptree & cfg, OutputManager & out): cutflow(0), cutflow_raw(0){
+AndSelection::AndSelection(const ptree & cfg, InputManager & in, OutputManager & out): cutflow(0), cutflow_raw(0){
     // get selections as string:
     std::string ids = cfg.get<string>("selections");
     vector<string> vids;
     boost::split(vids, ids, boost::algorithm::is_space(), boost::algorithm::token_compress_on);
     for(const string & id : vids){
-        selids.emplace_back(id);
+        sel_handles.push_back(in.get_handle<bool>(id));
     }
     string hname = cfg.get<string>("cutflow_hname", "");
     if(!hname.empty()){
@@ -62,19 +65,20 @@ AndSelection::AndSelection(const ptree & cfg, OutputManager & out): cutflow(0), 
             out.put(h->GetName(), h);
         }
     }
+    weight_handle = in.get_handle<double>("weight");
 }
     
 bool AndSelection::operator()(const Event & event){
-    auto w = event.get<double>(fwid::weight);
+    auto w = event.get(weight_handle);
     bool result = true;
     float x = 0.5;
     if(cutflow){
         cutflow->Fill(x, w);
         cutflow_raw->Fill(x);
     }
-    for(const auto & id : selids){
+    for(const auto & handle : sel_handles){
         x += 1;
-        if(!event.get<bool>(id)){
+        if(!event.get(handle)){
             result = false;
             break;
         }
@@ -89,18 +93,18 @@ bool AndSelection::operator()(const Event & event){
 REGISTER_SELECTION(AndSelection)
 REGISTER_SELECTION(PassallSelection)
 
-AndNotSelection::AndNotSelection(const ptree & cfg, OutputManager & out){
+AndNotSelection::AndNotSelection(const ptree & cfg, InputManager & in, OutputManager & out){
     std::string ids = cfg.get<string>("selections");
     vector<string> vids;
     boost::split(vids, ids, boost::algorithm::is_space(), boost::algorithm::token_compress_on);
     for(const string & id : vids){
-        selids.emplace_back(id);
+        sel_handles.push_back(in.get_handle<bool>(id));
     }
 }
 
 bool AndNotSelection::operator()(const Event & event){
      // return true iff no selection has been passed:
-     return none_of(selids.begin(), selids.end(), [&event](const identifier & id){return event.get<bool>(id);});
+     return none_of(sel_handles.begin(), sel_handles.end(), [&event](const Event::Handle<bool> & h){return event.get(h);});
 }
 
 REGISTER_SELECTION(AndNotSelection)

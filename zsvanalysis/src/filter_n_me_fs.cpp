@@ -4,13 +4,10 @@
 #include "ra/include/context.hpp"
 
 #include "zsvtree.hpp"
-#include "eventids.hpp"
-
 #include <list>
 
 using namespace ra;
 using namespace std;
-using namespace zsv;
 
 class filter_n_me_fs: public AnalysisModule {
 public:
@@ -22,6 +19,9 @@ public:
 private:
     std::map<std::string, std::tuple<int, int> > dset_mm; // dataset name to (min,max).
     int nmin, nmax;
+    
+    Event::Handle<int> h_mc_n_me_finalstate;
+    Event::Handle<bool> h_stop;
 };
 
 
@@ -41,16 +41,18 @@ void filter_n_me_fs::begin_dataset(const s_dataset & dataset, InputManager & in,
     if(it!=dset_mm.end()){
         tie(nmin, nmax) = it->second;
     }
+    h_stop = in.get_handle<bool>("stop");
+    h_mc_n_me_finalstate = in.get_handle<int>("mc_n_me_finalstate");
 }
 
 void filter_n_me_fs::process(Event & event){
     if(nmin < 0 and nmax < 0){
         return;
     }
-    int n = event.get<int>(id::mc_n_me_finalstate);
+    int n = event.get(h_mc_n_me_finalstate);
     bool passed = (nmin < 0 || n >= nmin) && (nmax < 0 || n <= nmax);
     if(!passed){
-        event.set<bool>(fwid::stop, true);
+        event.set(h_stop, true);
     }
 }
 

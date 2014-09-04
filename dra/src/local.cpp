@@ -199,7 +199,7 @@ bool wait_for_child(int pid, float timeout, bool log){
         int exitcode = WEXITSTATUS(status);
         if(exitcode != 0){
             if(log){
-                LOG_ERROR("Child process with pid " << pid << " exited with status " << exitcode);
+                LOG_WARNING("Child process with pid " << pid << " exited with status " << exitcode);
             }
             return false;
         }
@@ -209,7 +209,7 @@ bool wait_for_child(int pid, float timeout, bool log){
     }
     else{
         if(log){
-            LOG_ERROR("Child process with pid " << pid << " exited abnormally");
+            LOG_WARNING("Child process with pid " << pid << " exited abnormally");
         }
         return false;
     }
@@ -260,7 +260,7 @@ bool dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
     }
     // the parent becomes the master:
     IOManager iom; // important: iom has to outlive master, as master references Channels which reference iom, which should still be around in ~Channel called by ~Master
-    bool master_ok = false, stopped = false, aborted = false;
+    bool master_completed = false, master_stopped = false, master_aborted = false;
     try{ // note: catch errors to wait for childs even if master throws.
         // first make sure we grab the "dangling resources" in form of worker_fds safely into channels. This
         // is to ensure that even if the Master constructor throws, the channels get closed.
@@ -271,16 +271,16 @@ bool dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
         }
         Master master(cfgfile);
         iom.setup_signal_handler(SIGINT, [&](const siginfo_t &){ 
-            if(!stopped){
+            if(!master_stopped){
                 cout << endl << "SIGINT: stopping" << endl;
                 master.stop();
-                stopped = true;
+                master_stopped = true;
                 return;
             }
-            else if(!aborted){
+            else if(!master_aborted){
                 cout << endl << "SIGINT again: aborting" << endl;
                 master.abort();
-                aborted = true;
+                master_aborted = true;
                 return;
             }
         });
@@ -290,41 +290,31 @@ bool dra::local_run(const std::string & cfgfile, int nworkers, const std::shared
             master.add_worker(move(channels[i]));
         }
         iom.process();
-        if(master.failed()){
+        master_completed = master.completed();
+        master_aborted = master.aborted();
+        master_stopped = master.stopped();
+        if(!master_completed){
             LOG_ERROR("Master IO processing exited before the dataset was processed completely.");
-        }
-        else{
-          master_ok = true;
         }
     }
     catch(std::exception & ex){
         LOG_ERROR("Exception while running master: " << ex.what());
-        master_ok = false;
+        master_aborted = true;
     }
     
     LOG_INFO("Waiting for all worker processes ... ");
     bool childs_successful = true;
     for(int i=0; i<nworkers; ++i){
-        bool child_result = wait_for_child(worker_pids[i], 1.0f, master_ok);
-        if(!child_result){
+        if(!wait_for_child(worker_pids[i], 1.0f, !master_aborted)){
             childs_successful = false;
-            if(master_ok){
-                LOG_WARNING("Worker process " << worker_pids[i] << " did not exit normally.")
-            }
         }
     }
-    if(master_ok){
-        if(!childs_successful){
-            LOG_THROW("worker processes did not exit successfully; check their logs.");
-        }
-        else{
-            LOG_INFO("all worker processes exited successfully.")
-        }
+    if(childs_successful){
+        LOG_INFO("all worker processes exited normally.");
     }
-    if(!master_ok || stopped){
-        cerr << endl << "WARNING: Dataset has NOT been processed completely (see above / log for details)" << endl;
-        return false;
+    else{
+        LOG_WARNING("Not all worker processes exited normally.");
     }
-    return true;
+    return master_completed;
 }
 

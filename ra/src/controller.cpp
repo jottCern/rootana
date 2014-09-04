@@ -47,7 +47,7 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
     if(idataset == size_t(-1)) return;
     
     if(idataset >= config.datasets.size()){
-        LOG_THROW("start_dataset ( idataset = " << idataset << "): idataset out of range");
+        LOG_THROW("start_dataset (idataset = " << idataset << "): idataset out of range");
     }
     // initialize all per-dataset infos:
     std::unique_ptr<TFile> outfile(new TFile(new_outfile_path.c_str(), "recreate"));
@@ -57,6 +57,7 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
     outfile_path = new_outfile_path;
     const s_dataset & dataset = config.datasets[current_idataset];
     event.reset(new Event());
+    handle_stop = event->get_handle<bool>("stop");
     out.reset(new TFileOutputManager(move(outfile), dataset.treename, *event));
     in.reset(new TTreeInputManager(*event, config.options.lazy_read));
     for(auto & m : modules){
@@ -147,7 +148,7 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
                           << current_dataset().files[current_ifile].path << "; re-throwing.");
                 throw;
             }
-            if(event->get_state<bool>(fwid::stop) == Event::state::valid && event->get<bool>(fwid::stop)){
+            if(event->get_state<bool>(handle_stop) == Event::state::valid && event->get(handle_stop)){
                 event_selected = false;
                 break;
             }

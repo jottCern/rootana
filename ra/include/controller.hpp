@@ -3,6 +3,7 @@
 
 #include "base/include/log.hpp"
 #include "fwd.hpp"
+#include "event.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -79,6 +80,8 @@ private:
     std::unique_ptr<ra::TFileOutputManager> out;
     std::unique_ptr<ra::Event> event;
     std::unique_ptr<ra::TTreeInputManager> in;
+    
+    Event::Handle<bool> handle_stop;
     
     // per-file:
     size_t current_ifile;

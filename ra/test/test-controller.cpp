@@ -41,6 +41,7 @@ public:
 private:
     int offset;
     int outdata;
+    Event::Handle<int> h_intdata;
 };
 
 
@@ -50,10 +51,11 @@ test_module::test_module(const ptree & cfg){
 
 void test_module::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
     in.declare_event_input<int>("intdata");
+    h_intdata = in.get_handle<int>("intdata");
 }
 
 void test_module::process(Event & event){
-    int id = event.get<int>("intdata");
+    int id = event.get(h_intdata);
     ids_seen.push_back(id);
 }
 

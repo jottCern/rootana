@@ -47,7 +47,7 @@ namespace {
 
 class BcandMistagHists: public Hists{
 public:
-    BcandMistagHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, OutputManager & out);
+    BcandMistagHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, InputManager & in, OutputManager & out);
     
     void fill(const identifier & id, double value){
         get(id)->Fill(value, current_weight);
@@ -60,10 +60,17 @@ public:
     virtual void process(Event & e) override;
     
 private:
+    Event::Handle<double> weight_handle;
+    Event::Handle<vector<Bcand> > h_selected_bcands;
+    Event::Handle<vector<mcparticle>> h_mc_bs, h_mc_cs;
+    Event::Handle<vector<jet>> h_jets;
+    Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
+    Event::Handle<bool> h_passed_reco_selection;
+    
     double current_weight;
 };
 
-BcandMistagHists::BcandMistagHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
+BcandMistagHists::BcandMistagHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, InputManager & in, OutputManager & out): Hists(dirname, dataset, out){
     book<TH1D>(mistag_bpt_over_jetpt, 100, 0, 2);
     book<TH1D>(mistag_jetpt, 100, 0, 200);
     book<TH1D>(mistag_matched_dr, 60, 0, 0.6);
@@ -87,19 +94,28 @@ BcandMistagHists::BcandMistagHists(const ptree & cfg, const std::string & dirnam
     book<TH1D>(jeteta_l_tagged, 60, -3, 3);
     book<TH1D>(jeteta_c_tagged, 60, -3, 3);
     book<TH1D>(jeteta_b_tagged, 60, -3, 3);
+    
+    weight_handle = in.get_handle<double>("weight");
+    h_selected_bcands = in.get_handle<vector<Bcand>>("selected_bcands");
+    h_mc_bs = in.get_handle<vector<mcparticle>>("mc_bs");
+    h_mc_cs = in.get_handle<vector<mcparticle>>("mc_cs");
+    h_jets = in.get_handle<vector<jet>>("jets");
+    h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+    h_lepton_minus = in.get_handle<lepton>("lepton_minus");
+    h_passed_reco_selection = in.get_handle<bool>("passed_reco_selection");
 }
 
 void BcandMistagHists::process(Event & e){
-    if(!e.get<bool>(id::passed_reco_selection)){
+    if(!e.get<bool>(h_passed_reco_selection)){
          return;
     }
-    current_weight = e.get<double>(fwid::weight);
-    const auto & bcands = e.get<vector<Bcand> >(id::selected_bcands);
-    const auto & mc_bs = e.get<vector<mcparticle> >(id::mc_bs);
-    const auto & mc_cs = e.get<vector<mcparticle> >(id::mc_cs);
-    const auto & jets = e.get<vector<jet>>(id::jets);
-    const auto & lp = e.get<lepton>(id::lepton_plus);
-    const auto & lm = e.get<lepton>(id::lepton_minus);
+    current_weight = e.get<double>(weight_handle);
+    const auto & bcands = e.get<vector<Bcand> >(h_selected_bcands);
+    const auto & mc_bs = e.get<vector<mcparticle> >(h_mc_bs);
+    const auto & mc_cs = e.get<vector<mcparticle> >(h_mc_cs);
+    const auto & jets = e.get<vector<jet>>(h_jets);
+    const auto & lp = e.get<lepton>(h_lepton_plus);
+    const auto & lm = e.get<lepton>(h_lepton_minus);
     
     for(const auto & bcand : bcands){
         bool is_fake = true;

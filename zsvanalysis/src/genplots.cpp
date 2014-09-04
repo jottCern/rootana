@@ -3,7 +3,6 @@
 #include "ra/include/utils.hpp"
 #include "base/include/ptree-utils.hpp"
 
-#include "eventids.hpp"
 #include <iostream>
 #include <set>
 #include "TH1D.h"
@@ -13,7 +12,6 @@
 
 using namespace ra;
 using namespace std;
-using namespace zsv;
 
 namespace {
 
@@ -36,8 +34,10 @@ ID(reldiffpt_drbb);
 
 class GenPlots: public Hists {
 public:
-    GenPlots(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
-        mc_bs_input = ptree_get<string>(cfg, "mc_bs_input");
+    GenPlots(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, InputManager & in, OutputManager & out): Hists(dirname, dataset, out){
+        string mc_bs_input = ptree_get<string>(cfg, "mc_bs_input");
+        h_mc_bs_input = in.get_handle<vector<mcparticle>>(mc_bs_input);
+        h_weight = in.get_handle<double>("weight");
         
         book<TH1D>(ptb0, 200, 0, 200);
         book<TH1D>(ptb1, 200, 0, 200);
@@ -65,8 +65,8 @@ public:
     }
     
     void process(Event & e){
-        current_weight = e.get<double>(fwid::weight);
-        vector<mcparticle> bs = e.get<vector<mcparticle>>(mc_bs_input);
+        current_weight = e.get<double>(h_weight);
+        vector<mcparticle> bs = e.get(h_mc_bs_input);
         sort(bs.begin(), bs.end(), [](const mcparticle & i, const mcparticle & j){ return i.p4.pt() > j.p4.pt();});
         
         fill(nb, bs.size());
@@ -92,7 +92,8 @@ public:
     
 private:
     double current_weight;
-    identifier mc_bs_input;
+    Event::Handle<vector<mcparticle>> h_mc_bs_input;
+    Event::Handle<double> h_weight;
 };
 
 REGISTER_HISTS(GenPlots)

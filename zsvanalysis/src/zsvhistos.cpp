@@ -4,8 +4,6 @@
 #include "ra/include/context.hpp"
 #include "ra/include/hists.hpp"
 
-#include "eventids.hpp"
-
 #include <iostream>
 #include <set>
 #include "TH1D.h"
@@ -14,21 +12,8 @@
 
 using namespace ra;
 using namespace std;
-using namespace zsv;
 
 namespace{
-    
-// get the maximum pt of the two leptons lepton_plus and lepton_minus
-double maxpt_lepton(const Event & e){
-    return max(e.get<lepton>(id::lepton_plus).p4.pt(), e.get<lepton>(id::lepton_minus).p4.pt());
-}
-
-// return the maximum |eta| of the two leptons
-double max_abs_eta(const Event & e){
-    double eta1 = e.get<lepton>(id::lepton_plus).p4.eta();
-    double eta2 = e.get<lepton>(id::lepton_minus).p4.eta();
-    return max(fabs(eta1), fabs(eta2));
-}
 
 // given a generator-level b mcb, find the matching reconstructed B candidates from bcands. Matching is done via
 // delta R < maxdr. In case of multiple matches, they are sorted by increasing distance (i.e. the closest is at index 0).
@@ -60,41 +45,53 @@ vector<const Bcand*> matching_bcands(const mcparticle & mcb, const vector<Bcand>
 
 class BaseHists: public Hists {
 public:
-    BaseHists(const ptree &, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
+    BaseHists(const ptree &, const std::string & dirname, const s_dataset & dataset, InputManager & in, OutputManager & out): Hists(dirname, dataset, out){
 
-        book_1d_autofill([=](Event & e){return e.get<lepton>(id::lepton_plus).p4.pt();}, "pt_lp", 200, 0, 200);
-        book_1d_autofill([=](Event & e){return e.get<lepton>(id::lepton_minus).p4.pt();}, "pt_lm", 200, 0, 200);
-        book_1d_autofill([=](Event & e){return e.get<lepton>(id::lepton_plus).p4.eta();}, "eta_lp", 100, -2.5, 2.5);
-        book_1d_autofill([=](Event & e){return e.get<lepton>(id::lepton_minus).p4.eta();}, "eta_lm", 100, -2.5, 2.5);
+        auto h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+        auto h_lepton_minus = in.get_handle<lepton>("lepton_minus");
+        auto h_zp4 = in.get_handle<LorentzVector>("zp4");
+        auto h_met = in.get_handle<float>("met");
+        auto h_npv = in.get_handle<int>("npv");
+        auto h_mc_n_me_finalstate = in.get_handle<int>("mc_n_me_finalstate");
+        auto h_selected_bcands = in.get_handle<vector<Bcand>>("selected_bcands");
         
-        //book_1d_autofill(&maxpt_lepton, "max_pt_lep", 200, 0, 200);
-        //book_1d_autofill(&max_abs_eta, "max_aeta_lep", 100, 0, 2.5);
+        auto h_pileupsf = in.get_handle<double>("pileupsf");
+        auto h_elesf = in.get_handle<double>("elesf");
+        auto h_musf = in.get_handle<double>("musf");
         
-        book_1d_autofill([=](Event & e){return e.get<LorentzVector>(id::zp4).M();}, "mll", 200, 0, 200);
-        book_1d_autofill([=](Event & e){return e.get<LorentzVector>(id::zp4).pt();}, "ptz", 200, 0, 200);
-        book_1d_autofill([=](Event & e){return e.get<LorentzVector>(id::zp4).eta();}, "etaz", 200, -5, 5);
-        book_1d_autofill([=](Event & e){return e.get<float>(id::met);}, "met", 200, 0, 200);
-        book_1d_autofill([=](Event & e){return e.get<vector<Bcand> >(id::selected_bcands).size();}, "nbcands", 10, 0, 10);
-        book_1d_autofill([=](Event & e){return e.get<int>(id::mc_n_me_finalstate);}, "mc_n_me_finalstate", 10, 0, 10);
-        book_1d_autofill([=](Event & e){return e.get<int>(id::npv);}, "npv", 60, 0, 60);
+        h_one = in.get_handle<double>("one");
         
-        ID(one);
-        book_1d_autofill([=](Event & e){return e.get_default<float>(id::pileupsf, NAN);}, "pileupsf", 100, 0, 4, one);
-        book_1d_autofill([=](Event & e){return e.get_default<float>(id::elesf, NAN);}, "elesf", 100, 0, 4, one);
-        book_1d_autofill([=](Event & e){return e.get_default<float>(id::musf, NAN);}, "musf", 100, 0, 4, one);
+        book_1d_autofill([=](Event & e){return e.get<lepton>(h_lepton_plus).p4.pt();}, "pt_lp", 200, 0, 200);
+        book_1d_autofill([=](Event & e){return e.get<lepton>(h_lepton_minus).p4.pt();}, "pt_lm", 200, 0, 200);
+        book_1d_autofill([=](Event & e){return e.get<lepton>(h_lepton_plus).p4.eta();}, "eta_lp", 100, -2.5, 2.5);
+        book_1d_autofill([=](Event & e){return e.get<lepton>(h_lepton_minus).p4.eta();}, "eta_lm", 100, -2.5, 2.5);
+        
+        book_1d_autofill([=](Event & e){return e.get<LorentzVector>(h_zp4).M();}, "mll", 200, 0, 200);
+        book_1d_autofill([=](Event & e){return e.get<LorentzVector>(h_zp4).pt();}, "ptz", 200, 0, 200);
+        book_1d_autofill([=](Event & e){return e.get<LorentzVector>(h_zp4).eta();}, "etaz", 200, -5, 5);
+        book_1d_autofill([=](Event & e){return e.get<float>(h_met);}, "met", 200, 0, 200);
+        book_1d_autofill([=](Event & e){return e.get<vector<Bcand> >(h_selected_bcands).size();}, "nbcands", 10, 0, 10);
+        book_1d_autofill([=](Event & e){return e.get<int>(h_mc_n_me_finalstate);}, "mc_n_me_finalstate", 10, 0, 10);
+        book_1d_autofill([=](Event & e){return e.get<int>(h_npv);}, "npv", 60, 0, 60);
+        
+        book_1d_autofill([=](Event & e){return e.get_default<double>(h_pileupsf, NAN);}, "pileupsf", 100, 0, 4, h_one);
+        book_1d_autofill([=](Event & e){return e.get_default<double>(h_elesf, NAN);}, "elesf", 100, 0, 4, h_one);
+        book_1d_autofill([=](Event & e){return e.get_default<double>(h_musf, NAN);}, "musf", 100, 0, 4, h_one);
     }
     
     virtual void process(Event & event){
-        ID(one);
-        event.set<double>(one, 1.0);
+        event.set(h_one, 1.0);
     }
+    
+private:
+    Event::Handle<double> h_one;
 };
 
 REGISTER_HISTS(BaseHists)
 
 class JetHists: public Hists {
 public:
-    JetHists(const ptree &, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
+    JetHists(const ptree &, const std::string & dirname, const s_dataset & dataset, InputManager & in, OutputManager & out): Hists(dirname, dataset, out){
         // jets:
         book<TH1D>("nj", 10, 0, 10); // pt > 20, |\eta| < 2.4
         book<TH1D>("ptj0", 60, 0, 180);
@@ -141,6 +138,13 @@ public:
         book<TH1D>("etajp_mcb_r2", 60, -3, 3);
         book<TH1D>("ptjp_mcb_r3", 60, 0, 180);
         book<TH1D>("etajp_mcb_r3", 60, -3, 3);
+        
+        h_weight = in.get_handle<double>("weight");
+        h_jets = in.get_handle<vector<jet>>("jets");
+        h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+        h_lepton_minus = in.get_handle<lepton>("lepton_minus");
+        h_mc_bs = in.get_handle<vector<mcparticle>>("mc_bs");
+        h_selected_bcands = in.get_handle<vector<Bcand>>("selected_bcands");
     }
     
     void fill(const identifier & id, double value){
@@ -151,13 +155,19 @@ public:
     
 private:
     double current_weight;
+    
+    Event::Handle<double> h_weight;
+    Event::Handle<vector<jet>> h_jets;
+    Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
+    Event::Handle<vector<mcparticle>> h_mc_bs;
+    Event::Handle<vector<Bcand>> h_selected_bcands;
 };
 
 void JetHists::process(Event & e){
-    current_weight = e.get<double>(fwid::weight);
-    auto jets = e.get<vector<jet>>(id::jets);
-    const auto & lepton_plus = e.get<lepton>(id::lepton_plus);
-    const auto & lepton_minus = e.get<lepton>(id::lepton_minus);
+    current_weight = e.get(h_weight);
+    auto jets = e.get<vector<jet>>(h_jets);
+    const auto & lepton_plus = e.get<lepton>(h_lepton_plus);
+    const auto & lepton_minus = e.get<lepton>(h_lepton_minus);
     sort(jets.begin(), jets.end(), [](const jet & j1, const jet & j2){return j1.p4.pt () > j2.p4.pt();});
     for(size_t i=0; i<jets.size(); ++i){
         if(fabs(jets[i].p4.eta()) > 2.4 || deltaR(jets[i].p4, lepton_plus.p4) < 0.5 || deltaR(jets[i].p4, lepton_minus.p4) < 0.5){
@@ -191,7 +201,7 @@ void JetHists::process(Event & e){
     // match to mc bs:
     double dr_mcb_j0 = numeric_limits<double>::infinity();
     double dr_mcb_j1 = dr_mcb_j0;
-    auto & mc_bhads = e.get<vector<mcparticle> >(id::mc_bs);
+    auto & mc_bhads = e.get<vector<mcparticle> >(h_mc_bs);
     for(const auto & mcb: mc_bhads){
         dr_mcb_j0 = min(dr_mcb_j0, deltaR(mcb.p4, jets[0].p4));
         if(njets > 1){
@@ -222,7 +232,7 @@ void JetHists::process(Event & e){
     // match to reco bs:
     double dr_bc_j0 = numeric_limits<double>::infinity();
     double dr_bc_j1 = dr_bc_j0;
-    auto & bcands = e.get<vector<Bcand> >(id::selected_bcands);
+    auto & bcands = e.get<vector<Bcand> >(h_selected_bcands);
     for(const auto & bc: bcands){
         dr_bc_j0 = min(dr_bc_j0, deltaR(bc.p4, jets[0].p4));
         if(njets > 1){
@@ -308,8 +318,12 @@ REGISTER_HISTS(JetHists)
 
 class BcandHists: public Hists{
 public:
-    BcandHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, OutputManager & out): Hists(dirname, dataset, out){
-        mcb_input = ptree_get<string>(cfg, "mcb_input", "mc_bs");
+    BcandHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, InputManager & in, OutputManager & out): Hists(dirname, dataset, out){
+        string mcb_input = ptree_get<string>(cfg, "mcb_input", "mc_bs");
+        h_mcb_input = in.get_handle<vector<mcparticle>>(mcb_input);
+        h_weight = in.get_handle<double>("weight");
+        h_selected_bcands = in.get_handle<vector<Bcand>>("selected_bcands");
+        h_zp4 = in.get_handle<LorentzVector>("zp4");
         
         book<TH1D>("Bmass", 60, 0, 6);
         book<TH1D>("Bpt", 200, 0, 200);
@@ -417,12 +431,12 @@ public:
         
         ID(dR_mc_reco_diff);*/
         
-        current_weight = e.get<double>(fwid::weight);
+        current_weight = e.get<double>(h_weight);
 
-        auto & bcands = e.get<vector<Bcand> >(id::selected_bcands);
-        auto & mc_bhads = e.get<vector<mcparticle> >(mcb_input);
+        auto & bcands = e.get<vector<Bcand> >(h_selected_bcands);
+        auto & mc_bhads = e.get<vector<mcparticle> >(h_mcb_input);
         
-        const LorentzVector & p4Z = e.get<LorentzVector>(id::zp4);
+        const LorentzVector & p4Z = e.get<LorentzVector>(h_zp4);
         for(auto & b : bcands){
             fill(Bmass, b.p4.M());
             fill(Bpt, b.p4.pt());
@@ -533,7 +547,10 @@ public:
     
 private:
     double current_weight;
-    identifier mcb_input;
+    Event::Handle<vector<mcparticle>> h_mcb_input;
+    Event::Handle<double> h_weight;
+    Event::Handle<vector<Bcand> > h_selected_bcands;
+    Event::Handle<LorentzVector> h_zp4;
 };
 
 REGISTER_HISTS(BcandHists)

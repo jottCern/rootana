@@ -5,11 +5,9 @@
 #include "ra/include/selections.hpp"
 
 #include "zsvtree.hpp"
-#include "eventids.hpp"
 
 using namespace ra;
 using namespace std;
-using namespace zsv;
 
 /** \brief Write new mcparticle-vector to the event with selected input particles based on pt and eta cuts
  * 
@@ -29,31 +27,36 @@ using namespace zsv;
 class select_mcparticles: public AnalysisModule {
 public:
     explicit select_mcparticles(const ptree & cfg);
-    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){}
+    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
+        h_input = in.get_handle<vector<mcparticle>>(s_input);
+        h_output = in.get_handle<vector<mcparticle>>(s_output);
+    }
     virtual void process(Event & event);
     
 private:
-    identifier input, output;
+    string s_input, s_output;
     double ptmin, etamax;
+    
+    Event::Handle<vector<mcparticle>> h_input, h_output;
 };
 
 
 select_mcparticles::select_mcparticles(const ptree & cfg){
     ptmin = ptree_get<double>(cfg, "ptmin");
     etamax = ptree_get<double>(cfg, "etamax");
-    input =  ptree_get<string>(cfg, "input");
-    output =  ptree_get<string>(cfg, "output");
+    s_input =  ptree_get<string>(cfg, "input");
+    s_output =  ptree_get<string>(cfg, "output");
 }
 
 void select_mcparticles::process(Event & event){
-    const auto & input_particles = event.get<vector<mcparticle> >(input);
+    const auto & input_particles = event.get(h_input);
     vector<mcparticle> output_particles;
     for(const auto & p : input_particles){
         if(p.p4.pt() > ptmin && fabs(p.p4.eta()) < etamax){
             output_particles.push_back(p);
         }
     }
-    event.set<vector<mcparticle>>(output, output_particles);
+    event.set(h_output, std::move(output_particles));
 }
 
 REGISTER_ANALYSIS_MODULE(select_mcparticles)
@@ -78,40 +81,43 @@ REGISTER_ANALYSIS_MODULE(select_mcparticles)
  */
 class gen_phasespace: public Selection {
 public:
-    gen_phasespace(const ptree & cfg, OutputManager &);
+    gen_phasespace(const ptree & cfg, InputManager & in, OutputManager &);
     virtual bool operator()(const Event & e);
     
 private:
-    identifier input_bs, input_leps;
     int nb_min, nb_max;
     double mllmin, mllmax;
+    
+    Event::Handle<vector<mcparticle>> h_input_bs, h_input_leps;
 };
 
-gen_phasespace::gen_phasespace(const ptree & cfg, OutputManager &){
+gen_phasespace::gen_phasespace(const ptree & cfg, InputManager & in, OutputManager &){
     nb_min = ptree_get<int>(cfg, "nb_min", 2);
     nb_max = ptree_get<int>(cfg, "nb_max", 2);
-    input_bs = ptree_get<string>(cfg, "input_bs");
+    h_input_bs = in.get_handle<vector<mcparticle>>(ptree_get<string>(cfg, "input_bs"));
     string s_input_leps = ptree_get<string>(cfg, "input_leps", "");
     if(!s_input_leps.empty()){
-        input_leps = s_input_leps;
+        h_input_leps = in.get_handle<vector<mcparticle>>(s_input_leps);
         mllmin = ptree_get<double>(cfg, "mllmin");
         mllmax = ptree_get<double>(cfg, "mllmax");
     }
     else{
         mllmin = mllmax = -1.0;
     }
+    
+    
 }
 
 
 bool gen_phasespace::operator()(const Event & e){
     // b cut:
-    auto & bs = e.get<vector<mcparticle>>(input_bs);
+    auto & bs = e.get<vector<mcparticle>>(h_input_bs);
     int nbs = bs.size();
     if(nbs < nb_min or nbs > nb_max) return false;
     
     // lepton cut (only if enabled)
     if(mllmin != -1.0 or mllmax != -1.0){
-        auto & leps = e.get<vector<mcparticle>>(input_leps);
+        auto & leps = e.get<vector<mcparticle>>(h_input_leps);
         if(leps.size() != 2) return false;
         if(leps[0].pdgid * leps[1].pdgid > 0) return false;
         double mll = (leps[0].p4 + leps[1].p4).M();

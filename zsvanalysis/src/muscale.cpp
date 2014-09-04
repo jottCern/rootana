@@ -5,13 +5,11 @@
 #include "ra/include/event.hpp"
 #include "ra/include/utils.hpp"
 
-#include "eventids.hpp"
 #include "zsvtree.hpp"
 #include "TH1D.h"
 
 using namespace ra;
 using namespace std;
-using namespace zsv;
 
 class muscale: public AnalysisModule {
 public:
@@ -25,6 +23,8 @@ private:
     
     bool is_real_data;
     std::unique_ptr<MuScleFitCorrector> corr;
+    
+    Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
     
     TH1D * muscale_control;
 };
@@ -53,6 +53,9 @@ void muscale::begin_dataset(const s_dataset & dataset, InputManager & in, Output
     corr.reset(new MuScleFitCorrector(filename.c_str()));
     muscale_control = new TH1D("muscale_control", "muscale_control", 100, 0.9, 1.1);
     out.put("muscale_control", muscale_control);
+    
+    h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+    h_lepton_minus = in.get_handle<lepton>("lepton_minus");
 }
 
 void muscale::correct_lepton(lepton & lep){
@@ -69,11 +72,11 @@ void muscale::correct_lepton(lepton & lep){
 }
 
 void muscale::process(Event & event){
-    auto & l1 = event.get<lepton>(id::lepton_plus);
+    auto & l1 = event.get(h_lepton_plus);
     if(abs(l1.pdgid) == 13){
         correct_lepton(l1);
     }
-    auto & l2 = event.get<lepton>(id::lepton_minus);
+    auto & l2 = event.get(h_lepton_minus);
     if(abs(l2.pdgid) == 13){
         correct_lepton(l2);
     }

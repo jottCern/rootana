@@ -97,7 +97,8 @@ void ra::load_lib(const string & path){
     if(actual_path.empty()){
         throw runtime_error("did not find library '" + path + "'");
     }
-    void * handle = dlopen(actual_path.c_str(), RTLD_NOW | RTLD_DEEPBIND);
+    // use RTLD_GLOBAL for consistent type_info across shared libs.
+    void * handle = dlopen(actual_path.c_str(), RTLD_GLOBAL | RTLD_NOW | RTLD_DEEPBIND);
     if(handle==0){
         const char * errstr = dlerror();
         if(errstr==0) errstr = "<dlerror returned NULL>";

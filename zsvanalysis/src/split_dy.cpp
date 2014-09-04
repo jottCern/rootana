@@ -4,14 +4,12 @@
 #include "ra/include/context.hpp"
 #include "ra/include/config.hpp"
 
-#include "eventids.hpp"
 #include "zsvtree.hpp"
 
 #include <boost/algorithm/string.hpp>
 
 using namespace ra;
 using namespace std;
-using namespace zsv;
 
 /** \brief Split the DY-sample into sub-components
  * 
@@ -45,7 +43,10 @@ public:
 private:
     enum e_select { bbvis, bbother, cc, other };
     e_select select;
-    identifier bbvis_mc_bs;
+    string bbvis_mc_bs;
+    
+    Event::Handle<bool> h_stop;
+    Event::Handle<vector<mcparticle>> h_bbvis_mc_bs, h_mc_bs, h_mc_cs;
 };
 
 
@@ -70,35 +71,39 @@ split_dy::split_dy(const ptree & cfg){
 }
 
 void split_dy::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
+    h_stop = in.get_handle<bool>("stop");
+    h_bbvis_mc_bs = in.get_handle<vector<mcparticle>>(bbvis_mc_bs);
+    h_mc_bs = in.get_handle<vector<mcparticle>>("mc_bs");
+    h_mc_cs = in.get_handle<vector<mcparticle>>("mc_cs");
 }
 
 
 void split_dy::process(Event & event){
     // test for bbvis:
-    const auto & selected_bs = event.get<vector<mcparticle>>(bbvis_mc_bs);
+    const auto & selected_bs = event.get(h_bbvis_mc_bs);
     bool passes_bbvis = selected_bs.size() == 2;
     if(select == bbvis){
-        event.set<bool>(fwid::stop, !passes_bbvis);
+        event.set<bool>(h_stop, !passes_bbvis);
         return;
     }
     
-    const auto & all_mc_bs = event.get<vector<mcparticle>>(id::mc_bs);
+    const auto & all_mc_bs = event.get<vector<mcparticle>>(h_mc_bs);
     bool passes_bbother = !passes_bbvis and all_mc_bs.size() >= 2;
     if(select == bbother){
-        event.set<bool>(fwid::stop, !passes_bbother);
+        event.set<bool>(h_stop, !passes_bbother);
         return;
     }
     
-    const auto & all_mc_cs = event.get<vector<mcparticle>>(id::mc_cs);
+    const auto & all_mc_cs = event.get<vector<mcparticle>>(h_mc_cs);
     bool passes_cc = !passes_bbvis and !passes_bbother and all_mc_cs.size() >= 2;
     if(select == cc){
-        event.set<bool>(fwid::stop, !passes_cc);
+        event.set<bool>(h_stop, !passes_cc);
         return;
     }
     
     assert(select == other);
     bool passes_other = !passes_bbvis and !passes_bbother and !passes_cc;
-    event.set<bool>(fwid::stop, !passes_other);
+    event.set<bool>(h_stop, !passes_other);
 }
 
 REGISTER_ANALYSIS_MODULE(split_dy)

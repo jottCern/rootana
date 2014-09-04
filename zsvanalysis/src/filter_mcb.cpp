@@ -36,14 +36,21 @@ class filter_mcb: public AnalysisModule {
 public:
     
     explicit filter_mcb(const ptree & cfg);
-    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out) override {}
+    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out) override {
+        h_mc_bs = in.get_handle<vector<mcparticle>>("mc_bs");
+        h_output = in.get_handle<vector<mcparticle>>(output);
+        h_output_bool = in.get_handle<bool>(output);
+    }
     virtual void process(Event & event) override;
     
 private:
     
     float event_DRBmin;
     float aetamin, aetamax, ptmin, ptmax;
-    ra::identifier output_name;
+    std::string output;
+    
+    Event::Handle<vector<mcparticle>> h_mc_bs, h_output;
+    Event::Handle<bool> h_output_bool;
 };
 
 
@@ -53,18 +60,18 @@ filter_mcb::filter_mcb(const ptree & cfg){
     ptmin = ptree_get<float>(cfg, "ptmin", 0.0f);
     ptmax = ptree_get<float>(cfg, "ptmax", numeric_limits<float>::infinity());
     event_DRBmin = ptree_get<float>(cfg, "event_DRBmin", 0.0f);
-    output_name = ptree_get<string>(cfg, "output_name");
+    output = ptree_get<string>(cfg, "output_name");
 }
 
 void filter_mcb::process(Event & event){
-    const auto & mc_bs = event.get<vector<mcparticle>>(id::mc_bs);
-    event.set<bool>(output_name, true);
+    const auto & mc_bs = event.get(h_mc_bs);
+    event.set(h_output_bool, true);
     if(event_DRBmin > 0.0f){
         size_t nb = mc_bs.size();
         for(size_t i=0; i<nb; ++i){
             for(size_t j=i+1; j < nb; ++j){
                 if(deltaR(mc_bs[i].p4, mc_bs[j].p4) < event_DRBmin){
-                    event.set<bool>(output_name, false);
+                    event.set(h_output_bool, false);
                 }
             }
         }
@@ -76,7 +83,7 @@ void filter_mcb::process(Event & event){
             new_mc_bs.push_back(mcb);
         }
     }
-    event.set<vector<mcparticle>>(output_name, new_mc_bs);
+    event.set(h_output, std::move(new_mc_bs));
 }
 
 

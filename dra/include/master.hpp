@@ -116,7 +116,15 @@ public:
 };
 
 
-
+// The master, giving work to workers.
+// There are three conditions the IOManager::process for the master stops (beyond the external methods of kill -9 or stopping the IOManager directly):
+// * by calling Master::stop. This will send a stop command to all workers as soon as possible to let them close
+//   their (unmerged) output file cleanly.
+// * by calling Master::abort. This will stop processing immediately, not sending any commands to the workers.
+// * if all data is processed completely
+//
+// To distinguish between these conditions, use the 'stopped', 'aborted', and 'completed' methods, respectively. Note
+// that completed implies stopped.
 class Master {
 public:
     typedef ::dc::WorkerId WorkerId;
@@ -150,18 +158,27 @@ public:
         return nbytes_read_;
     }
     
-    bool failed() const {
-        return failed_;
+    void stop();
+    
+    void abort();
+    
+    bool aborted() const {
+        return aborted_;
+    }
+    
+    bool stopped() const {
+        return stopped_;
+    }
+    
+    bool completed() const {
+        return completed_;
     }
     
     // note: the observer will also be added to the SwarmManager as SwarmObserver.
     void add_observer(const std::shared_ptr<MasterObserver> & observer);
     
-    void abort();
-    
+    // start sending work to the workers via the worker channels.
     void start();
-    
-    void stop();
     
 private:
     std::unique_ptr<Configure> generate_configure(const WorkerId & wid);
@@ -207,8 +224,9 @@ private:
     
     std::vector<std::shared_ptr<MasterObserver>> observers;
     
-    bool stopping;
-    bool failed_;
+    bool stopped_;
+    bool aborted_;
+    bool completed_;
 };
 
 

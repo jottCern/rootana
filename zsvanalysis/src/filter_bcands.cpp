@@ -6,11 +6,9 @@
 #include "base/include/utils.hpp"
 
 #include "zsvtree.hpp"
-#include "eventids.hpp"
 
 using namespace ra;
 using namespace std;
-using namespace zsv;
 
 /** \brief Filter the b candidates vector in the event, only keeping B candidates with certain kinematics
  * 
@@ -30,13 +28,18 @@ class filter_bcands: public AnalysisModule {
 public:
     
     explicit filter_bcands(const ptree & cfg);
-    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out) override {}
+    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out) override {
+        h_output = in.get_handle<vector<Bcand>>(output);
+        h_selected_bcands = in.get_handle<vector<Bcand>>("selected_bcands");
+    }
     virtual void process(Event & event) override;
     
 private:
     float aetamin, aetamax, ptmin, ptmax;
     int ntracksmin;
-    ra::identifier output;
+    std::string output;
+    
+    Event::Handle<vector<Bcand>> h_selected_bcands, h_output;
 };
 
 
@@ -50,7 +53,7 @@ filter_bcands::filter_bcands(const ptree & cfg){
 }
 
 void filter_bcands::process(Event & event){
-    const auto & bcands = event.get<vector<Bcand>>(id::selected_bcands);
+    const auto & bcands = event.get<vector<Bcand>>(h_selected_bcands);
     vector<Bcand> new_bcands;
     
     for(auto & b : bcands){
@@ -58,7 +61,7 @@ void filter_bcands::process(Event & event){
             new_bcands.push_back(b);
         }
     }
-    event.set(output, move(new_bcands));
+    event.set(h_output, move(new_bcands));
 }
 
 

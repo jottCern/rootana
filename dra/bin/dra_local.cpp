@@ -29,6 +29,7 @@ int main(int argc, char ** argv){
     try{
         std::shared_ptr<ProgressPrinter> pp(new ProgressPrinter());
         if(!dra::local_run(argv[1], nworkers, pp)){
+            cerr << endl << "WARNING: Dataset has NOT been processed completely (see above / log for details)" << endl;
             exit(1);
         }
     }

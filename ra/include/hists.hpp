@@ -48,7 +48,7 @@ public:
     
     // the functor should return not-a-number to prevent filling
     typedef std::function<double (Event &)> event_functor;
-    void book_1d_autofill(event_functor f, const char * name, int nbins, double xmin, double xmax, boost::optional<identifier> weight = fwid::weight);
+    void book_1d_autofill(event_functor f, const char * name, int nbins, double xmin, double xmax, Event::Handle<double> weight_handle = Event::Handle<double>());
 
     // get a histogram booked with book:
     TH1 * get(const identifier & id);
@@ -62,7 +62,7 @@ private:
     
     struct autofill_histo {
         event_functor f;
-        boost::optional<identifier> weight;
+        Event::Handle<double> weight_handle;
         TH1* histo;
     };
     
@@ -117,15 +117,15 @@ private:
     struct outdir{
         std::string dirname;
         std::vector<std::unique_ptr<Hists>> hists;
-        identifier selid;
+        Event::Handle<bool> sel_handle;
     };
     ptree cfg;
     std::vector<outdir> outdirs;
     
-    static void parse_dir_cfg(const ptree & dircfg, outdir & od, const s_dataset & dataset, OutputManager & out);
+    static void parse_dir_cfg(const ptree & dircfg, outdir & od, const s_dataset & dataset, InputManager & in, OutputManager & out);
 };
 
-typedef ::Registry< ::ra::Hists, std::string, const ptree &, const std::string&, const ::ra::s_dataset &, ::ra::OutputManager &> HistsRegistry;
+typedef ::Registry< ::ra::Hists, std::string, const ptree &, const std::string&, const ::ra::s_dataset &, ::ra::InputManager &, ::ra::OutputManager &> HistsRegistry;
 
 }
 

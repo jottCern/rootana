@@ -32,10 +32,11 @@ public:
     /** \brief Declare an input variable in the event tree
      */
     template<typename T>
-    void declare_event_input(const char * branchname, const identifier & event_member_name){
-        event.set<T>(event_member_name, T());
-        void * addr = &(event.get<T>(event_member_name));
-        event.set_state<T>(event_member_name, Event::state::invalid);
+    void declare_event_input(const char * branchname, const std::string & event_member_name){
+        auto h = event.get_handle<T>(event_member_name);
+        event.set(h, T());
+        void * addr = &(event.get(h));
+        event.set_validity(h, false);
         declare_input(branchname, event_member_name, addr, typeid(T));
     }
     
@@ -44,10 +45,15 @@ public:
         declare_event_input<T>(name, name);
     }
     
+    template<typename T>
+    Event::Handle<T> get_handle(const std::string & name){
+        return event.get_handle<T>(name);
+    }
+    
 protected:
     // "low-level" access; addr has to point to a structure of type ti, which has not necessarily to be in the Event container.
     // If the data is not stored in the Event container, use event_member_name="".
-    virtual void declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti) = 0;
+    virtual void declare_input(const char * bname, const std::string & event_member_name, void * addr, const std::type_info & ti) = 0;
     
     explicit InputManager(Event & event_): event(event_){}
     Event & event;
@@ -58,8 +64,7 @@ protected:
 // This is the actual InputManager class usuall used in the framework: TODO: remove from here?
 class TTreeInputManager: public InputManager{
 public:
-    // this method simply saves all declared associations internally
-    virtual void declare_input(const char * bname, const identifier & event_member_name, void * addr, const std::type_info & ti);
+    virtual void declare_input(const char * bname, const std::string & event_member_name, void * addr, const std::type_info & ti);
     
     explicit TTreeInputManager(Event & event_, bool lazy_ = false): InputManager(event_), nentries(0), current_ientry(-1), bytes_read(0), lazy(lazy_){}
     
@@ -85,10 +90,10 @@ private:
     struct branchinfo {
         TBranch * branch;
         const std::type_info & ti; // this is always a non-pointer type.
-        identifier name; // name of the data member in the event container (is "" if addr is not in the event)
-        void * addr; // address of an object of type ti, into the event container
+        Event::RawHandle handle; // can be an invalid handle in case addr is outside the event container
+        void * addr; // address of an object of type ti, either into the event container or to somewhere else
         
-        branchinfo(TBranch * branch_, const std::type_info & ti_, const identifier & name_, void * addr_): branch(branch_), ti(ti_), name(name_), addr(addr_){}
+        branchinfo(TBranch * branch_, const std::type_info & ti_, const Event::RawHandle & handle_, void * addr_): branch(branch_), ti(ti_), handle(handle_), addr(addr_){}
     };
     
     void read_branch(branchinfo & bi);
@@ -137,11 +142,12 @@ public:
      * The variable has to exist in the Event before calling this method.
      */
     template<typename T>
-    void declare_event_output(const char * branchname, const identifier & event_member_name){
-        if(event.get_state<T>(event_member_name) == Event::state::nonexistent){
-            event.set<T>(event_member_name, T());
+    void declare_event_output(const char * branchname, const std::string & event_member_name){
+        auto h = event.get_handle<T>(event_member_name);
+        if(event.get_state(h) == Event::state::nonexistent){
+            event.set(h, T());
         }
-        const T & t = event.get<T>(event_member_name, false);
+        const T & t = event.get(h, false);
         declare_event_output(branchname, event_member_name, static_cast<const void*>(&t), typeid(T));
     }
     
@@ -168,7 +174,7 @@ public:
     virtual ~OutputManager();
     
     // low-level access:
-    virtual void declare_event_output(const char * branchname, const identifier & event_member_name, const void * addr, const std::type_info & ti) = 0;
+    virtual void declare_event_output(const char * branchname, const std::string & event_member_name, const void * addr, const std::type_info & ti) = 0;
     virtual void declare_output(const identifier & tree_id, const char * branchname, const void * t, const std::type_info & ti) = 0;
     
 protected:
@@ -181,7 +187,7 @@ protected:
 class TFileOutputManager: public OutputManager {
 public:
     virtual void put(const char * name, TH1 * t);
-    virtual void declare_event_output(const char * name, const identifier & event_member_name, const void * addr, const std::type_info & ti);
+    virtual void declare_event_output(const char * name, const std::string & event_member_name, const void * addr, const std::type_info & ti);
     virtual void declare_output(const identifier & tree_id, const char * name, const void * t, const std::type_info & ti);
     virtual void write_output(const identifier & tree_id);
     
@@ -200,7 +206,7 @@ private:
     std::unique_ptr<TFile> outfile;
     std::string event_treename;
     TTree * event_tree; // owned by outfile
-    std::vector<std::pair<ra::identifier, const std::type_info*>> event_members; // list of event members to read before the write; important for lazy read
+    std::vector<std::pair<Event::RawHandle, const std::type_info*>> event_members; // list of event members to read before the write; important for lazy read
     std::map<identifier, TTree*> trees; // additional trees beyond the event tree
     std::list<void*> ptrs; // keep a list of pointers, so we can give root the *address* of the pointer
 };

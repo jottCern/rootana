@@ -32,7 +32,7 @@ public:
 };
 
 
-typedef ::Registry<Selection, std::string, const ptree &, OutputManager &> SelectionRegistry;
+typedef ::Registry<Selection, std::string, const ptree &,  InputManager &, OutputManager &> SelectionRegistry;
 #define REGISTER_SELECTION(T) namespace { int dummy##T = ::ra::SelectionRegistry::register_<T>(#T); }
 
 
@@ -78,8 +78,8 @@ public:
     
 private:
     ptree cfg;
-    typedef std::tuple<identifier, std::unique_ptr<Selection>> id_sel;
-    std::vector<id_sel> selections;
+    typedef std::tuple<Event::Handle<bool>, std::unique_ptr<Selection>> handle_sel;
+    std::vector<handle_sel> selections;
 };
 
 
@@ -101,11 +101,13 @@ private:
 class stop_unless: public AnalysisModule {
 public:
     stop_unless(const ptree & cfg);
-    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){}
+    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out);
     virtual void process(Event & event);
     
 private:
-    identifier selection;
+    std::string s_selection;
+    Event::Handle<bool> selection;
+    Event::Handle<bool> stop_handle;
 };
 
 /** \brief Compute the logical and of several existing selections; optionally, fill a cutflow histogram
@@ -130,11 +132,12 @@ private:
  */
 class AndSelection: public Selection {
 public:
-    AndSelection(const ptree & cfg, OutputManager & out);
+    AndSelection(const ptree & cfg, InputManager & in, OutputManager & out);
     virtual bool operator()(const Event & e);
     
 private:
-    std::vector<identifier> selids;
+    std::vector<Event::Handle<bool> > sel_handles;
+    Event::Handle<double> weight_handle;
     
     TH1D * cutflow, *cutflow_raw; // histos are owned by the output file
 };
@@ -155,17 +158,17 @@ private:
  */
 class AndNotSelection: public Selection {
 public:
-    AndNotSelection(const ptree & cfg, OutputManager & out);
+    AndNotSelection(const ptree & cfg, InputManager & in, OutputManager & out);
     virtual bool operator()(const Event & e);
     
 private:
-    std::vector<identifier> selids;
+    std::vector<Event::Handle<bool> > sel_handles;
 };
 
 /// A Selection that lets all events pass by returning always true
 class PassallSelection: public Selection {
 public:
-    PassallSelection(const ptree & cfg, OutputManager & out){}
+    PassallSelection(const ptree & cfg,  InputManager & in, OutputManager & out){}
     virtual bool operator()(const Event & e){return true;}
 };
 

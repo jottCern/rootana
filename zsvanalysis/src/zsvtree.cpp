@@ -106,10 +106,18 @@ class calc_zp4: public AnalysisModule {
 public:
     
     explicit calc_zp4(const ptree & cfg){}
-    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){}
-    virtual void process(Event & event){
-        event.set<LorentzVector>(id::zp4, event.get<lepton>(id::lepton_plus).p4 + event.get<lepton>(id::lepton_minus).p4);
+    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
+        h_zp4 = in.get_handle<LorentzVector>("zp4");
+        h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+        h_lepton_minus = in.get_handle<lepton>("lepton_minus");
     }
+    virtual void process(Event & event){
+        event.set<LorentzVector>(h_zp4, event.get<lepton>(h_lepton_plus).p4 + event.get<lepton>(h_lepton_minus).p4);
+    }
+    
+private:
+    Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
+    Event::Handle<LorentzVector> h_zp4;
 };
 
 REGISTER_ANALYSIS_MODULE(calc_zp4)
