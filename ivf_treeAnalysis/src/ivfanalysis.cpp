@@ -1,5 +1,6 @@
 #include "ra/include/analysis.hpp"
 #include "ra/include/event.hpp"
+#include "ra/include/context.hpp"
 
 #include "ivftree.hpp"
 #include "ivfutils.hpp"
@@ -19,44 +20,35 @@ public:
    
     }
     
-    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out) {}
+    virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out) {
+        h_geantflags = in.get_handle<Flags>("geantflags");
+        h_decayflags = in.get_handle<Flags>("decayflags");
+        h_thisProcessFlags = in.get_handle<Flags>("thisProcessFlags");
+    }
     
     virtual void process(Event & event){
-	ID(thisProcessFlags);
-	ID(geantflags);
-	ID(decayflags);
-	
-	Flags flags = event.get<Flags>(thisProcessFlags);
-	
-	Flags new_geantflags;
-	Flags new_decayflags;
-	
-	double sumgeantdecay = 0.;
-	double sumalldecay = 0.;
-	
-	
-	for (int i = 1; i < GEANT_ARRAY_SIZE; ++i)
-	{
-	    new_geantflags.push_back(flags[i]);
-	    
-	    if (i == 4 || i == 5)
-		sumgeantdecay += flags[i];
-	}
-	
-	for (int i = GEANT_ARRAY_SIZE; i < CAT_ARRAY_SIZE; ++i)
-	{
-	    if (i != 19)
-	    {
-		new_decayflags.push_back(flags[i]);
-		sumalldecay += flags[i];
-	    }
-	}
-	
-	if (flags[18] != 0 && sumalldecay < sumgeantdecay-0.00001)
-	{
-	    new_decayflags[0] += (sumgeantdecay-sumalldecay);
-// 	    cout << endl << "+++++++PRIMARY DECAY+++++++++";
-	}
+        const Flags & flags = event.get(h_thisProcessFlags);
+    
+        Flags new_geantflags;
+        Flags new_decayflags;
+        double sumgeantdecay = 0.;
+        double sumalldecay = 0.;
+        for (int i = 1; i < GEANT_ARRAY_SIZE; ++i){
+            new_geantflags.push_back(flags[i]);
+            if (i == 4 || i == 5)
+                sumgeantdecay += flags[i];
+        }
+
+        for (int i = GEANT_ARRAY_SIZE; i < CAT_ARRAY_SIZE; ++i){
+            if (i != 19){
+                new_decayflags.push_back(flags[i]);
+                sumalldecay += flags[i];
+            }
+        }
+
+        if (flags[18] != 0 && sumalldecay < sumgeantdecay-0.00001){
+            new_decayflags[0] += (sumgeantdecay-sumalldecay);
+        }
 	
 // 	if (sumalldecay > sumgeantdecay+0.00001)
 // 	{
@@ -77,17 +69,12 @@ public:
 // 	    
 // 	    cout << endl << endl;
 // 	}
-	
-	
-	
-	event.set<Flags>(geantflags, new_geantflags);
-	event.set<Flags>(decayflags, new_decayflags);
-	
-        
+        event.set(h_geantflags, move(new_geantflags));
+        event.set(h_decayflags, move(new_decayflags));
     }
     
 private:
-
+    Event::Handle<Flags> h_geantflags, h_decayflags, h_thisProcessFlags;
 };
 
 REGISTER_ANALYSIS_MODULE(SetProperFlags)

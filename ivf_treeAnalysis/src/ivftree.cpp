@@ -8,20 +8,13 @@
 using namespace ra;
 using namespace std;
 
-//#define ID(name) identifier name(#name)
-
 class ivftree: public AnalysisModule {
 public:
     
     explicit ivftree(const ptree & cfg){}
     virtual void begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out);
     
-    virtual void process(Event & event){
-//         ID(lepton_plus);
-//         ID(lepton_minus);
-//         ID(zp4);
-//         event.set<LorentzVector>(zp4, event.get<lepton>(lepton_plus).p4 + event.get<lepton>(lepton_minus).p4);
-    }
+    virtual void process(Event & event){}
 };
 
 void ivftree::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
