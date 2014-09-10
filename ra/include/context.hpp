@@ -13,19 +13,20 @@
 namespace ra{
    
 
-/** \brief Manage Event input from a TTree
+/** \brief Manage Event input from some source.
  * 
  * Typical usage is in AnalysisModule::start_dataset:
  * \code
  * in.declare_input<int>("my_int_branch");
+ * handle = event.get_handle<int>("my_int_branch");
  * \endcode
  * 
  * The content of this can then be retrieved later in AnalysisModule::process:
  * \code
- *  event.get<int>("my_int_branch");
+ *  event.get(handle);
  * \endcode
  */
-class InputManager{
+class InputManager {
 public:
     virtual ~InputManager();
     
@@ -59,51 +60,6 @@ protected:
     Event & event;
 };
 
-
-
-// This is the actual InputManager class usuall used in the framework: TODO: remove from here?
-class TTreeInputManager: public InputManager{
-public:
-    virtual void declare_input(const char * bname, const std::string & event_member_name, void * addr, const std::type_info & ti);
-    
-    explicit TTreeInputManager(Event & event_, bool lazy_ = false): InputManager(event_), nentries(0), current_ientry(-1), bytes_read(0), lazy(lazy_){}
-    
-    // call SetBranchAddress for all saved 'declare_input' calls.
-    void setup_tree(TTree * tree);
-    
-    // returns the number of read bytes (uncompressed, as by TBranch::GetEntry).
-    void read_entry(size_t ientry);
-    
-    // get the number of bytes read since the last time this function was called
-    size_t nbytes_read(){
-        size_t result = bytes_read;
-        bytes_read = 0;
-        return result;
-    }
-    
-    // the number of entries in the setup tree
-    size_t entries() const{
-        return nentries;
-    }
-    
-private:
-    struct branchinfo {
-        TBranch * branch;
-        const std::type_info & ti; // this is always a non-pointer type.
-        Event::RawHandle handle; // can be an invalid handle in case addr is outside the event container
-        void * addr; // address of an object of type ti, either into the event container or to somewhere else
-        
-        branchinfo(TBranch * branch_, const std::type_info & ti_, const Event::RawHandle & handle_, void * addr_): branch(branch_), ti(ti_), handle(handle_), addr(addr_){}
-    };
-    
-    void read_branch(branchinfo & bi);
-    
-    size_t nentries;
-    size_t current_ientry;
-    size_t bytes_read;
-    std::map<std::string, branchinfo> bname2bi;
-    bool lazy;
-};
 
 /** \brief Utility class for declaring histogram output
  */

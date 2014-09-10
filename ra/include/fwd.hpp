@@ -9,9 +9,9 @@ namespace ra{
     class Configuration;
     class OutputManager;
     class InputManager;
+    class InputManagerBackend;
     
     class TFileOutputManager;
-    class TTreeInputManager;
     
     class AnalysisModule;
     

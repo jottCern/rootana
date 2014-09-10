@@ -395,6 +395,12 @@ s_config::s_config(const std::string & filename) {
     }
     options = s_options(cfg.get_child("options"));
     modules_cfg = cfg.get_child("modules");
+    if(cfg.count("input") > 0){
+        input_cfg = cfg.get_child("input");
+    }
+    else{
+        input_cfg.add_child("type", ptree("root"));
+    }
     // read in all 'dataset' and 'dataset_output_from' statements:
     datasets = get_datasets(cfg);
     if(datasets.empty()){

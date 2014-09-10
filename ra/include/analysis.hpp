@@ -52,22 +52,16 @@ public:
     
     /** \brief Method called whenever a new input file is opened.
      * 
-     * Whenever a new input file is opened, the framework sets up the TTree according to the information
-     * provided by the AnalysisModules via the InputManager. Before setting up the TTree, this
+     * Whenever a new input file is opened, the framework sets up the input according to the information
+     * provided by the AnalysisModules via the InputManager. Before setting up the input, this
      * method is called to allow some special handling of information in the input file.
      * 
-     * NOTE: For simple analyses, it should not be necessary to override this method, as all required information
-     * is usually on a per-event basis and reading the event stream is handled by the framework (and by the \c InputManager, see
-     * \c begin_dataset). Therefore, this method should only by used if it is necessary to access information
+     * NOTE: Usually, it should not be necessary to override this method, as all required information
+     * can be read via the framework via the \c InputManager.
+     * Therefore, this method should only by used if it is necessary to access information
      * in the input file that is *not* part of this per-event information.
-     * While it is possible to access the input event tree, some care should be taken: after
-     * \c begin_in_file returns and before the first \c process call is made, the framework sets up the input tree
-     * according to the declarations provided to the \c InputManager which might replace connections
-     * (TTree::SetAddress) made here. Therefore, try to avoid touching the input event tree; if you do, do not
-     * expect that anything done here has any effect after this method returns.
      */
-    virtual void begin_in_file(TFile & input_file){}
-    
+    virtual void begin_in_file(const std::string & input_file){}
     
     /** \brief Return whether this AnalysisModule can be considered safe for parallel/distributed execution
      * 

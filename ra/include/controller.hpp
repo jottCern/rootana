@@ -79,13 +79,13 @@ private:
     std::string outfile_path;
     std::unique_ptr<ra::TFileOutputManager> out;
     std::unique_ptr<ra::Event> event;
-    std::unique_ptr<ra::TTreeInputManager> in;
+    std::unique_ptr<ra::InputManagerBackend> in;
     
     Event::Handle<bool> handle_stop;
     
     // per-file:
     size_t current_ifile;
-    std::unique_ptr<TFile> infile;
+    //std::unique_ptr<TFile> infile;
     size_t infile_nevents;
 };
 

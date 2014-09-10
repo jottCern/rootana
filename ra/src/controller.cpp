@@ -1,7 +1,7 @@
 #include "controller.hpp"
 #include "utils.hpp"
 #include "config.hpp"
-#include "context.hpp"
+#include "context-backend.hpp"
 #include "analysis.hpp"
 
 #include "TFile.h"
@@ -37,7 +37,7 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
     LOG_DEBUG("start_dataset idataset = " << idataset << "; outfile = " << new_outfile_path);
     // cleanup previous per-file info:
     current_ifile = -1;
-    infile.reset();
+    //infile.reset();
     // cleanup previous per-dataset info, in reverse order of construction:
     in.reset();
     event.reset();
@@ -59,7 +59,8 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
     event.reset(new Event());
     handle_stop = event->get_handle<bool>("stop");
     out.reset(new TFileOutputManager(move(outfile), dataset.treename, *event));
-    in.reset(new TTreeInputManager(*event, config.options.lazy_read));
+    string input_type = ptree_get<string>(config.input_cfg, "type");
+    in = InputManagerBackendRegistry::build(input_type, *event, config.input_cfg);
     for(auto & m : modules){
         m->begin_dataset(dataset, *in, *out);
     }
@@ -92,20 +93,11 @@ void AnalysisController::start_file(size_t ifile){
         throw invalid_argument("no such file in current dataset");
     }
     const auto & f = dataset.files[ifile];
-    infile.reset(new TFile(f.path.c_str(), "read"));
-    if(!infile->IsOpen()){
-        LOG_THROW("start_file: could not open '" << f.path << "' for reading");
-    }
     for(auto & m : modules){
-        m->begin_in_file(*infile);
+        m->begin_in_file(f.path);
     }
-    TTree * tree = dynamic_cast<TTree*>(infile->Get(dataset.treename.c_str()));
-    if(!tree){
-        LOG_THROW("start_file: did not find input tree '" << dataset.treename << "' in input file '" << f.path << "'");
-    }
-    in->setup_tree(tree);
+    infile_nevents = in->setup_input_file(dataset.treename, f.path);
     current_ifile = ifile;
-    infile_nevents = tree->GetEntries();
 }
 
 size_t AnalysisController::get_file_size() const{
@@ -131,7 +123,7 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
     size_t nevents_survived = 0;
     for(size_t ientry = imin; ientry < imax; ++ientry){
         try{
-            in->read_entry(ientry);
+            in->read_event(ientry);
         }
         catch(...){
             LOG_ERROR("Exception caught in read_entry while reading entry " << ientry << " of file " << current_dataset().files[current_ifile].path << "; re-throwing.");

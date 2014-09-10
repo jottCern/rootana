@@ -1,7 +1,8 @@
 #include <boost/test/unit_test.hpp>
 
 #include "event.hpp"
-#include "context.hpp"
+#include "context-backend.hpp"
+#include "config.hpp"
 #include "TFile.h"
 #include "TTree.h"
 #include "TH1D.h"
@@ -159,22 +160,15 @@ BOOST_AUTO_TEST_CASE(get_callback){
 
 
 BOOST_AUTO_TEST_CASE(read){
-    TFile f("tree.root", "read");
-    BOOST_REQUIRE(f.IsOpen());
-    TTree * tree = dynamic_cast<TTree*>(f.Get("test"));
-    BOOST_REQUIRE(tree);
-    
     // check that reading intdata works:
     Event event;
-    TTreeInputManager in(event);
-    in.declare_event_input<int>("intdata");
-    in.setup_tree(tree);
-    
+    auto in = InputManagerBackendRegistry::build("root", event, ptree());
+    in->declare_event_input<int>("intdata");
+    size_t nentries = in->setup_input_file("test", "tree.root");
     auto h_intdata = event.get_handle<int>("intdata");
-    
-    BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
+    BOOST_REQUIRE_EQUAL(nentries, size_t(100));
     for(int i=0; i<100; ++i){
-        in.read_entry(i);
+        in->read_event(i);
         int idata = event.get(h_intdata);
         BOOST_CHECK_EQUAL(idata, i+1);
     }
@@ -182,57 +176,46 @@ BOOST_AUTO_TEST_CASE(read){
 }
 
 BOOST_AUTO_TEST_CASE(read_lazy){
-    TFile f("tree.root", "read");
-    BOOST_REQUIRE(f.IsOpen());
-    TTree * tree = dynamic_cast<TTree*>(f.Get("test"));
-    BOOST_REQUIRE(tree);
-    
     Event event;
-    TTreeInputManager in(event, true);
-    in.declare_event_input<int>("intdata");
-    auto h_intdata = in.get_handle<int>("intdata");
-    in.setup_tree(tree);
-    
-    BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
+    ptree cfg;
+    cfg.add_child("lazy", ptree("true"));
+    auto in = InputManagerBackendRegistry::build("root", event, cfg);
+    in->declare_event_input<int>("intdata");
+    auto h_intdata = in->get_handle<int>("intdata");
+    size_t nentries = in->setup_input_file("test", "tree.root");
+    BOOST_REQUIRE_EQUAL(nentries, size_t(100));
     for(int i=0; i<100; ++i){
-        in.read_entry(i);
+        in->read_event(i);
         int idata = event.get(h_intdata);
         BOOST_CHECK_EQUAL(idata, i+1);
     }
     // we should have read 100 ints now:
-    BOOST_CHECK_EQUAL(in.nbytes_read(), size_t(100) * sizeof(int));
+    BOOST_CHECK_EQUAL(in->nbytes_read(), size_t(100) * sizeof(int));
 }
 
 // use inputmanager to read data without using an Event
+/*
 BOOST_AUTO_TEST_CASE(read_noevent){
-    TFile f("tree.root", "read");
-    BOOST_REQUIRE(f.IsOpen());
-    TTree * tree = dynamic_cast<TTree*>(f.Get("test"));
-    BOOST_REQUIRE(tree);
-    
     Event event;
-    TTreeInputManager in(event);
+    ptree cfg;
+    auto in = InputManagerBackendRegistry::build("root", event, cfg);
     int int_in;
-    in.declare_input("intdata", "", &int_in, typeid(int));
-    in.setup_tree(tree);
-    
-    BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
+    in->declare_input("intdata", "", &int_in, typeid(int));
+    size_t nentries = in->setup_input_file("test", "tree.root");
+    BOOST_REQUIRE_EQUAL(nentries, size_t(100));
     for(int i=0; i<100; ++i){
-        in.read_entry(i);
+        in->read_event(i);
         BOOST_CHECK_EQUAL(int_in, i+1);
     }
-}
+}*/
 
 BOOST_AUTO_TEST_CASE(read_wrong_type){
-    TFile f("tree.root", "read");
-    TTree * tree = dynamic_cast<TTree*>(f.Get("test"));
-    BOOST_REQUIRE(tree);
-    
     // it should not work to read intdata as double:
     Event event;
-    TTreeInputManager in(event);
-    in.declare_event_input<double>("intdata");
-    BOOST_CHECK_THROW(in.setup_tree(tree), std::runtime_error);
+    ptree cfg;
+    auto in = InputManagerBackendRegistry::build("root", event, cfg);
+    in->declare_event_input<double>("intdata");
+    BOOST_CHECK_THROW(in->setup_input_file("test", "tree.root"), std::runtime_error);
 }
 
 
@@ -253,17 +236,15 @@ BOOST_AUTO_TEST_CASE(outtree){
     }
     
     // check that the output file is Ok:
-    TFile f("out.root", "read");
-    TTree * tree = dynamic_cast<TTree*>(f.Get("eventtree"));
-    BOOST_REQUIRE(tree);
     Event inevent;
-    TTreeInputManager in(inevent);
-    in.declare_event_input<int>("my_int");
-    auto h_my_int = in.get_handle<int>("my_int");
-    in.setup_tree(tree);
-    BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
-    for(int i=0; i<100; ++i){
-        in.read_entry(i);
+    ptree cfg;
+    auto in = InputManagerBackendRegistry::build("root", inevent, cfg);
+    in->declare_event_input<int>("my_int");
+    auto h_my_int = in->get_handle<int>("my_int");
+    size_t nevents = in->setup_input_file("eventtree", "out.root");
+    BOOST_REQUIRE_EQUAL(nevents, size_t(100));
+    for(size_t i=0; i<nevents; ++i){
+        in->read_event(i);
         int idata = inevent.get(h_my_int);
         BOOST_CHECK_EQUAL(idata, i);
     }
@@ -287,17 +268,15 @@ BOOST_AUTO_TEST_CASE(outtree_dir){
     }
     
     // check that the output file is Ok:
-    TFile f("out.root", "read");
-    TTree * tree = dynamic_cast<TTree*>(f.Get("dir/eventtree"));
-    BOOST_REQUIRE(tree);
     Event inevent;
-    TTreeInputManager in(inevent);
-    in.declare_event_input<int>("my_int");
-    in.setup_tree(tree);
-    auto h_my_int = in.get_handle<int>("my_int");
-    BOOST_REQUIRE_EQUAL(in.entries(), size_t(100));
+    ptree cfg;
+    auto in = InputManagerBackendRegistry::build("root", inevent, cfg);
+    in->declare_event_input<int>("my_int");
+    size_t nevents = in->setup_input_file("dir/eventtree", "out.root");
+    auto h_my_int = in->get_handle<int>("my_int");
+    BOOST_REQUIRE_EQUAL(nevents, size_t(100));
     for(int i=0; i<100; ++i){
-        in.read_entry(i);
+        in->read_event(i);
         int idata = inevent.get(h_my_int);
         BOOST_CHECK_EQUAL(idata, i);
     }

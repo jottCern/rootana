@@ -96,6 +96,7 @@ struct s_dataset{
     size_t filenames_hash;
     
     explicit s_dataset(const ptree & cfg);
+    s_dataset(std::string name_, std::string treename_): name(std::move(name_)), treename(std::move(treename_)){}
 };
 
 struct s_logger {
@@ -124,6 +125,7 @@ struct s_config {
     s_options options;
     std::vector<s_dataset> datasets;
     ptree modules_cfg;
+    ptree input_cfg;
     
     // TODO: instead of having a ptree modules_cfg, could also make an interface to return modules
     // which would (lazily!) construct them.
