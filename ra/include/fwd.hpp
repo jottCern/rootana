@@ -1,6 +1,8 @@
 #ifndef RA_FWD_HPP
 #define RA_FWD_HPP
 
+#include <boost/property_tree/ptree_fwd.hpp>
+
 namespace ra{
     // event.hpp:
     class Event;
@@ -8,20 +10,20 @@ namespace ra{
     // context.hpp:
     class Configuration;
     class OutputManager;
+    class OutputManagerBackend;
     class InputManager;
     class InputManagerBackend;
     
-    class TFileOutputManager;
-    
     class AnalysisModule;
     
-    // identifier:
     class identifier;
     
     struct s_options;
     struct s_dataset;
     struct s_config;
 }
+
+using boost::property_tree::ptree;
 
 // root stuff::
 class TH1;

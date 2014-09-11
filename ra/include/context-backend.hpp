@@ -2,7 +2,6 @@
 #define RA_CONTECT_BACKEND_HPP
 
 #include "base/include/registry.hpp"
-#include "config.hpp"
 #include "context.hpp"
 
 namespace ra {
@@ -34,6 +33,24 @@ protected:
 
 typedef Registry<ra::InputManagerBackend, std::string, Event &, const ptree &> InputManagerBackendRegistry;
 #define REGISTER_INPUT_MANAGER_BACKEND(T, name) namespace { int dummy##T = ::ra::InputManagerBackendRegistry::register_<T>(name); }
+
+
+class OutputManagerBackend: public OutputManager {
+public:
+    // constructor arguments for derived classes:
+    // Event & event, const string & treename, const string & output_basename
+    // where the output_basename is the output filename without extension.
+    virtual void write_event() = 0;
+    virtual void close() = 0;
+    virtual ~OutputManagerBackend();
+    
+protected:
+    explicit OutputManagerBackend(Event & event): OutputManager(event){}
+
+};
+
+typedef Registry<ra::OutputManagerBackend, std::string, Event &, const std::string &, const std::string &> OutputManagerBackendRegistry;
+#define REGISTER_OUTPUT_MANAGER_BACKEND(T, name) namespace { int dummy##T = ::ra::OutputManagerBackendRegistry::register_<T>(name); }
 
 }
 

@@ -3,6 +3,7 @@
 #include "config.hpp"
 
 #include <boost/algorithm/string.hpp>
+#include "base/include/log.hpp"
 
 #include <string>
 #include <vector>

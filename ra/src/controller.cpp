@@ -32,9 +32,9 @@ AnalysisController::AnalysisController(const s_config & config_, bool parallel):
     }
 }
 
-void AnalysisController::start_dataset(size_t idataset, const string & new_outfile_path){
-    if(current_idataset == idataset && outfile_path == new_outfile_path) return;
-    LOG_DEBUG("start_dataset idataset = " << idataset << "; outfile = " << new_outfile_path);
+void AnalysisController::start_dataset(size_t idataset, const string & new_outfile_base){
+    if(current_idataset == idataset && outfile_base == new_outfile_base) return;
+    LOG_DEBUG("start_dataset idataset = " << idataset << "; outfile_base = " << new_outfile_base);
     // cleanup previous per-file info:
     current_ifile = -1;
     //infile.reset();
@@ -50,15 +50,14 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
         LOG_THROW("start_dataset (idataset = " << idataset << "): idataset out of range");
     }
     // initialize all per-dataset infos:
-    std::unique_ptr<TFile> outfile(new TFile(new_outfile_path.c_str(), "recreate"));
-    if(!outfile->IsOpen()){
-        LOG_THROW("could not open output file '" + new_outfile_path + "'");
-    }
-    outfile_path = new_outfile_path;
+    outfile_base = new_outfile_base;
     const s_dataset & dataset = config.datasets[current_idataset];
     event.reset(new Event());
     handle_stop = event->get_handle<bool>("stop");
-    out.reset(new TFileOutputManager(move(outfile), dataset.treename, *event));
+    
+    string output_type = ptree_get<string>(config.output_cfg, "type");
+    out = OutputManagerBackendRegistry::build(output_type, *event, dataset.treename, outfile_base);
+    
     string input_type = ptree_get<string>(config.input_cfg, "type");
     in = InputManagerBackendRegistry::build(input_type, *event, config.input_cfg);
     for(auto & m : modules){

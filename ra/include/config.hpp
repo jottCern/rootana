@@ -8,13 +8,10 @@
 #include <vector>
 #include <stdexcept>
 
-#include "base/include/registry.hpp"
-#include "base/include/log.hpp"
 #include "base/include/ptree-utils.hpp"
 #include "fwd.hpp"
 #include "utils.hpp" // for bool conversion
 
-using boost::property_tree::ptree;
 
 // This file defines the data structures containing the configuration file data. The hierarchy
 // resembles the one in the config file:
@@ -125,7 +122,7 @@ struct s_config {
     s_options options;
     std::vector<s_dataset> datasets;
     ptree modules_cfg;
-    ptree input_cfg;
+    ptree input_cfg, output_cfg;
     
     // TODO: instead of having a ptree modules_cfg, could also make an interface to return modules
     // which would (lazily!) construct them.

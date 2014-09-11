@@ -107,7 +107,7 @@ BOOST_AUTO_TEST_CASE(simple){
        AnalysisController ac(conf, false);
     
        BOOST_CHECK_THROW(ac.start_file(0), invalid_argument);
-       ac.start_dataset(0, indir + "/out.root");
+       ac.start_dataset(0, indir + "/out");
        BOOST_CHECK_THROW(ac.start_file(1), invalid_argument);
        ac.start_file(0);
        
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE(lazy){
     
     {
        AnalysisController ac(conf, false);
-       ac.start_dataset(0, indir + "/out.root");
+       ac.start_dataset(0, indir + "/out");
        ac.start_file(0);
        ac.process(0, 1000, 0);
     }
@@ -183,7 +183,7 @@ BOOST_AUTO_TEST_CASE(morefiles){
     ids_seen.clear();
     {
        AnalysisController ac(conf, false);
-       ac.start_dataset(0, indir + "/out.root");
+       ac.start_dataset(0, indir + "/out");
        ac.start_file(0);
        ac.process(0, size_t(-1));
        ac.start_file(1);

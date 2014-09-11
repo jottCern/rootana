@@ -1,10 +1,11 @@
 #ifndef RA_HISTS_HPP
 #define RA_HISTS_HPP
 
-#include "TH1.h"
 #include "context.hpp"
 #include "analysis.hpp"
+#include "config.hpp"
 #include "event.hpp"
+#include "TH1D.h"
 
 #include "base/include/registry.hpp"
 

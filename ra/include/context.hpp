@@ -1,8 +1,6 @@
 #ifndef RA_CONTEXT_HPP
 #define RA_CONTEXT_HPP
 
-#include <map>
-#include <list>
 #include <string>
 #include <type_traits>
 #include <typeinfo>
@@ -78,9 +76,9 @@ public:
 };
 
 
-/** \brief Utility class for performing TTree and histogram output to a rootfile
+/** \brief Utility class for performing event data and histogram output to the output file
  *
- * An instance of this class is passed to the AnalysisModule, where the user can declare tree and histogram output.
+ * An instance of this class is passed to the AnalysisModule, where the user can declare event and histogram output.
  *
  * There are two types of trees: event trees and user-defined trees. Event trees are managed by the framework
  * in the sense that each entry in the input event tree is processed once (by calling AnalysisModule::process)
@@ -136,35 +134,6 @@ public:
 protected:
     explicit OutputManager(Event & event_): event(event_){}
     Event & event;
-};
-
-
-// this is the framework part ...
-class TFileOutputManager: public OutputManager {
-public:
-    virtual void put(const char * name, TH1 * t);
-    virtual void declare_event_output(const char * name, const std::string & event_member_name, const void * addr, const std::type_info & ti);
-    virtual void declare_output(const identifier & tree_id, const char * name, const void * t, const std::type_info & ti);
-    virtual void write_output(const identifier & tree_id);
-    
-    void write_event();
-    
-    // write and close the underlying TFile. Any put or write after that is illegal.
-    // Called from the destructor automatically, so often no need to do it explicitly.
-    void close();
-    
-    // outfile ownership is taken by the TFileOutputManager.
-    TFileOutputManager(std::unique_ptr<TFile> outfile, const std::string & event_treename, Event & event);
-    
-    ~TFileOutputManager();
-    
-private:
-    std::unique_ptr<TFile> outfile;
-    std::string event_treename;
-    TTree * event_tree; // owned by outfile
-    std::vector<std::pair<Event::RawHandle, const std::type_info*>> event_members; // list of event members to read before the write; important for lazy read
-    std::map<identifier, TTree*> trees; // additional trees beyond the event tree
-    std::list<void*> ptrs; // keep a list of pointers, so we can give root the *address* of the pointer
 };
 
 }

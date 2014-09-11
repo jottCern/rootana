@@ -38,7 +38,7 @@ public:
     //
     // the special value idataset = size_t(-1) is used to close the current
     // dataset without initializing a new one.
-    void start_dataset(size_t idataset, const std::string & outfile_path);
+    void start_dataset(size_t idataset, const std::string & outfile_base);
     
     const s_dataset & current_dataset() const;
     
@@ -76,8 +76,8 @@ private:
     
     // per dataset:
     size_t current_idataset;
-    std::string outfile_path;
-    std::unique_ptr<ra::TFileOutputManager> out;
+    std::string outfile_base;
+    std::unique_ptr<ra::OutputManagerBackend> out;
     std::unique_ptr<ra::Event> event;
     std::unique_ptr<ra::InputManagerBackend> in;
     

@@ -223,15 +223,13 @@ BOOST_AUTO_TEST_CASE(read_wrong_type){
 BOOST_AUTO_TEST_CASE(outtree){
     { // create output file:
     Event event;
-    unique_ptr<TFile> outfile(new TFile("out.root", "recreate"));
-    TFileOutputManager fout(move(outfile), "eventtree", event);
-    OutputManager & out = fout;
+    auto out = OutputManagerBackendRegistry::build("root", event, "eventtree", "out");
     
-    out.declare_event_output<int>("my_int");
+    out->declare_event_output<int>("my_int");
     auto h_my_int = event.get_handle<int>("my_int");
     for(int i=0; i<100; ++i){
         event.get(h_my_int) = i;
-        fout.write_event();
+        out->write_event();
     }
     }
     
@@ -255,15 +253,13 @@ BOOST_AUTO_TEST_CASE(outtree){
 BOOST_AUTO_TEST_CASE(outtree_dir){
     {
     Event event;
-    unique_ptr<TFile> outfile(new TFile("out.root", "recreate"));
-    TFileOutputManager fout(move(outfile), "dir/eventtree", event);
-    OutputManager & out = fout;
+    auto out = OutputManagerBackendRegistry::build("root", event, "dir/eventtree", "out");
     
-    out.declare_event_output<int>("my_int");
+    out->declare_event_output<int>("my_int");
     auto h_my_int = event.get_handle<int>("my_int");
     for(int i=0; i<100; ++i){
         event.get(h_my_int) = i;
-        fout.write_event();
+        out->write_event();
     }
     }
     
@@ -284,15 +280,14 @@ BOOST_AUTO_TEST_CASE(outtree_dir){
 
 
 BOOST_AUTO_TEST_CASE(outhist){
-    unique_ptr<TFile> outfile(new TFile("outhist.root", "recreate"));
     Event event;
-    TFileOutputManager fout(move(outfile), "eventtree", event);
+    auto out = OutputManagerBackendRegistry::build("root", event, "eventtree", "outhist");
     
     TH1D * histo = new TH1D("h1", "h1", 100, 0, 1);
-    fout.put("histname", histo);
+    out->put("histname", histo);
     histo->Fill(0.5);
     
-    fout.close();
+    out->close();
     
     // check that h1 was written as "outhist":
     TFile f("outhist.root", "read");
@@ -302,15 +297,14 @@ BOOST_AUTO_TEST_CASE(outhist){
 }
 
 BOOST_AUTO_TEST_CASE(outhist_dir){
-    unique_ptr<TFile> outfile(new TFile("outhist_dir.root", "recreate"));
     Event event;
-    TFileOutputManager fout(move(outfile), "eventtree", event);
+    auto out = OutputManagerBackendRegistry::build("root", event, "eventtree", "outhist_dir");
     
     TH1D * histo = new TH1D("h1", "h1", 100, 0, 1);
-    fout.put("dir1/dir2/dir3/histname", histo);
+    out->put("dir1/dir2/dir3/histname", histo);
     histo->Fill(0.5);
     
-    fout.close();
+    out->close();
     
     // check that h1 was written as "outhist":
     TFile f("outhist_dir.root", "read");

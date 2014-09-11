@@ -30,7 +30,8 @@ public:
     bool stopped_successfully() const;
     
 private:
-    std::string get_outfilename(size_t idataset, int iworker);
+    std::string get_outfilename_base(size_t idataset, int iworker);
+    std::string get_outfilename_full(size_t idataset, int iworker);
     void check_filenames_hash(size_t master_hash) const;
     
     dc::WorkerManager wm;

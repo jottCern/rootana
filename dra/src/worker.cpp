@@ -29,9 +29,15 @@ std::unique_ptr<dc::Message> Worker::configure(const Configure & conf){
     return unique_ptr<Message>();
 }
 
-std::string Worker::get_outfilename(size_t idataset, int iw){
+std::string Worker::get_outfilename_base(size_t idataset, int iw){
     stringstream outfilename;
-    outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << iw << ".root";
+    outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << iw;
+    return outfilename.str();
+}
+
+std::string Worker::get_outfilename_full(size_t idataset, int iw){
+    stringstream outfilename;
+    outfilename << get_outfilename_base(idataset, iw) << ".root";
     return outfilename.str();
 }
 
@@ -55,7 +61,7 @@ std::unique_ptr<dc::Message> Worker::process(const Process & p){
     assert(config);
     
     // init dataset:
-    controller->start_dataset(p.idataset, get_outfilename(p.idataset, iworker));
+    controller->start_dataset(p.idataset, get_outfilename_base(p.idataset, iworker));
     check_filenames_hash(p.files_hash);
     
     // init input file:
@@ -86,8 +92,8 @@ void Worker::signal_stop(){
 std::unique_ptr<dc::Message> Worker::merge(const Merge & m){
     LOG_INFO("iworker = " << iworker << ": merge entered with other iworker1=" << m.iworker1 << "; iworker2 = " << m.iworker2);
     assert(m.iworker1 != m.iworker2);
-    string file1 = get_outfilename(m.idataset, m.iworker1);
-    string file2 = get_outfilename(m.idataset, m.iworker2);
+    string file1 = get_outfilename_full(m.idataset, m.iworker1);
+    string file2 = get_outfilename_full(m.idataset, m.iworker2);
     ra::merge_rootfiles(file1, {file2});
     if(!config->options.keep_unmerged){
         int res = unlink(file2.c_str());

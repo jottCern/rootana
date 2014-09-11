@@ -3,9 +3,6 @@
 
 #include "fwd.hpp"
 #include "base/include/registry.hpp"
-#include <boost/property_tree/ptree.hpp>
-
-using boost::property_tree::ptree;
 
 namespace ra {
     

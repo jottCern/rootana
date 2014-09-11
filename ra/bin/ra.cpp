@@ -30,7 +30,7 @@ void run(const s_config & config){
     for(size_t idataset = 0; idataset < config.datasets.size(); idataset ++){
         if(do_stop) break;
         auto & dataset = config.datasets[idataset];
-        string outfilename = config.options.output_dir + "/" + dataset.name + ".root";
+        string outfilename = config.options.output_dir + "/" + dataset.name;
         controller.start_dataset(idataset, outfilename);
         std::unique_ptr<progress_bar> p(new progress_bar("Progress for dataset '%(dataset)s': files: %(files)4ld / %(files_total)4ld; events: %(events)10ld (%(events)|rate|7.1f/s); data: %(mbytes)7.2f MB (%(mbytes)|rate|5.2fMB/s)"));
         identifier events("events");

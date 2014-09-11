@@ -401,6 +401,12 @@ s_config::s_config(const std::string & filename) {
     else{
         input_cfg.add_child("type", ptree("root"));
     }
+    if(cfg.count("output") > 0){
+        output_cfg = cfg.get_child("output");
+    }
+    else{
+        output_cfg.add_child("type", ptree("root"));
+    }
     // read in all 'dataset' and 'dataset_output_from' statements:
     datasets = get_datasets(cfg);
     if(datasets.empty()){

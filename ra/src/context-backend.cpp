@@ -3,3 +3,4 @@
 using namespace ra;
 
 InputManagerBackend::~InputManagerBackend(){}
+OutputManagerBackend::~OutputManagerBackend(){}
