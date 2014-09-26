@@ -51,6 +51,9 @@ void run(const s_config & config){
             while(true){
                 if(do_stop || interrupted) break;
                 size_t imax = min<size_t>(imin + config.options.blocksize, nevents);
+                if(config.options.maxevents_hint > 0){
+                    imax = min<size_t>(imax, imin + config.options.maxevents_hint - nevents_done);
+                }
                 if(imin == imax) break;
                 AnalysisController::ProcessStatistics s;
                 controller.process(imin, imax, &s);
