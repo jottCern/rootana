@@ -7,6 +7,6 @@ USERLDFLAGS += $(ROOT_LDFLAGS) -lbase
 
 include ../Makefile.rules
 
-ra: .bin/ra.o
+ra: .bin/ra.o ../lib/libra.so
 	$(EXE_CMD) -lra
 
