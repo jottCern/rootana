@@ -47,7 +47,7 @@ private:
     
     TH1D * sf_out;
     
-    Event::Handle<double> h_weight, h_musf;
+    Event::Handle<double> h_weight, h_musf, h_musf_error_id, h_musf_error_iso, h_musf_error_trigger;
     Event::Handle<lepton> h_lepton_minus, h_lepton_plus;
 };
 
@@ -80,7 +80,8 @@ unique_ptr<TGraphAsymmErrors> get_tg(const string & filename, const string & nam
     return result;
 }
 
-float get_sf(float eta, float pt, const vector<TGraphAsymmErrors*> & sf_eta_pt, const vector<float> & max_abseta){
+// get pair of (value, error) of scale factor
+pair<float, float> get_sf(float eta, float pt, const vector<TGraphAsymmErrors*> & sf_eta_pt, const vector<float> & max_abseta){
     eta = fabs(eta);
     assert(max_abseta.size() == sf_eta_pt.size());
     size_t i = 0;
@@ -99,14 +100,17 @@ float get_sf(float eta, float pt, const vector<TGraphAsymmErrors*> & sf_eta_pt, 
     int n = tg->GetN();
     while(j < n && pt > x[j] + ex_high[j]) ++j;
     if(j==n) j = n-1;
-    return tg->GetY()[j];
+    float value = tg->GetY()[j];
+    float error = 0.5 * (tg->GetErrorYlow(j) + tg->GetErrorYhigh(j));
+    return pair<float, float>(value, error);
 }
 
 }
 
 dimusf::dimusf(const ptree & cfg){    
     string trigger_filename = resolve_file("MuHLTEfficiencies_Run_2012ABCD_53X_DR03-2.root");
-    sf_dimutrigger = get_th2f(trigger_filename, "DATA_over_MC_Mu17Mu8_Tight_Mu1_20ToInfty_&_Mu2_20ToInfty_with_SYST_uncrt");
+    //sf_dimutrigger = get_th2f(trigger_filename, "DATA_over_MC_Mu17Mu8_Tight_Mu1_20ToInfty_&_Mu2_20ToInfty_with_SYST_uncrt");
+    sf_dimutrigger = get_th2f(trigger_filename, "DATA_over_MC_Mu17Mu8_OR_Mu17TkMu8_Tight_Mu1_20ToInfty_&_Mu2_20ToInfty_with_SYST_uncrt");
     
     string id_filename = resolve_file("MuonEfficiencies_Run2012ReReco_53X.root");
     sf_id_lt09 = get_tg(id_filename, "DATA_over_MC_Tight_pt_abseta<0.9");
@@ -131,6 +135,9 @@ void dimusf::begin_dataset(const s_dataset & dataset, InputManager & in, OutputM
     h_musf = in.get_handle<double>("musf");
     h_lepton_plus = in.get_handle<lepton>("lepton_plus");
     h_lepton_minus = in.get_handle<lepton>("lepton_minus");
+    h_musf_error_id = in.get_handle<double>("musf_id");
+    h_musf_error_iso = in.get_handle<double>("musf_iso");
+    h_musf_error_trigger = in.get_handle<double>("musf_trigger");
 }
 
 void dimusf::process(Event & event){
@@ -141,6 +148,7 @@ void dimusf::process(Event & event){
     const auto & lm = event.get<lepton>(h_lepton_minus);
     
     double total_sf = 1.0;
+    double trigger_sf_error = 0.0, id_sf_error = 0.0, iso_sf_error = 0.0; // relative errors of these parts of the total sf
     
     // Dimuon trigger scale factor. NOTE: currently no scale factor for mu leg of mu-e trigger, but maybe not needed(?)
     if(abs(lp.pdgid) == 13 && abs(lm.pdgid) == 13){
@@ -151,22 +159,34 @@ void dimusf::process(Event & event){
             swap(eta_larger, eta_smaller);
         }
         int ibin_trigger = sf_dimutrigger->FindBin(eta_larger, eta_smaller);
-        total_sf *= sf_dimutrigger->GetBinContent(ibin_trigger);
+        double trigger_sf = sf_dimutrigger->GetBinContent(ibin_trigger);
+        total_sf *= trigger_sf;
+        // relative error on trigger scale factor
+        trigger_sf_error = sf_dimutrigger->GetBinError(ibin_trigger) / trigger_sf;
     }
     
     // lp scale factor, if it's a muon:
     if(abs(lp.pdgid)==13){
-        // id, iso:
-        total_sf *= get_sf(lp.p4.eta(), lp.p4.pt(), {sf_id_lt09.get(), sf_id_09t12.get(), sf_id_12t21.get(), sf_id_21t24.get()}, {0.9f, 1.2f, 2.1f, 2.401f});
-        total_sf *= get_sf(lp.p4.eta(), lp.p4.pt(), {sf_iso_lt09.get(), sf_iso_09t12.get(), sf_iso_12t21.get(), sf_iso_21t24.get()}, {0.9f, 1.2f, 2.1f, 2.401f});
+        auto sf_id_error = get_sf(lp.p4.eta(), lp.p4.pt(), {sf_id_lt09.get(), sf_id_09t12.get(), sf_id_12t21.get(), sf_id_21t24.get()}, {0.9f, 1.2f, 2.1f, 2.401f});
+        auto sf_iso_error = get_sf(lp.p4.eta(), lp.p4.pt(), {sf_iso_lt09.get(), sf_iso_09t12.get(), sf_iso_12t21.get(), sf_iso_21t24.get()}, {0.9f, 1.2f, 2.1f, 2.401f});
+        total_sf *= sf_id_error.first * sf_iso_error.first;
+        id_sf_error += sf_id_error.second / sf_id_error.first;
+        iso_sf_error += sf_iso_error.second / sf_iso_error.first;
     }
     if(abs(lm.pdgid)==13){
-        total_sf *= get_sf(lm.p4.eta(), lm.p4.pt(), {sf_id_lt09.get(), sf_id_09t12.get(), sf_id_12t21.get(), sf_id_21t24.get()}, {0.9f, 1.2f, 2.1f, 2.401f});
-        total_sf *= get_sf(lm.p4.eta(), lm.p4.pt(), {sf_iso_lt09.get(), sf_iso_09t12.get(), sf_iso_12t21.get(), sf_iso_21t24.get()}, {0.9f, 1.2f, 2.1f, 2.401f});
+        auto sf_id_error = get_sf(lm.p4.eta(), lm.p4.pt(), {sf_id_lt09.get(), sf_id_09t12.get(), sf_id_12t21.get(), sf_id_21t24.get()}, {0.9f, 1.2f, 2.1f, 2.401f});
+        auto sf_iso_error = get_sf(lm.p4.eta(), lm.p4.pt(), {sf_iso_lt09.get(), sf_iso_09t12.get(), sf_iso_12t21.get(), sf_iso_21t24.get()}, {0.9f, 1.2f, 2.1f, 2.401f});
+        total_sf *= sf_id_error.first * sf_iso_error.first;
+        // Note: error is assumed to be fully correlated for the two muons, so add linearly (not in quadrature):
+        id_sf_error += sf_id_error.second / sf_id_error.first;
+        iso_sf_error += sf_iso_error.second / sf_iso_error.first;
     }
     
     sf_out->Fill(total_sf);
     event.set(h_musf, total_sf);
+    event.set(h_musf_error_id, id_sf_error);
+    event.set(h_musf_error_iso, iso_sf_error);
+    event.set(h_musf_error_trigger, trigger_sf_error);
     event.get<double>(h_weight) *= total_sf;
 }
 

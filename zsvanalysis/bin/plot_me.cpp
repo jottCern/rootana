@@ -3,16 +3,18 @@
 using namespace std;
 
 int main(){
-    const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/plot_me/";
+    const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/recoplots/";
     shared_ptr<ProcessHistograms> top(new ProcessHistogramsTFile({inputdir + "ttbar.root", inputdir + "st*.root"}, "top"));
     shared_ptr<ProcessHistograms> mue(new ProcessHistogramsTFile({inputdir + "mue*.root"}, "mue"));
     
-    Histogram ptjp = top->get_histogram("all", "ptjp");
-    Histogram ptjp_mcb = top->get_histogram("all", "ptjp_mcb_r3");
-    Histogram ptjp_bc_r2 = top->get_histogram("all", "ptjp_bc_r3");
+    selection_type selection = "presel_me";
     
-    Histogram data_ptjp = mue->get_histogram("all", "ptjp");
-    Histogram data_ptjp_bc_r2 = mue->get_histogram("all", "ptjp_bc_r3");
+    Histogram ptjp = top->get_histogram(selection, "ptjp");
+    Histogram ptjp_mcb = top->get_histogram(selection, "ptjp_mcb_r3");
+    Histogram ptjp_bc_r2 = top->get_histogram(selection, "ptjp_bc_r3");
+    
+    Histogram data_ptjp = mue->get_histogram(selection, "ptjp");
+    Histogram data_ptjp_bc_r2 = mue->get_histogram(selection, "ptjp_bc_r3");
     
     TH1* h_ptjp = ptjp.histo.get();
     TH1* h_ptjp_mcb = ptjp_mcb.histo.get();

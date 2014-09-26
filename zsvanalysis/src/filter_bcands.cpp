@@ -21,8 +21,10 @@ using namespace std;
  * aetamax 2.0 ; optional, default: infinity
  * ptmin 10.0  ; optional, default: 0.0
  * ptmax 20.0  ; optional, default: infinity
- * ntracksmin 3 ; optional, default is 0
+ * tight true ; optional, default is false
  * \endcode
+ * 
+ * \c tight means to require at least 5 tracks if the B candidate consists of 2 vertices.
  */
 class filter_bcands: public AnalysisModule {
 public:
@@ -37,6 +39,7 @@ public:
 private:
     float aetamin, aetamax, ptmin, ptmax;
     int ntracksmin;
+    bool tight;
     std::string output;
     
     Event::Handle<vector<Bcand>> h_selected_bcands, h_output;
@@ -50,6 +53,7 @@ filter_bcands::filter_bcands(const ptree & cfg){
     ptmax = ptree_get<float>(cfg, "ptmax", numeric_limits<float>::infinity());
     ntracksmin = ptree_get<int>(cfg, "ntracksmin", 0);
     output = ptree_get<string>(cfg, "output");
+    tight = ptree_get<bool>(cfg, "tight", false);
 }
 
 void filter_bcands::process(Event & event){
@@ -57,7 +61,8 @@ void filter_bcands::process(Event & event){
     vector<Bcand> new_bcands;
     
     for(auto & b : bcands){
-        if(fabs(b.flightdir.eta()) >= aetamin && fabs(b.flightdir.eta()) < aetamax && b.p4.pt() >= ptmin && b.p4.pt() < ptmax && b.ntracks >= ntracksmin){
+        if(fabs(b.flightdir.eta()) >= aetamin && fabs(b.flightdir.eta()) < aetamax && b.p4.pt() >= ptmin && b.p4.pt() < ptmax &&
+           (!tight || b.nv==1 || b.ntracks >= 5)){
             new_bcands.push_back(b);
         }
     }

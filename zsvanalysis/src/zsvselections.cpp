@@ -149,3 +149,66 @@ private:
 
 
 REGISTER_SELECTION(LeptonFlavorSelection)
+
+
+class LeptonTriggerMatchSelection: public Selection{
+public:
+    LeptonTriggerMatchSelection(const ptree & cfg, InputManager & in, OutputManager &){
+        h_lepton_minus = in.get_handle<lepton>("lepton_minus");
+        h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+    }
+    
+    bool operator()(const Event & event){
+        return event.get(h_lepton_plus).trigger_matched && event.get(h_lepton_minus).trigger_matched;
+    }
+    
+private:
+     Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
+};
+
+REGISTER_SELECTION(LeptonTriggerMatchSelection)
+
+
+class Muon21Selection: public Selection{
+public:
+    Muon21Selection(const ptree & cfg, InputManager & in, OutputManager &){
+        h_lepton_minus = in.get_handle<lepton>("lepton_minus");
+        h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+    }
+    
+    bool operator()(const Event & event){
+        const auto & lp = event.get(h_lepton_plus);
+        if(abs(lp.pdgid)==13 && fabs(lp.p4.eta()) > 2.1) return false;
+        const auto & lm = event.get(h_lepton_minus);
+        if(abs(lm.pdgid)==13 && fabs(lm.p4.eta()) > 2.1) return false;
+        return true;
+    }
+    
+private:
+     Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
+};
+
+REGISTER_SELECTION(Muon21Selection)
+
+
+
+class HardLeptonSelection: public Selection{
+public:
+    HardLeptonSelection(const ptree & cfg, InputManager & in, OutputManager &){
+        h_lepton_minus = in.get_handle<lepton>("lepton_minus");
+        h_lepton_plus = in.get_handle<lepton>("lepton_plus");
+    }
+    
+    bool operator()(const Event & event){
+        const auto & lp = event.get(h_lepton_plus);
+        if(fabs(lp.p4.eta()) > 2.0 || lp.p4.pt() < 30.0) return false;
+        const auto & lm = event.get(h_lepton_minus);
+        if(fabs(lm.p4.eta()) > 2.0 || lm.p4.pt() < 30.0) return false;
+        return true;
+    }
+    
+private:
+     Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
+};
+
+REGISTER_SELECTION(HardLeptonSelection)

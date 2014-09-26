@@ -66,18 +66,18 @@ int main(){
     
        
     // 1. shape plots for all histograms, comparing processes:
-    /*Formatters formatters(formatters_x);
+    Formatters formatters(formatters_x);
     //formatters.add("*", SetLineColor(1));
-    formatters.add<SetFillColor>("ttbar:", 810) ("dy:", kBlue);
-    //formatters.add<SetLineColor>("ttbar:", 810) ("dy:", 414) ("dyexcl:", kMagenta);
+    //formatters.add<SetFillColor>("ttbar:", 810) ("dy:", kBlue);
+    formatters.add<SetLineColor>("ttbar:", 810) ("dy:", 414) ("dyexcl:", kMagenta);
     formatters.add<SetLineWidth>("*", 2);
     formatters.add<SetLegends>("ttbar:", "t#bar{t}+Jets", "$\\ttbar$") ("dy:", "Z/#gamma*+Jets (MG)", "$Z/\\gamma^*$+Jets");
     formatters.add<SetOption>("*", "ytext", "events");
     Plotter p1(outputdir, {ttbar, dy}, formatters);
-    p1.shapeplots({"ttbar", "dy"});*/
+    p1.shapeplots({"ttbar", "dy"});
     
     
-    // 2. some efficiency comparisons
+    // 2. efficiency comparisons between different processes:
     Formatters format_eff(formatters_x);
     format_eff.add<SetLineColor>("ttbar:", 810) ("dy:", 414) ("dyexcl:", kMagenta);
     format_eff.add<SetLegends>("ttbar:", "t#bar{t}+Jets", "$\\ttbar$") ("dy:", "Z/#gamma*+Jets (MG)", "$Z/\\gamma^*$+Jets");
@@ -92,7 +92,7 @@ int main(){
     compare_eff_processes({ttbar, dy}, "mcb_pt20", "matched_mcb_eta", "mcbs_eta", format_eff, "mcb_pt20/");
     
     // 3. compare different selections for same process:
-    /*Formatters formatters_selcomp(formatters_x);
+    Formatters formatters_selcomp(formatters_x);
     formatters_selcomp.add<SetLineWidth>("*", 2);
     formatters_selcomp.add<SetLineColor>(":all/", 810) (":mcb_pt10/", 414) (":mcb_pt20/", kMagenta) (":mcb_central/", kBlue)(":mcb_forward/", kGreen);
     formatters_selcomp.add<SetLegends>(":mcb_pt20/", "p_{T}(B) > 20 GeV")(":mcb_pt10/", "p_{T}(B) > 10 GeV")(":all/", "all") (":mcb_central/", "|#eta(B)| < 1")
@@ -101,6 +101,6 @@ int main(){
     Plotter p2(outputdir, {ttbar, dy}, formatters_selcomp);
     p2.selcomp_plots({"all", "mcb_pt10", "mcb_pt20"}, {"mcbs_pt", "mcbs_eta"}, "selcomp");
     p2.selcomp_plots({"mcb_central", "mcb_forward"}, {"mcb_bcand_deta", "mcb_bcand_dphi"}, "selcomp_eta");
-    p2.selcomp_plots({"all", "mcb_pt10", "mcb_pt20"}, {"mcb_bcand_deta", "mcb_bcand_dphi"}, "selcomp_pt");*/
+    p2.selcomp_plots({"all", "mcb_pt10", "mcb_pt20"}, {"mcb_bcand_deta", "mcb_bcand_dphi"}, "selcomp_pt");
 }
 

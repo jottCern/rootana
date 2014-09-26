@@ -17,21 +17,21 @@ using namespace std;
  *
  * \code
  * type fill_response
- * genselection gen
- * recoselection full_selection
- * input_mc_bs selected_mc_bs
- * genonly_weight lumiweight
+ * genselection gen             ; name of bool event member indicating whether this event is considered 'signal' on particle level
+ * recoselection full_selection ; name of bool event member indicating whether this event has been selected on reco level
+ * input_mc_bs selected_mc_bs   ; name of vector<maprticle> event member for the particle-level B hadron information; used to compute particle-level quantities
+ * genonly_weight lumiweight    ; name of double event member for the weight to apply on gen level
+ * histos_prefix response_ee/   ; prefix of the histogram names to use in the output file
  * \endcode
  * 
- * Produces some the 2D histograms of the gen versus reco.
- * reconstructed but not generated events (in particular all backgrounds) are filled in the gen overflow bin.
+ * Produces the 2D response histograms of the gen versus reco.
+ * Reconstructed but not generated events (in particular all backgrounds) are filled in the gen overflow bin.
  * x-axis = reco, y-axis = gen
  * 
- * In addition, 1D genonly histograms are filled for signal (those will be empty for background). They correspond to
- * the generator-level distribution of the quantity. As such, they use a different weight than the overall event weight
- * as e.g. the overall event weight contains data/MC correction factors for different efficiencies which cannot (at least not
- * easily) be calculated for the non-reconstructed events. Therefore, for this histogram, the event weight saved as double
- * as genonly_weight is used; typically, this weight is simply the mc/data luminosity ratio.
+ * In addition, 1D gen-level histograms are filled for signal; those will be empty for background. They correspond to
+ * the generator-level distribution of the quantity. This is done using the genonly_weight, which should be
+ * the weight according to the data/MC luminosity ratio only, without any reconstruction-specific efficiency scale
+ * factors (such as for lepton efficiency, B efficiency, pileup, etc.).
  */
 class fill_response: public AnalysisModule {
 public:
@@ -41,9 +41,13 @@ public:
     virtual void process(Event & event);
     
 private:
+    void put(OutputManager & out, TH1 * t);
+    
     string genselection, recoselection;
     string input_mc_bs;
     string genonly_weight;
+    
+    string histos_prefix;
         
     TH2D * reco_gen_dphi, *reco_gen_dr;
     TH1D * genonly_dphi, *genonly_dr;
@@ -59,12 +63,11 @@ fill_response::fill_response(const ptree & cfg){
     recoselection = ptree_get<string>(cfg, "recoselection");
     input_mc_bs = ptree_get<string>(cfg, "input_mc_bs");
     genonly_weight = ptree_get<string>(cfg, "genonly_weight");
+    histos_prefix = ptree_get<string>(cfg, "histos_prefix");
 }
 
-namespace {
-    void put(OutputManager & out, TH1 * t){
-        out.put(t->GetName(), t);
-    }
+void fill_response::put(OutputManager & out, TH1 * t){
+    out.put((histos_prefix + t->GetName()).c_str(), t);
 }
 
 void fill_response::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
@@ -93,11 +96,10 @@ void fill_response::process(Event & event){
     
     double dphi_gen = numeric_limits<double>::infinity();
     double dr_gen = numeric_limits<double>::infinity();
-    
     double weight = event.get(h_weight);
     
     if(gen){
-        auto & mc_bs = event.get<vector<mcparticle>>(h_input_mc_bs);
+        const auto & mc_bs = event.get(h_input_mc_bs);
         if(mc_bs.size() != 2) throw runtime_error("gen-selected event but mc_bs.size() != 2!");
         dphi_gen = fabs(deltaPhi(mc_bs[0].p4, mc_bs[1].p4));
         dr_gen = deltaR(mc_bs[0].p4, mc_bs[1].p4);
@@ -106,7 +108,7 @@ void fill_response::process(Event & event){
         genonly_dr->Fill(dr_gen, w);
     }
     if(reco){
-        auto & reco_bs = event.get(h_selected_bcands);
+        const auto & reco_bs = event.get(h_selected_bcands);
         if(reco_bs.size() != 2) throw runtime_error("reco-selected event but reco_bs.size() != 2!");
         double dphi_reco = fabs(deltaPhi(reco_bs[0].flightdir, reco_bs[1].flightdir));
         double dr_reco = deltaR(reco_bs[0].flightdir, reco_bs[1].flightdir);

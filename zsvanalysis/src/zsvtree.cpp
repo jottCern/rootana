@@ -36,7 +36,9 @@ void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, Output
     if(!only_re){
         in.declare_event_input<int>("lumiNo");
 
-        in.declare_event_input<bool>("passed_reco_selection");
+        in.declare_event_input<bool>("lepton_offline");
+        in.declare_event_input<bool>("lepton_trigger");
+        in.declare_event_input<bool>("cleaning");
     
         in.declare_event_input<float>("met");
         in.declare_event_input<float>("met_phi");
@@ -61,6 +63,7 @@ void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, Output
         
         in.declare_event_input<vector<mcparticle>>("mc_bs");
         in.declare_event_input<vector<mcparticle>>("mc_cs");
+        in.declare_event_input<vector<mcparticle>>("mc_partons");
     }
     
     if(out){
@@ -70,7 +73,9 @@ void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, Output
         if(!only_re){
             out_.declare_event_output<int>("lumiNo");
 
-            out_.declare_event_output<bool>("passed_reco_selection");
+            out_.declare_event_output<bool>("lepton_offline");
+            out_.declare_event_output<bool>("lepton_trigger");
+            out_.declare_event_output<bool>("cleaning");
         
             out_.declare_event_output<float>("met");
             out_.declare_event_output<float>("met_phi");
@@ -95,6 +100,7 @@ void zsvtree::begin_dataset(const s_dataset & dataset, InputManager & in, Output
             
             out_.declare_event_output<vector<mcparticle>>("mc_bs");
             out_.declare_event_output<vector<mcparticle>>("mc_cs");
+            out_.declare_event_output<vector<mcparticle>>("mc_partons");
         }
     }
 }

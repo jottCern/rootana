@@ -75,7 +75,6 @@ void elesf::process(Event & event){
     const auto & lm = event.get<lepton>(h_lepton_minus);
     
     double sf = 1.0;
-    // x-axis is eta:
     if(abs(lp.pdgid)==11){
         sf *= getsf(lp);
     }

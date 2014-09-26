@@ -39,8 +39,6 @@ namespace {
     ID(jeteta_l_tagged);
     ID(jeteta_b_tagged);
     ID(jeteta_c_tagged);
-    
-    
 }
 
 
@@ -65,7 +63,6 @@ private:
     Event::Handle<vector<mcparticle>> h_mc_bs, h_mc_cs;
     Event::Handle<vector<jet>> h_jets;
     Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
-    Event::Handle<bool> h_passed_reco_selection;
     
     double current_weight;
 };
@@ -102,13 +99,9 @@ BcandMistagHists::BcandMistagHists(const ptree & cfg, const std::string & dirnam
     h_jets = in.get_handle<vector<jet>>("jets");
     h_lepton_plus = in.get_handle<lepton>("lepton_plus");
     h_lepton_minus = in.get_handle<lepton>("lepton_minus");
-    h_passed_reco_selection = in.get_handle<bool>("passed_reco_selection");
 }
 
 void BcandMistagHists::process(Event & e){
-    if(!e.get<bool>(h_passed_reco_selection)){
-         return;
-    }
     current_weight = e.get<double>(weight_handle);
     const auto & bcands = e.get<vector<Bcand> >(h_selected_bcands);
     const auto & mc_bs = e.get<vector<mcparticle> >(h_mc_bs);
@@ -120,13 +113,13 @@ void BcandMistagHists::process(Event & e){
     for(const auto & bcand : bcands){
         bool is_fake = true;
         for(const auto & mc_b : mc_bs){
-            if(deltaR2(mc_b.p4, bcand.p4) < 0.1*0.1){
+            if(deltaR2(mc_b.p4, bcand.p4) < 0.2*0.2){
                 is_fake = false; break;
             }
         }
         // Look for matching jet:
         int matched_ijet = -1;
-        float matched_drbj = 0.5f; // note: unmatched will have matched_dr = 0.5
+        float matched_drbj = 0.5f; // note: this means unmatched will have matched_dr = 0.5
         for(size_t ij=0; ij < jets.size(); ++ij){
             float dr = deltaR(jets[ij].p4, bcand.p4);
             if(dr < 0.5f){
