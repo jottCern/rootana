@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <typeindex>
 #include <iostream>
+#include "utils.hpp"
 
 
 /** \brief A central (program-wide) registry to build objects based on their name
@@ -97,6 +98,13 @@ private:
     std::map<key_type, std::unique_ptr<Factory> > key_to_factory;
 };
 
+// used for error messages:
+template<typename T>
+inline std::string registry_name(){
+    return "Registry<" + demangle(typeid(T).name()) + ">";
+}
+
+
 
 template<typename base_type, typename key_type, typename... ctypes>
 template<typename T>
@@ -105,7 +113,7 @@ int Registry<base_type, key_type, ctypes...>::iregister(const key_type & key){
     auto it = key_to_factory.find(key);
     if(it != key_to_factory.end()){
         std::stringstream ss;
-        ss << "Registry: tried to register type with same key twice (key: <" << key << ">)";
+        ss << registry_name<base_type>() << ": tried to register type with same key twice (key: <" << key << ">)";
         throw std::runtime_error(ss.str());
     }
     key_to_factory.insert(make_pair(key, std::unique_ptr<Factory>(new FactoryDefault<T>())));
@@ -117,7 +125,7 @@ template<typename base_type, typename key_type, typename... ctypes>
 key_type Registry<base_type, key_type, ctypes...>::ikey(const base_type & b) const {
     auto it = type_to_key.find(typeid(b));
     if(it == type_to_key.end()){
-        throw std::runtime_error("Registry::key: type not registered");
+        throw std::runtime_error(registry_name<base_type>() + "::key: type not registered");
     }
     return it->second;
 }
@@ -127,7 +135,7 @@ std::unique_ptr<base_type> Registry<base_type, key_type, ctypes...>::ibuild(cons
     auto it = key_to_factory.find(key);
     if(it==key_to_factory.end()){
         std::stringstream ss;
-        ss << "Registry: did not find registered type of key <" << key << ">";
+        ss << registry_name<base_type>() << ": did not find registered type of key '" << key << "'";
         throw std::runtime_error(ss.str());
     }
     try{
@@ -135,11 +143,11 @@ std::unique_ptr<base_type> Registry<base_type, key_type, ctypes...>::ibuild(cons
     }
     catch(std::exception & ex){
         std::stringstream ss;
-        ss << "Registry: exception while trying to build type of key <" << key + ">: " << ex.what();
+        ss << registry_name<base_type>() << ": exception while trying to build type of key <" << key + ">: " << ex.what();
         throw std::runtime_error(ss.str());
     }
     catch(...){
-        std::cerr << "Registry: about to re-throw exception while trying to build type of key <" << key + ">" << std::endl;
+        std::cerr << registry_name<base_type>() << ": about to re-throw exception while trying to build type of key <" << key + ">" << std::endl;
         throw;
     }
 }
