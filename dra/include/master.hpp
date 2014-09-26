@@ -3,6 +3,7 @@
 
 #include "dc/include/swarm_manager.hpp"
 #include "ra/include/fwd.hpp"
+#include "ra/include/context-backend.hpp"
 #include "messages.hpp"
 
 namespace dra {
@@ -208,6 +209,7 @@ private:
     // per-config
     std::string cfgfile;
     std::unique_ptr<ra::s_config> config;
+    std::unique_ptr<ra::OutputManagerOperations> out_ops; // needed for merging and filename information
     
     // per-dataset information:
     int idataset;

@@ -201,13 +201,16 @@ private:
 class Scale {
 public:
     void operator()(Histogram & h){
-        h.histo->Scale(factor);
+        if(h.process != data){
+            h.histo->Scale(factor);
+        }
     }
     
-    explicit Scale(double factor_): factor(factor_){}
+    explicit Scale(double factor_): factor(factor_), data("data"){}
     
 private:
     double factor;
+    process_type data;
 };
 
 class SetFillColor {

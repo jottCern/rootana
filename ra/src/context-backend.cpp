@@ -4,3 +4,4 @@ using namespace ra;
 
 InputManagerBackend::~InputManagerBackend(){}
 OutputManagerBackend::~OutputManagerBackend(){}
+OutputManagerOperations::~OutputManagerOperations(){}

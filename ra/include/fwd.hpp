@@ -11,6 +11,7 @@ namespace ra{
     class Configuration;
     class OutputManager;
     class OutputManagerBackend;
+    class OutputManagerOperations;
     class InputManager;
     class InputManagerBackend;
     

@@ -41,6 +41,7 @@ private:
     
     std::unique_ptr<ra::s_config> config;
     std::unique_ptr<ra::AnalysisController> controller;
+    std::unique_ptr<ra::OutputManagerOperations> out_ops;
 };
 
 }

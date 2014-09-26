@@ -32,8 +32,8 @@ private:
     struct branchinfo {
         TBranch * branch;
         const std::type_info & ti; // this is always a non-pointer type.
-        Event::RawHandle handle; // can be an invalid handle in case addr is outside the event container
-        void * addr; // address of an object of type ti, either into the event container or to somewhere else
+        Event::RawHandle handle;
+        void * addr; // address of an object of type ti inside the event container
         
         branchinfo(TBranch * branch_, const std::type_info & ti_, const Event::RawHandle & handle_, void * addr_): branch(branch_), ti(ti_), handle(handle_), addr(addr_){}
     };
@@ -157,10 +157,15 @@ void TTreeInputManager::read_branch(branchinfo & bi){
 
 
 void TTreeInputManager::read_event(size_t ientry){
-    event.invalidate_all();
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
     current_ientry = ientry;
-    if(!lazy){
+    if(lazy){
+        // mark all invalid to trigger read:
+        for(auto & name_bi : bname2bi){
+            event.set_validity(name_bi.second.ti, name_bi.second.handle, false);
+        }
+    }
+    else{
         // read all:
         for(auto & name_bi : bname2bi){
             read_branch(name_bi.second);
@@ -198,8 +203,15 @@ private:
     std::list<void*> ptrs; // keep a list of pointers, so we can give root the *address* of the pointer
 };
 
-REGISTER_OUTPUT_MANAGER_BACKEND(TFileOutputManager, "root")
 
+class TFileOutputManagerOperations: public OutputManagerOperations {
+public:
+    virtual std::string filename_extension() const {
+        return "root";
+    }
+};
+
+REGISTER_OUTPUT_MANAGER_BACKEND(TFileOutputManager, TFileOutputManagerOperations, "root")
 
 
 // OutputManager
@@ -396,4 +408,3 @@ void TFileOutputManager::close(){
 TFileOutputManager::~TFileOutputManager(){
     close();
 }
-   

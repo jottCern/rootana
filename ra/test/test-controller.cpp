@@ -129,7 +129,11 @@ BOOST_AUTO_TEST_CASE(lazy){
     create_test_tree(indir + "/test.root", offset, 1000);
     {
     ofstream configstr(indir + "/cfg.cfg");
-    configstr << "options { lazy_read true \n }\n"
+    configstr << 
+     "input {\n"
+     "   type root\n"
+     "   lazy true \n"
+     "}\n"
      "dataset {\n"
      " name testdataset\n"
      " treename events\n"

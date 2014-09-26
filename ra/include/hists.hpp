@@ -91,7 +91,8 @@ T * Hists::book(const identifier & id, cargs... parameters){
  * configuration:
  * \code
  * dirname1 {  ; name of the directory in the output file in which histograms are created
- *    selection all  ; name of the selection. Default is the same name as the directory.
+ *    selection btag12  ; name of the selection. Default is to use the diretory name.
+ *    weights "btag12"  ; one more more (space-separated) names of double event members to use as additional event weight.
  *    hists Hists1   ; name of a Hists class
  *    hists Hists2   ; name of another Hists class
  * }
@@ -105,8 +106,12 @@ T * Hists::book(const identifier & id, cargs... parameters){
  * \endcode
  * 
  * At the beginning of each dataset, the constructors for the Hists configured are called. The Hists classes
- * create their output in the respective directory.  For each event, Hists::process_all is called if the event
- * fulfills the selection given in the \c selection setting.
+ * create their output in the respective directory.  For each event, all configured directories are processed
+ * in the order as given in the configuration file. For each directory,
+ *   - it is checked whether it passes the selection (of not, processing aborts here)
+ *   - the event weight is adapted if the 'weights' setting is given
+ *   - Hists::process_all is called for all configured \c Hists classes.
+ *   - the weight is reverted if necessary
  */
 class HistFiller: public AnalysisModule{
 public:
@@ -119,9 +124,12 @@ private:
         std::string dirname;
         std::vector<std::unique_ptr<Hists>> hists;
         Event::Handle<bool> sel_handle;
+        std::vector<Event::Handle<double>> weight_handles;
     };
     ptree cfg;
     std::vector<outdir> outdirs;
+    
+    Event::Handle<double> h_weight;
     
     static void parse_dir_cfg(const ptree & dircfg, outdir & od, const s_dataset & dataset, InputManager & in, OutputManager & out);
 };

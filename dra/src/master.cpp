@@ -210,6 +210,13 @@ Master::Master(const string & cfgfile_): logger(Logger::get("dra.Master")), sm(d
         LOG_THROW("no dataset to process");
     }
     
+    for(const string & lib : config->options.libraries){
+        load_lib(lib);
+    }
+    
+    string out_typename = ptree_get<string>(config->output_cfg, "type");
+    out_ops  = OutputManagerOperationsRegistry::build(out_typename);
+    
     // setup connections:
     const auto & g = sm.get_graph();
     
@@ -368,14 +375,14 @@ void Master::worker_failed(const WorkerId & worker, const dc::StateGraph::StateI
 
 std::string Master::get_unmerged_filename(int iworker) const {
     stringstream unmerged_outfilename;
-    unmerged_outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << iworker << ".root";
+    unmerged_outfilename << config->options.output_dir << "/unmerged-" << config->datasets[idataset].name << "-" << iworker << "." << out_ops->filename_extension();
     return unmerged_outfilename.str();
 }
 
 // in case of nomerge:
 std::string Master::get_filename(int iworker) const {
     stringstream unmerged_outfilename;
-    unmerged_outfilename << config->options.output_dir << "/" << config->datasets[idataset].name << "-" << iworker << ".root";
+    unmerged_outfilename << config->options.output_dir << "/" << config->datasets[idataset].name << "-" << iworker << "." << out_ops->filename_extension();
     return unmerged_outfilename.str();
 }
 
@@ -384,7 +391,7 @@ void Master::finalize_dataset(const WorkerId & last_worker){
     assert(needs_merging[last_worker]);
     string unmerged_filename = get_unmerged_filename(last_worker.id());
     stringstream merged_outfilename;
-    merged_outfilename << config->options.output_dir << "/" << config->datasets[idataset].name << ".root";
+    merged_outfilename << config->options.output_dir << "/" << config->datasets[idataset].name << "." << out_ops->filename_extension();
     int res = rename(unmerged_filename.c_str(), merged_outfilename.str().c_str());
     if(res < 0){
         LOG_ERRNO("renaming output file from '" << unmerged_filename << "' to '" << merged_outfilename.str() << "'");
@@ -521,6 +528,7 @@ void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> re
                 finalize_dataset(needs_merging.begin()->first);
             }
             else if(config->options.mergemode == s_options::mm_nomerge){
+                LOG_DEBUG("Renaming output files now");
                 // just rename:
                 for(auto & w_nm : needs_merging){
                     auto wid = w_nm.first.id();
@@ -530,6 +538,7 @@ void Master::close_complete(const WorkerId & worker, std::unique_ptr<Message> re
                         throw runtime_error("error renaming output file (see log for details)");
                     }
                 }
+                LOG_DEBUG("Done renaming");
                 // go on to next dataset:
                 init_dataset(idataset + 1);
             }
@@ -579,5 +588,3 @@ void Master::add_observer(const std::shared_ptr<MasterObserver> & observer){
         observers.push_back(observer);
     }
 }
-
-

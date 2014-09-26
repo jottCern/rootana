@@ -65,7 +65,7 @@ class HistogramOutputManager {
 public:
     /** \brief Put a histogram in the output root file at the specified path
     *
-    * By calling this routine, you pass memory management of t to the framework.
+    * By calling this routine, you pass memory management of t to the HistogramOutputManager.
     *
     * To create the object in a subdirectory of the output, use an id with the corresponding
     * full name, i.e. "dir/subdirB/name"; the required directories will be created automatically.

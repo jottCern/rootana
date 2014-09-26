@@ -3,7 +3,7 @@ dummy := $(shell [ -d .bin ] || mkdir .bin )
 
 # find sources to use for the build:
 src := $(wildcard src/*.cpp)
-obj := $(patsubst src/%.cpp,.bin/%.o,$(src))
+obj := $(patsubst src/%.cpp,.bin/%.o,$(src)) $(USEROBJ)
 deps := $(patsubst src/%.cpp,.bin/%.d,$(src))
 
 # in case we build a library, add the according rule:

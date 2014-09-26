@@ -37,8 +37,6 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
     LOG_DEBUG("start_dataset idataset = " << idataset << "; outfile_base = " << new_outfile_base);
     // cleanup previous per-file info:
     current_ifile = -1;
-    //infile.reset();
-    // cleanup previous per-dataset info, in reverse order of construction:
     in.reset();
     event.reset();
     out.reset();
@@ -121,6 +119,7 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
     }
     size_t nevents_survived = 0;
     for(size_t ientry = imin; ientry < imax; ++ientry){
+        event->invalidate_all();
         try{
             in->read_event(ientry);
         }
@@ -139,7 +138,7 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
                           << current_dataset().files[current_ifile].path << "; re-throwing.");
                 throw;
             }
-            if(event->get_state<bool>(handle_stop) == Event::state::valid && event->get(handle_stop)){
+            if(event->get_state(handle_stop) == Event::state::valid && event->get(handle_stop)){
                 event_selected = false;
                 break;
             }

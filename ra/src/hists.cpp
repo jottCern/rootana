@@ -73,6 +73,13 @@ void HistFiller::parse_dir_cfg(const ptree & dircfg, outdir & od, const s_datase
         else if(it.first == "selection"){
             od.sel_handle = in.get_handle<bool>(it.second.data());
         }
+        else if(it.first == "weights"){
+            vector<string> vweights;
+            boost::split(vweights, it.second.data(), boost::algorithm::is_space(), boost::algorithm::token_compress_on);
+            for(const auto & w : vweights){
+                od.weight_handles.emplace_back(in.get_handle<double>(w));
+            }
+        }
         else{
             throw runtime_error("unknown setting '" + it.first + "' in HistFiller directory '" + od.dirname + "'");
         }
@@ -81,6 +88,7 @@ void HistFiller::parse_dir_cfg(const ptree & dircfg, outdir & od, const s_datase
 
 void HistFiller::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
     outdirs.clear();
+    h_weight = in.get_handle<double>("weight");
     boost::optional<ptree> last_dir_cfg;
     for(const auto & it : cfg){
         if(it.first=="type") continue;
@@ -115,18 +123,22 @@ void HistFiller::begin_dataset(const s_dataset & dataset, InputManager & in, Out
 void HistFiller::process(Event & event){
     for(auto & dir : outdirs){
         if(!event.get(dir.sel_handle)) continue;
-        size_t ihists = 0;
+        double & weight = event.get(h_weight);
+        double weight_before = weight;
+        for(auto & wh : dir.weight_handles){
+            weight *= event.get(wh);
+        }
         for(auto & hf : dir.hists){
             try{
                 hf->process_all(event);
             }
             catch(...){
                 auto logger = Logger::get("Hists");
-                LOG_ERROR("HistFiller::process: about to re-throwing exception in HistFiller dir " << dir.dirname << " hists " << ihists);
+                LOG_ERROR("HistFiller::process: about to re-throwing exception in HistFiller dir " << dir.dirname);
                 throw;
             }
-            ++ihists;
         }
+        weight = weight_before;
     }
 }
 

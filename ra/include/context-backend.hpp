@@ -42,15 +42,34 @@ public:
     // where the output_basename is the output filename without extension.
     virtual void write_event() = 0;
     virtual void close() = 0;
+    
     virtual ~OutputManagerBackend();
     
 protected:
     explicit OutputManagerBackend(Event & event): OutputManager(event){}
-
 };
 
 typedef Registry<ra::OutputManagerBackend, std::string, Event &, const std::string &, const std::string &> OutputManagerBackendRegistry;
-#define REGISTER_OUTPUT_MANAGER_BACKEND(T, name) namespace { int dummy##T = ::ra::OutputManagerBackendRegistry::register_<T>(name); }
+
+// a class allowing operations on output files, such as merging.
+// For each OutputManagerBackend implementation, an OutputManagerOperations implementation
+// must exist.
+class OutputManagerOperations {
+public:
+    // derived classes must be default-constructible
+    virtual std::string filename_extension() const = 0;
+    
+    // TODO: in the future, handle merging also via this class:
+    //virtual void merge(const std::vector<std::string> & outfile_basenames) = 0;
+    
+    virtual ~OutputManagerOperations();
+};
+
+typedef Registry<ra::OutputManagerOperations, std::string> OutputManagerOperationsRegistry;
+
+// T is the OutputManagerBackend class, OPT the corresponding OutputManagerOperations class.
+#define REGISTER_OUTPUT_MANAGER_BACKEND(T, OPT, name) namespace { int dummy##T = ::ra::OutputManagerBackendRegistry::register_<T>(name); \
+      int dummy2##T = ::ra::OutputManagerOperationsRegistry::register_<OPT>(name); }
 
 }
 

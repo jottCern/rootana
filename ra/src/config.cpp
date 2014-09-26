@@ -61,7 +61,7 @@ vector<string> parse_sframe_xml(const string & path){
 
 }
 
-s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint(-1), output_dir("."), keep_unmerged(false), mergemode(mm_master), lazy_read(false){
+s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint(-1), output_dir("."), keep_unmerged(false), mergemode(mm_master) {
     auto logger = Logger::get("ra.config.options");
     std::string verb("info");
     for(const auto & cfg : options_cfg){
@@ -89,11 +89,11 @@ s_options::s_options(const ptree & options_cfg): blocksize(5000), maxevents_hint
         else if(cfg.first == "searchpath"){
             searchpaths.emplace_back(cfg.second.data());
         }
+        else if(cfg.first == "default_treename"){
+            default_treename = cfg.second.data();
+        }
         else if(cfg.first == "keep_unmerged"){
             keep_unmerged = try_cast<bool>("options.keep_unmerged", cfg.second.data());
-        }
-        else if(cfg.first == "lazy_read"){
-            lazy_read = try_cast<bool>("options.lazy_read", cfg.second.data());
         }
         else if(cfg.first == "mergemode"){
             if(cfg.second.data() == "workers"){
@@ -138,7 +138,7 @@ s_dataset::s_tags::s_tags(const boost::property_tree::ptree & tree){
 s_dataset::s_dataset(const ptree & cfg){
     auto logger = Logger::get("ra.config.dataset");
     name = ptree_get<string>(cfg, "name");
-    treename = ptree_get<string>(cfg, "treename");
+    treename = ptree_get<string>(cfg, "treename", "");
     for(const auto & it : cfg){
         if(it.first == "file"){
             if(it.second.size()){ // full group
@@ -276,79 +276,22 @@ void substitute(ptree & cfg, const std::map<std::string, std::string> & variable
     }
 }
 
-void read_config(const string & filename, ptree & cfg);
-
-// get all "dataset" configuration ptrees and -- recursively -- all "datasets.output_of"
-// "dataset" configuration ptrees by reading in all previous configuration files as well.
-//
-// The actual configuration-file parsed right now is the "first-level" file, the next inclusion
-// level (included via datasets.output_of) is the "second-level" file, and so on.
-//
-// filename_rewrite_options is the s_options object according to the module that actually produced
-// the files to be included, so it is alwazs set to the *second-level* file's 'options' setting. Use the default
-// for the first-level configuration file which does not any rewrite for the "dataset" statements
-std::vector<ptree> get_dataset_cfgs_recursive(const ptree & cfg, const string & dsetname_suffix  = "",
-                                              const boost::optional<s_options> & filename_rewrite_options = boost::none, int level = 0){
-    auto logger = Logger::get("ra.config.dataset");
-    if(level > 100){
-        throw runtime_error("error resolving indirect datasets: nesting level > 100 reached");
-    }
-    std::vector<ptree> result;
-    for(const auto & it : cfg){
-        if(it.first == "dataset_output_from"){
-            // read in previous cfg file:
-            string cfg_filename = ptree_get<string>(it.second, "cfgfile");
-            string suffix = ptree_get<string>(it.second, "dataset_name_suffix", "");
-            set_reset_cwd setter(dir_name(cfg_filename));
-            ptree cfg_previous;
-            read_config(base_name(cfg_filename), cfg_previous);
-            std::vector<ptree> datasets_cfgs_previous;
-            if(level==0){
-                boost::optional<s_options> rewrite_options;
-                rewrite_options = boost::in_place(cfg_previous.get_child("options"));
-                datasets_cfgs_previous = get_dataset_cfgs_recursive(cfg_previous, dsetname_suffix + suffix, rewrite_options, 1);
-            }
-            else{
-                datasets_cfgs_previous = get_dataset_cfgs_recursive(cfg_previous, dsetname_suffix + suffix, filename_rewrite_options, 1);
-            }
-            for(auto & d : datasets_cfgs_previous){
-                result.emplace_back(move(d));
-            }
-        }
-        else if(it.first == "dataset"){
-            result.emplace_back(it.second);
-            if(filename_rewrite_options){ // not true for first-level cfg file, but set to second-level file options if deeper
-                auto & dcfg = result.back();
-                dcfg.erase("file");
-                dcfg.erase("file-pattern");
-                dcfg.erase("sframe-xml-file");
-                string pattern = filename_rewrite_options->output_dir + "/" + ptree_get<string>(dcfg, "name");
-                if(filename_rewrite_options->mergemode == s_options::mm_nomerge){
-                    pattern += "-[0-9]*";
-                }
-                pattern += ".root";
-                dcfg.add_child("file-pattern", ptree(pattern));
-                dcfg.get_child("name").data() += dsetname_suffix;
-                LOG_DEBUG("dataset_output_from: using pattern '" << pattern << "' for dataset '" << dcfg.get_child("name").data() << "'");
-            }
-            
-        }
-    }
-    return result;
-}
-
-
 // get all datasets of the top-level configuration cfg
-std::vector<s_dataset> get_datasets(const ptree & cfg){
+std::vector<s_dataset> get_datasets(const ptree & cfg, const string & default_treename){
     std::vector<s_dataset> result;
-    auto cfgs = get_dataset_cfgs_recursive(cfg);
-    result.reserve(cfgs.size());
     std::set<std::string> dataset_names;
-    for(const auto & cfg : cfgs){
-        result.emplace_back(cfg);
+    for(const auto & it : cfg){
+        if(it.first != "dataset") continue;
+        result.emplace_back(it.second);
         auto res = dataset_names.insert(result.back().name);
         if(!res.second){
             throw runtime_error("duplicate dataset name '" + result.back().name + "'");
+        }
+        if(result.back().treename.empty()){
+            if(default_treename.empty()){
+                throw runtime_error("no treename given in dataset '" + result.back().name + "' and no default treename given in options");
+            }   
+            result.back().treename = default_treename;
         }
     }
     return move(result);
@@ -360,6 +303,7 @@ std::vector<s_dataset> get_datasets(const ptree & cfg){
 // Note that changing the directory into the one of the cfg file (for include resolution and
 // datasets_from_output resolution) has to be done outside of this method.
 void read_config(const string & filename, ptree & cfg){
+    //LOG_DEBUG("read_config filename='" << filename << "', cwd='" << get_current_dir_name() << "'");
     boost::property_tree::read_info(filename.c_str(), cfg);
     if(cfg.count("variables") > 0){
         // there might be more than one variables, section, read them all:
@@ -386,14 +330,11 @@ s_config::s_config(const std::string & filename) {
     ptree cfg;
     set_reset_cwd setter(dir_name(filename));
     read_config(base_name(filename), cfg);
-    if(cfg.count("logger") > 0){
-        logger = s_logger(cfg.get_child("logger"));
-    }
-    else{
-        // setup logging with default by using empty ptree:
-        logger = s_logger(ptree());
-    }
-    options = s_options(cfg.get_child("options"));
+    ptree empty_ptree;
+    auto logger_cfg = cfg.get_child_optional("logger");
+    logger = s_logger(logger_cfg ? *logger_cfg : empty_ptree);
+    auto options_cfg = cfg.get_child_optional("options");
+    options = s_options(options_cfg ? *options_cfg : empty_ptree);
     modules_cfg = cfg.get_child("modules");
     if(cfg.count("input") > 0){
         input_cfg = cfg.get_child("input");
@@ -408,7 +349,7 @@ s_config::s_config(const std::string & filename) {
         output_cfg.add_child("type", ptree("root"));
     }
     // read in all 'dataset' and 'dataset_output_from' statements:
-    datasets = get_datasets(cfg);
+    datasets = get_datasets(cfg, options.default_treename);
     if(datasets.empty()){
         throw runtime_error("config: no datasets defined");
     }

@@ -2,6 +2,7 @@
 #include "ra/include/config.hpp"
 #include "ra/include/analysis.hpp"
 #include "ra/include/controller.hpp"
+#include "ra/include/context-backend.hpp"
 #include "stategraph.hpp"
 #include "ra/include/root-utils.hpp"
 
@@ -25,6 +26,8 @@ std::unique_ptr<dc::Message> Worker::configure(const Configure & conf){
     config.reset(new s_config(conf.cfgfile));
     config->logger.apply(config->options.output_dir);
     controller.reset(new AnalysisController(*config, true));
+    string output_typename = ptree_get<string>(config->output_cfg, "type");
+    out_ops = OutputManagerOperationsRegistry::build(output_typename);
     LOG_INFO("Configure done;  iworker=" << conf.iworker << "; cfgfile=" << conf.cfgfile);
     return unique_ptr<Message>();
 }
@@ -37,7 +40,7 @@ std::string Worker::get_outfilename_base(size_t idataset, int iw){
 
 std::string Worker::get_outfilename_full(size_t idataset, int iw){
     stringstream outfilename;
-    outfilename << get_outfilename_base(idataset, iw) << ".root";
+    outfilename << get_outfilename_base(idataset, iw) << "." << out_ops->filename_extension();
     return outfilename.str();
 }
 
@@ -82,6 +85,7 @@ std::unique_ptr<dc::Message> Worker::process(const Process & p){
 std::unique_ptr<dc::Message> Worker::close(const Close &){
     LOG_INFO("closing output file for current dataset");
     controller->start_dataset(-1, "");
+    LOG_DEBUG("closing output file for current dataset done");
     return unique_ptr<dc::Message>();
 }
 
