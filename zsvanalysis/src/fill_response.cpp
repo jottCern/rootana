@@ -96,8 +96,7 @@ void fill_response::process(Event & event){
     
     double dphi_gen = numeric_limits<double>::infinity();
     double dr_gen = numeric_limits<double>::infinity();
-    double weight = event.get(h_weight);
-    
+
     if(gen){
         const auto & mc_bs = event.get(h_input_mc_bs);
         if(mc_bs.size() != 2) throw runtime_error("gen-selected event but mc_bs.size() != 2!");
@@ -112,8 +111,12 @@ void fill_response::process(Event & event){
         if(reco_bs.size() != 2) throw runtime_error("reco-selected event but reco_bs.size() != 2!");
         double dphi_reco = fabs(deltaPhi(reco_bs[0].flightdir, reco_bs[1].flightdir));
         double dr_reco = deltaR(reco_bs[0].flightdir, reco_bs[1].flightdir);
+        double weight = event.get(h_weight);
         
-        // this is ok also if !gen, as gen is +infinity then, and those events end up in the gen overflow bin
+        //cout << "gen=" << dr_gen << "; reco=" << dr_reco << endl;
+        
+        // filling dr_gen and dphi_gen is ok also if !gen, as in this case, these are +infinity, so the 'non-gen but reco'
+        // events end up in the gen overflow bin
         reco_gen_dphi->Fill(dphi_reco, dphi_gen, weight);
         reco_gen_dr->Fill(dr_reco, dr_gen, weight);
     }

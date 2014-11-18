@@ -94,7 +94,7 @@ unique_ptr<TH2D> make_corr(TH2D & cov){
     return move(corr);
 }
 
-// aclculate bin-by-bin h1 - h2:
+// caclculate bin-by-bin h1 - h2:
 unique_ptr<TH2D> diff(TH2D & h1, TH2D & h2){
     unique_ptr<TH2D> result(new TH2D(h1));
     result->Add(&h2, -1.0);
@@ -128,7 +128,66 @@ void plot_corr(TH2D & corr, const string & filename){
             objects.emplace_back(t);
             t->SetTextAlign(22); // h-center / v-center
             t->SetTextColor(1);
-            t->SetTextSize(0.02);
+            t->SetTextSize(0.25 / n);
+            t->Draw();
+        }
+    }
+    
+    c->Print(filename.c_str());
+}
+
+void plot_response(const TH2D & response, const string & filename){
+    unique_ptr<TCanvas> c(new TCanvas("c", "c", 600, 600));
+    // make a copy with corr values:
+    //auto corr = make_corr(cov);
+    
+    unique_ptr<TH2D> r2(dynamic_cast<TH2D*>(response.Clone()));
+    set_integer_ndiv(r2->GetXaxis());
+    set_integer_ndiv(r2->GetYaxis());
+    int nrec = r2->GetNbinsX();
+    int ngen = r2->GetYaxis()->GetNbins();
+    
+    // scale by 100 to get percent:
+    for(int ix=1; ix <= nrec; ++ix){
+        for(int iy=1; iy <= ngen; iy++){
+            r2->SetBinContent(ix, iy, r2->GetBinContent(ix, iy) * 100);
+        }
+    }
+    
+    gPad->SetRightMargin(0.15);
+    gPad->SetLeftMargin(0.12);
+    gPad->SetBottomMargin(0.12);
+    gStyle->SetPalette(50, corr_palette + 50); // use only 'upper' part of palette
+    
+    r2->GetXaxis()->SetTitle("rec bin");
+    r2->GetYaxis()->SetTitle("gen bin");
+    r2->GetZaxis()->SetTitle("%");
+    
+    double maxz = r2->GetBinContent(response.GetMaximumBin());
+    // round up to integer percent:
+    maxz = int(maxz + 1);
+    
+    r2->SetMinimum(0.0);
+    r2->SetMaximum(maxz);
+    r2->Draw("colz");
+    
+    // draw the corr coeff as text:
+    vector<unique_ptr<TObject> > objects; // save objects here for later destruction
+    
+    for(int ix=1; ix <= nrec; ++ix){
+        for(int iy=1; iy <= ngen; iy++){
+            auto r = r2->GetBinContent(ix, iy); // in percent
+            char buf[10];
+            const char * fstring = "%.1f";
+            if(r < 10){
+                fstring = "%.2f";
+            }
+            snprintf(buf, 10, fstring, r);
+            TText * t = new TText(r2->GetXaxis()->GetBinCenter(ix), r2->GetYaxis()->GetBinCenter(iy), buf);
+            objects.emplace_back(t);
+            t->SetTextAlign(22); // h-center / v-center
+            t->SetTextColor(1);
+            t->SetTextSize(0.25 / nrec);
             t->Draw();
         }
     }
@@ -193,24 +252,53 @@ void plot_reweighted(TFile & in, const string & name){
     draw_histos(histos.vec, "reweight_" + name + ".eps");
 }
 
+void plot_spectrum(TH1D & h, TH2D * cov, const string & outname){
+    if(cov){
+        for(int i=1; i<=h.GetNbinsX(); ++i){
+            h.SetBinError(i, sqrt(cov->GetBinContent(i,i)));
+        }
+    }
+    Histogram h0;
+    h0.histo.reset(&h);
+    h0.options["use_errors"] = "1";
+    vector<Histogram> histos;
+    histos.emplace_back(move(h0));
+    draw_histos(histos, outname);
+    histos.back().histo.release(); // we do not own &h ...
+}
+
 int main(){
     TH1::AddDirectory(false);
     TFile in("out.root", "read");
     
-    plot_pull(in);
+    // unfolding result:
+    auto hresult = gethisto<TH1D>(in, "unfold/unfolded");
+    auto hresult_cov = gethisto<TH2D>(in, "unfold/unfolded_cov");
+    plot_spectrum(*hresult, hresult_cov.get(), "unfolded.eps");
+    
+    // plot input:
+    auto hresponse = gethisto<TH2D>(in, "input/response");
+    plot_response(*hresponse, "response.eps");
+    auto asimov_data = gethisto<TH1D>(in, "input/asimov_data");
+    plot_spectrum(*asimov_data, 0, "asimov_data.eps");
+    
+    // regularization:
     plot_reg_graphs(in);
     
+    // asimov toy:
     compare_input_unfolded(in, "asimov_toy", "asimov");
-    compare_input_unfolded(in, "nominal_toys", "toys");
-    
     auto cov_asimov = gethisto<TH2D>(in, "asimov_toy/unfolded_cov_est_mean");
+    plot_corr(*make_corr(*cov_asimov), "corr_asimov.eps");
+    
+    // nominal toys:
+    compare_input_unfolded(in, "nominal_toys", "toys");
     auto cov_toys = gethisto<TH2D>(in, "nominal_toys/unfolded_cov");
     auto cov_toys_est_mean = gethisto<TH2D>(in, "nominal_toys/unfolded_cov_est_mean");
-    plot_corr(*make_corr(*cov_asimov), "corr_asimov.eps");
     plot_corr(*make_corr(*cov_toys), "corr_toys.eps");
     plot_corr(*make_corr(*cov_toys_est_mean), "corr_toys_est_mean.eps");
+    plot_pull(in);
     
-    // plot difference in correlation:
+    // plot difference in correlation between Asimov and nominal toys:
     auto corr_asimov = make_corr(*cov_asimov);
     auto corr_toys = make_corr(*cov_toys);
     auto dcorr = diff(*corr_asimov, *corr_toys);
@@ -222,9 +310,9 @@ int main(){
     plot_corr(*bkg_cov, "bkg_s_cov_input.eps");
     
     // plot result of reweighting test:
-    plot_reweighted(in, "linear");
+    /*plot_reweighted(in, "linear");
     plot_reweighted(in, "scaled");
     plot_reweighted(in, "rel2");
-    plot_reweighted(in, "relm2");
+    plot_reweighted(in, "relm2");*/
 }
 

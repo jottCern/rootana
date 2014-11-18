@@ -20,66 +20,78 @@ std::ostream & ra::operator<<(std::ostream & out, Event::state p){
     }
 }
 
-void Event::fail(const std::type_info & ti, const Event::RawHandle & handle, const char * msg) const{
+EventStructure::RawHandle EventStructure::get_raw_handle(const std::type_info & ti, const std::string & name){
+    // check if it exists already. Note that this is a slow (O(N)) operation, but
+    // this should be ok as we do not expect this method to be called often
+    for(size_t i=0; i<member_infos.size(); ++i){
+        if(member_infos[i].name == name && member_infos[i].type == ti){
+            return RawHandle(i);
+        }
+    }
+    member_infos.emplace_back(name, ti);
+    return RawHandle(member_infos.size() - 1);
+}
+
+std::string EventStructure::name(const RawHandle & handle){
+    assert(handle.index < member_infos.size());
+    return member_infos[handle.index].name;
+}
+
+
+Event::Event(const EventStructure & es): member_infos(es.member_infos), member_datas(member_infos.size()){}
+
+
+void Event::fail(const std::type_info & ti, const EventStructure::RawHandle & handle, const string & msg) const{
     std::stringstream errmsg;
     errmsg << "Event: error for member of type '" << demangle(ti.name()) << "' at index " << handle.index;
-    if(handle.index < elements.size()){
-        errmsg << " with name '" << elements[handle.index].name << "'";
+    if(handle.index < member_infos.size()){
+        errmsg << " with name '" << member_infos[handle.index].name << "'";
     }
     errmsg << ": " << msg;
     throw std::runtime_error(errmsg.str());
 }
 
-Event::RawHandle Event::get_raw_handle(const std::type_info & ti, const std::string & name){
-    // check if it exists already. Note that this is a slow (O(N)) operation, but
-    // probably ok as we do not expect this method to be called in the main event loop but just once
-    // at initialization. TODO: enforce this by mocing the get_handle routines outside of the Event class
-    // to an EventManager class which is only available during setup, not during event processing.
-    for(size_t i=0; i<elements.size(); ++i){
-        if(elements[i].name == name && elements[i].type == ti){
-            return RawHandle(i);
-        }
+
+void Event::set_unmanaged(const std::type_info & ti, const RawHandle & handle, void * data){
+    check(ti, handle, "set_unmanaged");
+    member_data & md = member_datas[handle.index];
+    if(md.data != 0 && md.eraser){
+        md.eraser->operator()(md.data);
     }
-    elements.emplace_back(false, name, (void*)0, (eraser_base*)(0), ti);
-    return RawHandle(elements.size() - 1);
+    md.eraser.reset();
+    md.data = data;
+    md.valid = true;
 }
 
-std::string Event::name(const RawHandle & handle){
-    assert(handle.index < elements.size());
-    return elements[handle.index].name;
-}
-
-void * Event::get(const std::type_info & ti, const Event::RawHandle & handle, bool check_valid, bool allow_null){
+void * Event::get(const std::type_info & ti, const EventStructure::RawHandle & handle, bool check_valid, bool allow_null){
     return const_cast<void*>(static_cast<const Event*>(this)->get(ti, handle, check_valid, allow_null));
 }
 
-const void * Event::get(const std::type_info & ti, const Event::RawHandle & handle, bool check_valid, bool allow_null) const{
-    if(handle.index >= elements.size()){
-        fail(ti, handle, "index out of bounds, i.e. the handle used is invalid");
-    }
-    element & e = elements[handle.index];
-    assert(e.type == ti);
-    if(e.data == 0){
+const void * Event::get(const std::type_info & ti, const EventStructure::RawHandle & handle, bool check_valid, bool allow_null) const{
+    check(ti, handle, "get");
+    member_data & md = member_datas[handle.index];
+    if(md.data == 0){
         if(allow_null) return 0;
         else{
             fail(ti, handle, "member data pointer is null, i.e. this member is known but was never initialized with 'set'");
         }
     }
     // easiest case: data is there and valid:
-    if(e.valid){
-        return e.data;
+    if(md.valid){
+        return md.data;
     }
     // it's not valid, try to generate it:
-    if(e.generator){
+    if(md.generator){
         try{
-            (*e.generator)();
+            (*md.generator)();
         }
         catch(...){
-            std::cerr << "Exception while trying to generate element '" << e.name << "' of type '" << demangle(ti.name()) << "'" << std::endl;
+            const auto & mi = member_infos[handle.index];
+            std::cerr << "Exception while trying to generate element '" << mi.name << "' of type '" << demangle(ti.name()) << "'" << std::endl;
             throw;
         }
-        e.valid = true;
-        return e.data;
+        md.valid = true;
+        return md.data;
     }
     // if it's not valid and cannot be generated, return the pointer
     // to the 'invalid' member:
@@ -88,42 +100,52 @@ const void * Event::get(const std::type_info & ti, const Event::RawHandle & hand
         return 0; // only to make compiler happy
     }
     else{
-        return e.data;
+        return md.data;
     }
 }
 
-void Event::set_validity(const std::type_info & ti, const Event::RawHandle & handle, bool valid){
-    if(handle.index >= elements.size()) throw std::invalid_argument("Event::set_validity: handle index out of range");
-    element & e = elements[handle.index];
-    if(e.type!=ti) throw std::invalid_argument("Event::set_validity: inconsistent type information");
-    e.valid = valid;
+void Event::check(const std::type_info & ti, const RawHandle & handle, const std::string & where) const{
+    if(handle.index >= member_datas.size()){
+        fail(ti, handle, where + ": index out of bounds, i.e. the handle used is invalid");
+    }
+    const auto & mi = member_infos[handle.index];
+    if(mi.type!=ti){
+        fail(ti, handle, where + ": type mismatch");
+    }
 }
 
-Event::element::~element(){
+void Event::set_validity(const std::type_info & ti, const EventStructure::RawHandle & handle, bool valid){
+    check(ti, handle, "set_validity");
+    member_data & md = member_datas[handle.index];
+    md.valid = valid;
+}
+
+Event::member_data::~member_data(){
     if(eraser){
         eraser->operator()(data);
     }
 }
 
 void Event::invalidate_all(){
-    for(auto & e : elements){
-        e.valid = false;
+    for(auto & md : member_datas){
+        md.valid = false;
     }
 }
 
 void Event::set_get_callback(const std::type_info & ti, const RawHandle & handle, boost::optional<std::function<void ()>> callback){
-    assert(handle.index < elements.size());
-    element & e = elements[handle.index];
-    assert(e.type == ti);
-    e.valid = false;
-    e.generator = move(callback);
+    check(ti, handle, "set_get_callback");
+    member_data & md = member_datas[handle.index];
+    md.valid = false;
+    md.generator = move(callback);
 }
 
 Event::state Event::get_state(const std::type_info & ti, const RawHandle & handle) const{
-    assert(handle.index < elements.size());
-    const element & e = elements[handle.index];
-    if(e.data==0) return state::nonexistent;
-    return e.valid ? state::valid : state::invalid;
+    check(ti, handle, "get_state");
+    const member_data & md = member_datas[handle.index];
+    if(md.data==0) return state::nonexistent;
+    return md.valid ? state::valid : state::invalid;
 }
 
-Event::~Event(){}
+Event::~Event(){
+    // nothing to do: member data belongs to member_datas
+}

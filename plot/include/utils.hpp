@@ -143,10 +143,25 @@ private:
     std::vector<fspec> formatters;
 };
 
+// a histogram functor applying a list of other functors
+class ApplyAll {
+public:
+    void operator()(Histogram & h){
+        for(auto & f : functors){
+            f(h);
+        }
+    }
+    
+    template<typename... T>
+    explicit ApplyAll(T... input): functors{input...}{}
+private:
+    std::vector<std::function<void (Histogram &)>> functors;
+};
+
 
 class SetLegends {
 public:
-    virtual void operator()(Histogram & h){
+    void operator()(Histogram & h){
         h.legend = legend;
         if(latex_legend.empty()){
             h.latex_legend = nameof(h.process);

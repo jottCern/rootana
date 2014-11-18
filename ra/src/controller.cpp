@@ -50,17 +50,17 @@ void AnalysisController::start_dataset(size_t idataset, const string & new_outfi
     // initialize all per-dataset infos:
     outfile_base = new_outfile_base;
     const s_dataset & dataset = config.datasets[current_idataset];
-    event.reset(new Event());
-    handle_stop = event->get_handle<bool>("stop");
     
+    es.reset(new EventStructure());
+    handle_stop = es->get_handle<bool>("stop");
     string output_type = ptree_get<string>(config.output_cfg, "type");
-    out = OutputManagerBackendRegistry::build(output_type, *event, dataset.treename, outfile_base);
-    
+    out = OutputManagerBackendRegistry::build(output_type, *es, dataset.treename, outfile_base);
     string input_type = ptree_get<string>(config.input_cfg, "type");
-    in = InputManagerBackendRegistry::build(input_type, *event, config.input_cfg);
+    in = InputManagerBackendRegistry::build(input_type, *es, config.input_cfg);
     for(auto & m : modules){
         m->begin_dataset(dataset, *in, *out);
     }
+    event.reset(new Event(*es));
 }
 
 const s_dataset & AnalysisController::current_dataset() const{
@@ -93,7 +93,7 @@ void AnalysisController::start_file(size_t ifile){
     for(auto & m : modules){
         m->begin_in_file(f.path);
     }
-    infile_nevents = in->setup_input_file(dataset.treename, f.path);
+    infile_nevents = in->setup_input_file(*event, dataset.treename, f.path);
     current_ifile = ifile;
 }
 
@@ -121,7 +121,7 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
     for(size_t ientry = imin; ientry < imax; ++ientry){
         event->invalidate_all();
         try{
-            in->read_event(ientry);
+            in->read_event(*event, ientry);
         }
         catch(...){
             LOG_ERROR("Exception caught in read_entry while reading entry " << ientry << " of file " << current_dataset().files[current_ifile].path << "; re-throwing.");
@@ -145,7 +145,7 @@ void AnalysisController::process(size_t imin, size_t imax, ProcessStatistics * s
         }
         if(event_selected){
             ++nevents_survived;
-            out->write_event();
+            out->write_event(*event);
         }
     }
     if(stats){

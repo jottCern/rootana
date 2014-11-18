@@ -1,5 +1,6 @@
 Makefile.local
 *.root
+*.pdf
 lib/*
 */.bin
 */plot_*

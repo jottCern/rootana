@@ -20,6 +20,7 @@
 #include <set>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "base/include/utils.hpp"
 
@@ -99,8 +100,12 @@ void trim(string & s){
     while(!s.empty() && s.back() == ' ') s = s.substr(0, s.size()-1);
 }
 
+const double mainpad_height = 0.67;
+
 }
 
+
+void do_draw_ratio(int ndiv_x, const vector<Histogram> & histos, const map<string, string> & options, vector<unique_ptr<TObject>> & draw_objects);
 
 // Draw the given histograms in the order they are arranged in the vector.
 //
@@ -111,11 +116,14 @@ void trim(string & s){
 // * "title_ul3": upper left title, line 3
 // * "title_ur": additional title placed on the upper right, e.g. for lumi
 //
+// * "canvas_width": The width of the TCanvas, in units of the height. Default: 1.0
+//
 // * "legend_align": either "left" (in this case, do not use title_ul1, title_ul2) or "right" (default)
 // * "legend_xshift": double, shift of legend from default position
 // * "legend_fontsize" (default: 0.03) font size for the legend
 // * "legend_linespread" (default: 1.1) vertical distance of the lines in the legend (in units of the font size)
 //
+// * "xtext", "ytext": the axis titles for x and y axes resp.
 // * "xlabel_factor" and "ylabel_factor": values > 1.0 increase the distance of axis / axis legend (default: 1.0)
 // * "xmin", "xmax" to override the x range of histos[0] which is drawn. Note that this only works if both, xmin and xmax, are set.
 // * "ymin", "ymax" to override the y range of the histogram
@@ -143,7 +151,6 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
         throw runtime_error("draw_histos: empty histos vector given");
     }
     const map<string, string> & options = histos[0].options;
-    bool debug = get_option<string>(options, "debug", "").size();
     bool ylog = get_option<string>(options, "ylog", "").size() > 0;
     bool auto_linestyles = get_option<string>(options, "auto_linestyles", "").size() > 0;
     bool draw_total_error = get_option<string>(options, "draw_total_error", "").size() > 0;
@@ -154,14 +161,12 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
     string xtext = get_option<string>(options, "xtext", histos[0].histo->GetXaxis()->GetTitle());
     double xmin = get_option<double>(options, "xmin", NAN);
     double xmax = get_option<double>(options, "xmax", NAN);
+    double canvas_width = get_option<double>(options, "canvas_width", 1.0);
     double options_ymin = get_option<double>(options, "ymin", NAN);
     double options_ymax = get_option<double>(options, "ymax", NAN);
     if(!std::isnan(xmin) && !std::isnan(xmax)){
         histos[0].histo->GetXaxis()->SetRangeUser(xmin, xmax);
     }
-    const int n_linestyles = 10;
-    const int linestyles[n_linestyles] = {1,2,3,4,5,6,7,8,9,10};
-    int i_linestyle = 0;
     
     // basic sanity checks:
     int n = -1;
@@ -181,6 +186,9 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
     
     
     if(auto_linestyles){
+        const int linestyles[] = {1,2,3,4,5,6,7,8,9,10};
+        const auto n_linestyles = sizeof(linestyles) / sizeof(int);
+        int i_linestyle = 0;
         for(size_t i=0; i<histos.size(); ++i){
             if(histos[i].histo->GetFillColor()!=0) continue; // ignore filled histos
             histos[i].histo->SetLineStyle(linestyles[i_linestyle]);
@@ -188,26 +196,10 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
         }
     }
     
-    std::string ratio_num, ratio_denom;
     
-    if(draw_ratio){
-        string draw_ratio_option = get_option<string>(options, "draw_ratio", "data/bkg");
-        size_t p = draw_ratio_option.find('/');
-        if(p!=string::npos){
-            ratio_num = draw_ratio_option.substr(0, p);
-            ratio_denom = draw_ratio_option.substr(p+1);
-            trim(ratio_num);
-            trim(ratio_denom);
-        }
-        else{
-            ratio_num = "data";
-            ratio_denom = "bkg";
-        }
-    }
 
-    std::unique_ptr<TCanvas> c(new TCanvas("c", "c", 600, 600));
+    std::unique_ptr<TCanvas> c(new TCanvas("c", "c", canvas_width * 600, 600));
     c->cd();
-    const double mainpad_height = 0.67;
     if(draw_ratio){
         c->Divide(1, 2);
         c->cd(1);
@@ -229,7 +221,6 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
         gPad->SetLogy();
     }
     double ymax=-1;
-    double ymin = numeric_limits<double>::infinity();
     for (size_t i=0; i<histos.size(); i++) {
         // NOTE: pay attention to range set ...
         int ibin0 = histos[0].histo->GetXaxis()->GetFirst();
@@ -237,9 +228,6 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
         for(int k=ibin0; k<=ibin1; ++k){
             double c = histos[i].histo->GetBinContent(k);
             ymax = max(ymax, c);
-            if(c > 0){
-                ymin = min(ymin, c);
-            }
         }
     }
     std::unique_ptr<TH1> h((TH1*)histos[0].histo->Clone());
@@ -266,8 +254,8 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
 
     
     if(ylog){
-        h->SetMinimum(ymin);
-        h->SetMaximum(ymin + exp(1.2 * log(ymax/ymin)));
+        h->SetMinimum(1.0);
+        h->SetMaximum(1.0 + exp(1.2 * log(ymax)));
     }
     else{
         double more_ymax = get_option<double>(options, "more_ymax", 0.0);
@@ -392,24 +380,26 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
     leg1->SetTextFont(gStyle->GetTextFont());
     leg1->SetFillColor(10);
     leg1->SetLineColor(1);
-    TLegendEntry* entries[histos.size()];
-    TLegendEntry * total_error_legentry = 0;
+    bool total_error_legentry_added = false;
     for (size_t i=0; i<histos.size(); i++) {
+        if(histos[i].legend.empty()) continue;
         string options = "L";
         if(!get_option<string>(histos[i].options, "fill", "").empty()){
             options = "F";
         }
         else if(histos[i].process == data || !get_option<string>(histos[i].options, "use_errors", "").empty()){ // data or MC with errors
             options = "PL";
-            if(total_error_legentry==0 && draw_total_error){
-                total_error_legentry = leg1->AddEntry(total_error_hist, "Uncertainty", "F");
+            if(!total_error_legentry_added && draw_total_error){
+                leg1->AddEntry(total_error_hist, "Uncertainty", "F");
+                total_error_legentry_added = true;
             }
         }
-        entries[i]=leg1->AddEntry(histos[i].histo.get(), histos[i].legend.c_str(), options.c_str());
-        entries[i]->SetLineColor(1);
-        //entries[i]->SetLineStyle(1);
-        entries[i]->SetLineWidth(3);
-        entries[i]->SetTextColor(1);
+        
+        TLegendEntry * entry = leg1->AddEntry(histos[i].histo.get(), histos[i].legend.c_str(), options.c_str());
+        entry->SetLineColor(1);
+        //entry->SetLineStyle(1);
+        entry->SetLineWidth(3);
+        entry->SetTextColor(1);
     }
     leg1->Draw();
 
@@ -447,88 +437,223 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
     if(!std::isnan(xline)){
        line.SetLineWidth(3.0);
        line.SetLineColor(kBlack);
-       line.DrawLine(xline, ymin, xline, ymax*1.01);
+       line.DrawLine(xline, h->GetMinimum(), xline, ymax*1.01);
     }
-    
-    if(debug){
-        c->Print(("debug3_"+filename).c_str());
-    }
-    
-    unique_ptr<TH1D> ratio;
     if(draw_ratio){
         c->cd(2);
-        ratio.reset(new TH1D("ratio", "ratio", h->GetNbinsX(), h->GetXaxis()->GetXmin(), h->GetXaxis()->GetXmax()));
-        string ytext = get_option<string>(options, "ratio_ytext", (ratio_num + " / " + ratio_denom));
-        ratio->GetYaxis()->SetTitle(ytext.c_str());
-        ratio->GetXaxis()->SetTitle(h->GetXaxis()->GetTitle());
-                
-        double font_factor = mainpad_height / (1 - mainpad_height);
-        ratio->GetYaxis()->SetTitleSize(h->GetYaxis()->GetTitleSize() * font_factor);
-        ratio->GetYaxis()->SetLabelSize(h->GetYaxis()->GetLabelSize() * font_factor);
-        ratio->GetXaxis()->SetTitleSize(h->GetXaxis()->GetTitleSize() * font_factor);
-        ratio->GetXaxis()->SetLabelSize(h->GetXaxis()->GetLabelSize() * font_factor);
-        ratio->GetYaxis()->SetTitleOffset(0.5);
-        
-        // find the indices for the num and denom histos:
-        int inum=-1, idenom=-1;
-        for(size_t i=0; i<histos.size(); ++i){
-            if(ratio_num == nameof(histos[i].process) || (ratio_num == "bkg" && i==0)) inum = i;
-            if(ratio_denom == nameof(histos[i].process) || (ratio_denom == "bkg" && i==0)) idenom = i;
-        }
-        
-        const double inf = numeric_limits<double>::infinity();
-        double minentry = inf, maxentry = -inf;
-        for(int ibin=1; ibin <= ratio->GetNbinsX(); ++ibin){
-            double entry = 1.0, entry_error = 1.0;
-            
-            if(inum >= 0 and idenom >= 0){
-                double delta_num = histos[inum].histo->GetBinError(ibin);
-                double num = histos[inum].histo->GetBinContent(ibin);
-            
-                double delta_denom = histos[idenom].histo->GetBinError(ibin);
-                double denom = histos[idenom].histo->GetBinContent(ibin);
-            
-                entry = num / denom;
-                // the relative error on the ratio is the quadratic sum of the relative errors of numerator and denominator:
-                entry_error = sqrt(pow(delta_num / num, 2) + pow(delta_denom / denom, 2)) * entry;
-            
-                if(!std::isfinite(entry) || !std::isfinite(entry_error)){
-                    entry = 1.0;
-                    entry_error = 0.0;
-                }
-            }
-            
-            ratio->SetBinContent(ibin, entry);
-            ratio->SetBinError(ibin, entry_error);
-            minentry = min(minentry, entry - 1.2 * entry_error);
-            maxentry = max(maxentry, entry + 1.2 * entry_error);
-        }
-        // make range a bit larger by rounding to the next 0.1:
-        minentry = int(minentry * 10) * 0.1;
-        maxentry = int(maxentry * 10 + 1) * 0.1;
-        
-        double ratio_ymin = get_option<double>(options, "ratio_ymin", NAN);
-        double ratio_ymax = get_option<double>(options, "ratio_ymax", NAN);
-        double ymin = minentry;
-        double ymax = maxentry;
-        if(!std::isnan(ratio_ymin)) ymin = ratio_ymin;
-        if(!std::isnan(ratio_ymax)) ymax = ratio_ymax;
-        ratio->SetMinimum(ymin);
-        ratio->SetMaximum(ymax);
-        ratio->GetXaxis()->SetNdivisions(h->GetXaxis()->GetNdivisions());
-        ratio->Draw("AXIS");
-        
-        TLine line;
-        if(!get_option<string>(options, "ratio_line1", "").empty()){
-            line.SetLineWidth(2.0);
-            line.SetLineColor(kGray);
-            line.DrawLine(ratio->GetXaxis()->GetXmin(), 1.0, ratio->GetXaxis()->GetXmax(), 1.0);
-        }
-        
-        ratio->Draw("ESAME");
+        do_draw_ratio(h->GetXaxis()->GetNdivisions(), histos, options, tmp_objects);
     }
     c->Print(filename.c_str());
 }
+
+
+
+// draw the actual ratio(s) on the given pad
+// pad is the pad to draw the ratio on,
+// ndiv_x is the division of the x axis for the ratio plot
+// histos is the list of histograms, required to compute the ratio (and set the styles)
+// options are options as in draw_histos. Interpreted are:
+//  * "draw_ratio"
+//  * "ratio_ytext": y axis label of the ratio plot
+//  * "ratio_ymin", "ratio_ymax": y range of the ratio plot
+//  * "ratio_line1": if non-empty, draw a line at y=1 as a guide
+//  * "ratio_denom_error": the process name of the histogram which contains (as bin errors) the (absolute) errors of the denominator. If given,
+//    the ratio curves on the ratio plot only represent the error on the numerator; the error on the denominator (*shared for all ratios, if more than 1)
+//    is shown as separate error band. In the simplest case, this is the same as the denominator. The default is to not show the
+//    denominator error band, but instead propagate the full error on all ratios.
+//    
+// draw_objects is used to ensure the proper lifetime for the drawn objects: only after the call to TCanvas::Print (or similar),
+// the intermediate histos are save to delete. Therefore, the caller has to provide the container for those objects created for drawing here.
+//
+// "draw_ratio" can either be of the for "num / denom" where "num" and "denom" are histogram process names with the special name
+// "bkg" meaning the first histogram (usually total background, if stacked), and -- as usual -- "data". The other form is
+// "a; b; c / d" where three ratios will be drawn: a/d, b/d, c/d (usually d = data). NOTE: it currently only works that
+// way around, i.e. multiple histos in the numerator, and not multiple histos in the denominator.
+void do_draw_ratio(int ndiv_x, const vector<Histogram> & histos, const map<string, string> & options, vector<unique_ptr<TObject>> & draw_objects){
+    string ratio_denom;
+    vector<string> ratios_num;
+    string ratio_denom_error = get_option<string>(options, "ratio_denom_error", "");
+    string draw_ratio_option = get_option<string>(options, "draw_ratio", "bkg / data");
+    string xtext = get_option<string>(options, "xtext", histos[0].histo->GetXaxis()->GetTitle());
+    size_t p = draw_ratio_option.find('/');
+    if(p!=string::npos){
+        string ratio_num = draw_ratio_option.substr(0, p);
+        boost::split(ratios_num, ratio_num, boost::is_any_of(";"), boost::algorithm::token_compress_on);
+        for(auto & r : ratios_num){
+            trim(r);
+        }
+        ratio_denom = draw_ratio_option.substr(p+1);
+        trim(ratio_denom);
+    }
+    else{
+        ratios_num.push_back("bkg");
+        ratio_denom = "data";
+    }
+    
+    TH1* h = histos[0].histo.get();
+    
+    // ratios[0] is used for axes and first ratio
+    vector<unique_ptr<TH1D>> ratios;
+    ratios.emplace_back(new TH1D("ratio", "ratio", histos[0].histo->GetNbinsX(), histos[0].histo->GetXaxis()->GetXmin(), histos[0].histo->GetXaxis()->GetXmax()));
+    ratios.back()->SetDirectory(0);
+    
+    string ytext = get_option<string>(options, "ratio_ytext", (ratios_num[0] + " / " + ratio_denom));
+    ratios[0]->GetYaxis()->SetTitle(ytext.c_str());
+    ratios[0]->GetXaxis()->SetTitle(xtext.c_str());
+                
+    const double font_factor = 2.0;
+    ratios[0]->GetYaxis()->SetTitleSize(h->GetYaxis()->GetTitleSize() * font_factor);
+    ratios[0]->GetYaxis()->SetLabelSize(h->GetYaxis()->GetLabelSize() * font_factor);
+    ratios[0]->GetXaxis()->SetTitleSize(h->GetXaxis()->GetTitleSize() * font_factor);
+    ratios[0]->GetXaxis()->SetLabelSize(h->GetXaxis()->GetLabelSize() * font_factor);
+    ratios[0]->GetYaxis()->SetTitleOffset(0.5);
+        
+    // find the indices for the num and denom histos:
+    int idenom=-1;
+    vector<int> num(ratios_num.size(), -1);
+    for(size_t i=0; i<histos.size(); ++i){
+        if(ratio_denom == nameof(histos[i].process) || (ratio_denom == "bkg" && i==0)) idenom = i;
+        for(size_t j=0; j<ratios_num.size(); ++j){
+            if(ratios_num[j] == nameof(histos[i].process) || (ratios_num[j] == "bkg" && i==0)) num[j] = i;
+        }
+    }
+    
+    // check that all are set:
+    if(idenom == -1){
+        throw runtime_error("draw_ratio: did not find denominator histogram with process name '" + ratio_denom + "'");
+    }
+    for(size_t j=0; j<num.size(); ++j){
+        if(num[j]==-1) throw runtime_error("draw_ratio: did not find numerator histogram with process name '" + ratios_num[j] + "'");
+    }
+    
+    // create all other ratios TH1Ds:
+    if(num.size() > 0){
+        // set color:
+        ratios[0]->SetLineColor(histos[num[0]].histo->GetLineColor());
+    }
+    for(size_t i=1; i<num.size(); ++i){
+        ratios.emplace_back(new TH1D("ratio", "ratio", histos[0].histo->GetNbinsX(), histos[0].histo->GetXaxis()->GetXmin(), histos[0].histo->GetXaxis()->GetXmax()));
+        ratios.back()->SetDirectory(0);
+        ratios[i]->SetLineColor(histos[num[i]].histo->GetLineColor());
+        ratios[i]->SetLineWidth(histos[num[i]].histo->GetLineWidth());
+    }
+    
+    const double inf = numeric_limits<double>::infinity();
+    double minentry = inf, maxentry = -inf;
+    for(size_t ir=0; ir<ratios.size(); ++ir){
+        for(int ibin=1; ibin <= ratios[ir]->GetNbinsX(); ++ibin){
+            double delta_num = histos[num[ir]].histo->GetBinError(ibin);
+            double numval = histos[num[ir]].histo->GetBinContent(ibin);
+        
+            double delta_denom = histos[idenom].histo->GetBinError(ibin);
+            double denom = histos[idenom].histo->GetBinContent(ibin);
+        
+            double entry = numval / denom;
+            double entry_error = 1.0;
+            // the relative error on the ratio is the quadratic sum of the relative errors of numerator and denominator:
+            if(ratio_denom_error.empty()){
+                entry_error = sqrt(pow(delta_num / numval, 2) + pow(delta_denom / denom, 2)) * entry;
+            }
+            else{
+                entry_error = sqrt(pow(delta_num / numval, 2)) * entry;
+            }
+        
+            if(!std::isfinite(entry) || !std::isfinite(entry_error)){
+                entry = 1.0;
+                entry_error = 0.0;
+            }
+            
+            ratios[ir]->SetBinContent(ibin, entry);
+            ratios[ir]->SetBinError(ibin, entry_error);
+            minentry = min(minentry, entry - 1.2 * entry_error);
+            maxentry = max(maxentry, entry + 1.2 * entry_error);
+        }
+    }
+    
+    // make range a bit larger by rounding to the next 0.1:
+    minentry = int(minentry * 10) * 0.1;
+    maxentry = int(maxentry * 10 + 1) * 0.1;
+    
+    double ratio_ymin = get_option<double>(options, "ratio_ymin", NAN);
+    double ratio_ymax = get_option<double>(options, "ratio_ymax", NAN);
+    double ymin = minentry;
+    double ymax = maxentry;
+    if(!std::isnan(ratio_ymin)) ymin = ratio_ymin;
+    if(!std::isnan(ratio_ymax)) ymax = ratio_ymax;
+    ratios[0]->SetMinimum(ymin);
+    ratios[0]->SetMaximum(ymax);
+    int ifirst = histos[0].histo->GetXaxis()->GetFirst(), ilast = histos[0].histo->GetXaxis()->GetLast();
+    if(ifirst > 1 || (ilast != 0 && ilast != histos[0].histo->GetNbinsX())){
+        ratios[0]->GetXaxis()->SetRange(ifirst, ilast);
+    }
+    ratios[0]->GetXaxis()->SetNdivisions(ndiv_x);
+    ratios[0]->Draw("AXIS");
+    
+    TLine line;
+    if(!get_option<string>(options, "ratio_line1", "").empty()){
+        line.SetLineWidth(2.0);
+        line.SetLineColor(kGray);
+        line.DrawLine(ratios[0]->GetXaxis()->GetXmin(), 1.0, ratios[0]->GetXaxis()->GetXmax(), 1.0);
+    }
+    
+    // draw the error on the ratio first, if any:
+    if(!ratio_denom_error.empty()){
+        int ierr=-1;
+        for(size_t i=0; i<histos.size(); ++i){
+            if(ratio_denom_error == nameof(histos[i].process)){
+                ierr = i;
+                break;
+            }
+        }
+        if(ierr == -1){
+            throw runtime_error("draw_ratio: did not find histogram for denominator error '" + ratio_denom_error + "'");
+        }
+        // to make a band histogram, create one with many bins: ROOT draws the error at the bin centre and then
+        // connects the ends of the error bars. However, what we want are rectangular error boxes extending the whole bin.
+        // This means the new histogram has to have a bin CENTRE at the low edge and the upper edge of the original histogram
+        vector<double> bins;
+        for(int ibin=1; ibin<=histos[ierr].histo->GetNbinsX(); ++ibin){
+            bins.push_back(histos[ierr].histo->GetBinLowEdge(ibin));
+            bins.push_back(histos[ierr].histo->GetBinLowEdge(ibin));
+            bins.push_back(histos[ierr].histo->GetXaxis()->GetBinUpEdge(ibin));
+            bins.push_back(histos[ierr].histo->GetXaxis()->GetBinUpEdge(ibin));
+        }
+        TH1D * tmp = new TH1D("tmp", "tmp", bins.size()-1, &(bins[0]));
+        tmp->SetDirectory(0);
+        int ibin_tmp = 1;
+        for(int ibin=1; ibin<=histos[ierr].histo->GetNbinsX(); ++ibin){
+            // plot the *relative* error:
+            double err = histos[ierr].histo->GetBinError(ibin) / histos[ierr].histo->GetBinContent(ibin);
+            if(!std::isfinite(err)){
+                err = 1.0;
+            }
+            tmp->SetBinContent(ibin_tmp, 1.0);
+            tmp->SetBinError(ibin_tmp, err);
+            ibin_tmp++;
+            tmp->SetBinContent(ibin_tmp, 1.0);
+            tmp->SetBinError(ibin_tmp, err);
+            ibin_tmp++;
+            tmp->SetBinContent(ibin_tmp, 1.0);
+            tmp->SetBinError(ibin_tmp, err);
+            ibin_tmp++;
+            tmp->SetBinContent(ibin_tmp, 1.0);
+            tmp->SetBinError(ibin_tmp, err);
+            ibin_tmp++;
+        }
+        draw_objects.emplace_back(tmp);
+        tmp->SetFillColor(kGray);
+        //tmp->SetFillStyle(3354);
+        tmp->Draw("SAME E3");
+    }
+    
+    
+    for(size_t ir=0; ir < ratios.size(); ++ir){
+        ratios[ir]->Draw("ESAME");
+        draw_objects.emplace_back(move(ratios[ir]));
+    }
+}
+
+
 
 
 void create_dir(const string & filename){
@@ -856,6 +981,7 @@ void Plotter::stackplots(const std::initializer_list<process_type> & processes_t
         for(const auto & hname : hnames){
             auto histograms = get_formatted_histograms(histos, selection, hname);
             if(histograms.empty()) continue;
+            if(histograms[0].histo->GetDimension() > 1) continue; // do not plot TH2D etc.
             vector<Histogram> histos_for_draw;
             vector<TH1*> histos_for_stack;
             // build up histos_for_stack to point into histograms[i].histo, in the order given by processes_to_stack
@@ -924,6 +1050,7 @@ void Plotter::shapeplots(const std::initializer_list<process_type> & processes_t
         for(const auto & hname : hnames){
             auto histograms = get_formatted_histograms(selected_histos, selection, hname);
             if(histograms.empty()) continue;
+            if(histograms[0].histo->GetDimension() > 1) continue; // do not plot TH2D etc.
             // normalize all and do not fill:
             for(auto & h: histograms){
                 h.histo->Scale(1.0 / h.histo->Integral());

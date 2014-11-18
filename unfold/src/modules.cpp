@@ -21,6 +21,7 @@ void unfold::run(const Problem& p, const Unfolder & unf){
     auto hists = spectrum_to_roothists(unfolded, "unfolded", false);
     put(out(), move(hists.first));
     put(out(), move(hists.second));
+    put(out(), spectrum_to_roothist(reco, "data", false));
 }
 
 REGISTER_MODULE(unfold);
@@ -141,6 +142,10 @@ void write_input::run(const Problem& p, const Unfolder & unf){
     save_as_th1(p.bkg(), "bkg", out(), false, true);
     save_as_th1(p.mean_reco_bkgsub(), "mean_reco_bkgsub", out(), false, true);
     
+    Spectrum expected_data = p.R() * p.gen() + p.bkg();
+    save_as_th1(expected_data, "asimov_data", out());
+    
+    put(out(), matrix_to_roothist(p.R(), "response"));
 }
 
 REGISTER_MODULE(write_input)

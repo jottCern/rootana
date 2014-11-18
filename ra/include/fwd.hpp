@@ -6,6 +6,7 @@
 namespace ra{
     // event.hpp:
     class Event;
+    class EventStructure;
     
     // context.hpp:
     class Configuration;

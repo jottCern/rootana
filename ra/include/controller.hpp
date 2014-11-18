@@ -74,12 +74,13 @@ private:
     std::vector<std::unique_ptr<AnalysisModule>> modules;
     std::vector<std::string> module_names;
     
-    // per dataset:
+    // per dataset (~in the order of construction):
     size_t current_idataset;
     std::string outfile_base;
+    std::unique_ptr<ra::EventStructure> es;
     std::unique_ptr<ra::OutputManagerBackend> out;
-    std::unique_ptr<ra::Event> event;
     std::unique_ptr<ra::InputManagerBackend> in;
+    std::unique_ptr<ra::Event> event;
     
     Event::Handle<bool> handle_stop;
     

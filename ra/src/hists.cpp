@@ -24,6 +24,10 @@ Hists::~Hists(){}
 
 void Hists::book_1d_autofill(event_functor f, const char * name, int nbins, double xmin, double xmax, Event::Handle<double> weight_handle){
     TH1D * histo = book<TH1D>(name, nbins, xmin, xmax);
+    Event::Handle<double> invalid_handle;
+    if(weight_handle == invalid_handle){
+        weight_handle = out.get_handle<double>("weight");
+    }
     autofill_histos.emplace_back(autofill_histo{move(f), weight_handle, histo});
 }
 
@@ -33,9 +37,6 @@ void Hists::process_all(Event & e){
     for(auto & it : autofill_histos){
         double value = it.f(e);
         if(std::isnan(value)) continue;
-        if(it.weight_handle == invalid_handle){
-            it.weight_handle = e.get_handle<double>("weight");
-        }
         double weight = e.get(it.weight_handle);
         it.histo->Fill(value, weight);
     }

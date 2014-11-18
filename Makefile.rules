@@ -77,8 +77,8 @@ CXXFLAGS := -std=c++0x -O3 -Wall -g -fPIC -Wno-unused-local-typedefs -I.. -Iincl
 LDFLAGS :=  -fPIC -rdynamic -lrt -Wl,-rpath='$$ORIGIN/../lib' -Wl,-z,defs -L../lib $(BOOST_LDFLAGS) $(USERLDFLAGS)
 
 # compile commands, to be used in cubdirectory makefiles:
-SHARED_CMD = @echo creating $@; $(CXX) $+ -shared $(LDFLAGS) -o $@ 
-EXE_CMD = @echo creating $@; $(CXX) -o $@ $+ $(LDFLAGS)
+SHARED_CMD = echo creating $@; $(CXX) $+ -shared $(LDFLAGS) -o $@ 
+EXE_CMD = echo creating $@; $(CXX) -o $@ $+ $(LDFLAGS)
 
 .bin/%.o: src/%.cpp
 	@echo compiling $<

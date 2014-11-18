@@ -50,8 +50,7 @@ test_module::test_module(const ptree & cfg){
 }
 
 void test_module::begin_dataset(const s_dataset & dataset, InputManager & in, OutputManager & out){
-    in.declare_event_input<int>("intdata");
-    h_intdata = in.get_handle<int>("intdata");
+    h_intdata = in.declare_event_input<int>("intdata");
 }
 
 void test_module::process(Event & event){

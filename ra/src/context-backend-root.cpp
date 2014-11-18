@@ -1,6 +1,8 @@
 #include "context-backend.hpp"
+#include "event.hpp"
 #include "base/include/utils.hpp"
 #include "base/include/ptree-utils.hpp"
+#include "identifier.hpp"
 
 #include "TClass.h"
 #include "TFile.h"
@@ -8,19 +10,21 @@
 #include "TEmulatedCollectionProxy.h"
 #include "TH1.h"
 
+#include <list>
+
 using namespace ra;
 using namespace std;
 
 class TTreeInputManager: public InputManagerBackend {
 public:
     
-    TTreeInputManager(Event & event_, const ptree & cfg);
+    TTreeInputManager(EventStructure & es_, const ptree & cfg);
     
-    virtual void declare_input(const char * bname, const std::string & event_member_name, void * addr, const std::type_info & ti) override;
+    virtual void do_declare_event_input(const std::type_info & ti, const std::string & bname, const std::string & mname) override;
     
-    virtual size_t setup_input_file(const string & treename, const std::string & filename) override;
+    virtual size_t setup_input_file(Event & event, const string & treename, const std::string & filename) override;
     
-    virtual void read_event(size_t ievent) override;
+    virtual void read_event(Event & event, size_t ievent) override;
 
     virtual size_t nbytes_read() override {
         size_t result = bytes_read;
@@ -31,11 +35,17 @@ public:
 private:
     struct branchinfo {
         TBranch * branch;
-        const std::type_info & ti; // this is always a non-pointer type.
+        void * addr; // memory belongs to branchinfo, not managed by Event
+        boost::optional<std::function<void (void*)> > eraser; // eraser for addr
+        const type_info & ti; // this is always a non-pointer type.
         Event::RawHandle handle;
-        void * addr; // address of an object of type ti inside the event container
         
-        branchinfo(TBranch * branch_, const std::type_info & ti_, const Event::RawHandle & handle_, void * addr_): branch(branch_), ti(ti_), handle(handle_), addr(addr_){}
+        branchinfo(const type_info & ti_, const Event::RawHandle & handle_): branch(0), addr(0), ti(ti_), handle(handle_){} // eraser is None
+        ~branchinfo(){
+            if(eraser && addr){
+                (*eraser)(addr);
+            }
+        }
     };
     
     void read_branch(branchinfo & bi);
@@ -51,12 +61,12 @@ private:
 
 REGISTER_INPUT_MANAGER_BACKEND(TTreeInputManager, "root")
 
-void TTreeInputManager::declare_input(const char * bname, const string & event_member_name, void * addr, const std::type_info & ti){
+void TTreeInputManager::do_declare_event_input(const std::type_info & ti, const std::string & bname, const std::string & mname){
     if(bname2bi.find(bname) != bname2bi.end()){
          throw runtime_error("InputManager: input for branch name '" + string(bname) + "' declared multiple times. This is not allowed.");
     }
-    Event::RawHandle handle = event.get_raw_handle(ti, event_member_name);
-    bname2bi.insert(pair<string, branchinfo>(bname, branchinfo(0, ti, handle, addr)));
+    Event::RawHandle handle = es.get_raw_handle(ti, mname);
+    bname2bi.insert(pair<string, branchinfo>(bname, branchinfo(ti, handle)));
 }
 
 namespace{
@@ -79,11 +89,11 @@ void write_type_info(ostream & out, TClass * class_, EDataType type_){
 
 }
 
-TTreeInputManager::TTreeInputManager(Event & event_, const ptree & cfg): InputManagerBackend(event_), current_ientry(0), nentries(0), bytes_read(0) {
+TTreeInputManager::TTreeInputManager(EventStructure & es_, const ptree & cfg): InputManagerBackend(es_), current_ientry(0), nentries(0), bytes_read(0) {
     lazy = ptree_get<bool>(cfg, "lazy", false);
 }
 
-size_t TTreeInputManager::setup_input_file(const string & treename, const std::string & filename){
+size_t TTreeInputManager::setup_input_file(Event & event, const string & treename, const std::string & filename){
     file.reset(new TFile(filename.c_str(), "read"));
     if(!file->IsOpen()){
         throw runtime_error("TTreeInputManager::setup_input_file: Error opening root file '" + filename + "'");
@@ -119,9 +129,19 @@ size_t TTreeInputManager::setup_input_file(const string & treename, const std::s
         
         // compare if they match; note that it's an error if the class or data type has not been found:
         if((branch_class && address_class) && ((branch_class == address_class) || (branch_class->GetTypeInfo() == address_class->GetTypeInfo()))){
+            if(bi.addr == 0){
+                bi.addr = branch_class->New();
+                bi.eraser = branch_class->GetDelete();
+                event.set_unmanaged(bi.ti, bi.handle, bi.addr);
+            }
             branch->SetAddress(&bi.addr);
         }
         else if(branch_dtype != kNoType_t && (branch_dtype == address_dtype)){
+            if(bi.addr == 0){
+                bi.addr = new uint64_t; // largest primitive type
+                bi.eraser = [](void * addr){delete reinterpret_cast<uint64_t*>(addr);};
+                event.set_unmanaged(bi.ti, bi.handle, bi.addr);
+            }
             branch->SetAddress(bi.addr);
         }
         else{ // this is an error:
@@ -156,11 +176,11 @@ void TTreeInputManager::read_branch(branchinfo & bi){
 }
 
 
-void TTreeInputManager::read_event(size_t ientry){
+void TTreeInputManager::read_event(Event & event, size_t ientry){
     if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
     current_ientry = ientry;
     if(lazy){
-        // mark all invalid to trigger read:
+        // just mark all invalid to trigger read on access:
         for(auto & name_bi : bname2bi){
             event.set_validity(name_bi.second.ti, name_bi.second.handle, false);
         }
@@ -179,14 +199,13 @@ void TTreeInputManager::read_event(size_t ientry){
 class TFileOutputManager: public OutputManagerBackend {
 public:
     // outfile ownership is taken by the TFileOutputManager.
-    TFileOutputManager(Event & event, const std::string & event_treename, const std::string & base_outfilename);
+    TFileOutputManager(EventStructure & es, const std::string & event_treename, const std::string & base_outfilename);
     
     virtual void put(const char * name, TH1 * t) override;
-    virtual void declare_event_output(const char * name, const std::string & event_member_name, const void * addr, const std::type_info & ti) override;
-    virtual void declare_output(const identifier & tree_id, const char * name, const void * t, const std::type_info & ti) override;
+    virtual void declare_output(const std::type_info & ti, const identifier & tree_id, const std::string & branchname, const void * t) override;
+    virtual void declare_event_output(const std::type_info & ti, const std::string & bname, const std::string & mname) override;
     virtual void write_output(const identifier & tree_id) override;
-    
-    virtual void write_event() override;
+    virtual void write_event(Event & event) override;
     
     // write and close the underlying TFile. Any put or write after that is illegal.
     // Called from the destructor automatically, so often no need to do it explicitly.
@@ -195,10 +214,23 @@ public:
     virtual ~TFileOutputManager();
     
 private:
+    void setup_output(Event & event);
+    
     std::unique_ptr<TFile> outfile;
     std::string event_treename;
     TTree * event_tree; // owned by outfile
-    std::vector<std::pair<Event::RawHandle, const std::type_info*>> event_members; // list of event members to read before the write; important for lazy read
+    
+    struct branchinfo {
+        Event::RawHandle handle;
+        const std::type_info & ti;
+        std::string branchname;
+        
+        branchinfo(const Event::RawHandle & handle_, const std::type_info & ti_, const std::string & bname_): handle(handle_), ti(ti_), branchname(bname_){}
+    };
+    
+    std::vector<branchinfo> output_branches; // in the output event tree
+    bool setup_output_called;
+    
     std::map<identifier, TTree*> trees; // additional trees beyond the event tree
     std::list<void*> ptrs; // keep a list of pointers, so we can give root the *address* of the pointer
 };
@@ -252,7 +284,7 @@ char DataTypeToChar(EDataType datatype){
 // Like TTree::Branch but with types only known at runtime: given a pointer to T, setup a branch. While this is possible
 // with templates, it's not if the type is only known at runtime (like here), so
 // for this case, we have to so some painful stuff by reading and re-writing root code ...
-void ttree_branch(TTree * tree, const char * name, void * addr, void ** addraddr, const std::type_info & ti){
+void ttree_branch(TTree * tree, const std::string & bname, void * addr, void ** addraddr, const std::type_info & ti){
     //emulate
     // template<typename T>
     // outtree->Branch(name, (T*)addr);
@@ -268,14 +300,14 @@ void ttree_branch(TTree * tree, const char * name, void * addr, void ** addraddr
         // I'd like to do now:
         // outtree->BronchExec(name, actualClass->GetName(), addr, *** kFALSE ****, bufsize, splitlevel);
         // but root doesn't let me, so work around by passing a pointer-to-pointer after all:
-        tree->Bronch(name, actualclass->GetName(), addraddr);
+        tree->Bronch(bname.c_str(), actualclass->GetName(), addraddr);
     }
     else{
         EDataType dt = TDataType::GetType(ti);
         if(dt==kOther_t or dt==kNoType_t) throw invalid_argument("unknown type");
         char c = DataTypeToChar(dt);
         if(c==0) throw invalid_argument("unknown type");
-        tree->Branch(name, addr, (string(name) + "/" + c).c_str());
+        tree->Branch(bname.c_str(), addr, (bname + "/" + c).c_str());
     }
 }
 
@@ -331,8 +363,8 @@ TTree * create_ttree(TFile & file, const string & name){
 
 }
 
-TFileOutputManager::TFileOutputManager(Event & event_, const string & event_treename_, const string & base_outfilename):
-    OutputManagerBackend(event_), event_treename(event_treename_),event_tree(0){
+TFileOutputManager::TFileOutputManager(EventStructure & es_, const string & event_treename_, const string & base_outfilename):
+    OutputManagerBackend(es_), event_treename(event_treename_),event_tree(0), setup_output_called(false){
         string filename_full = base_outfilename + ".root";
     outfile.reset(new TFile(filename_full.c_str(), "recreate"));
     if(!outfile->IsOpen()){
@@ -350,22 +382,25 @@ void TFileOutputManager::put(const char * name_, TH1 * histo){
     histo->SetName(path_name.second.c_str());
     histo->SetDirectory(gDirectory);
 }
+    
+void TFileOutputManager::declare_event_output(const std::type_info & ti, const std::string & bname, const std::string & mname){
+    auto handle = es.get_raw_handle(ti, mname);
+    output_branches.emplace_back(handle, ti, bname);
+}
 
-void TFileOutputManager::declare_event_output(const char * name, const string & event_member_name, const void * caddr, const std::type_info & ti){
+void TFileOutputManager::setup_output(Event & event){
     if(!event_tree){
         event_tree = create_ttree(*outfile, event_treename);
     }
-    void * addr = const_cast<void*>(caddr);
-    ptrs.push_back(addr);
-    void *& ptrptr = ptrs.back();
-    if(!event_member_name.empty()){
-        auto handle = event.get_raw_handle(ti, event_member_name);
-        event_members.emplace_back(handle, &ti);
+    for(const auto & b : output_branches){
+        void * addr = event.get(b.ti, b.handle, false);
+        ptrs.push_back(addr);
+        void *& ptrptr = ptrs.back();
+        ttree_branch(event_tree, b.branchname, addr, &ptrptr, b.ti);
     }
-    ttree_branch(event_tree, name, addr, &ptrptr, ti);
 }
 
-void TFileOutputManager::declare_output(const identifier & tree_id, const char * name, const void * caddr, const std::type_info & ti){
+void TFileOutputManager::declare_output(const std::type_info & ti, const identifier & tree_id, const std::string & branchname, const void * caddr){
     TTree *& tree = trees[tree_id];
     if(!tree){
         tree = create_ttree(*outfile, tree_id.name());
@@ -374,7 +409,7 @@ void TFileOutputManager::declare_output(const identifier & tree_id, const char *
     void * addr = const_cast<void*>(caddr);
     ptrs.push_back(addr);
     void *& ptrptr = ptrs.back();
-    ttree_branch(tree, name, addr, &ptrptr, ti);
+    ttree_branch(tree, branchname, addr, &ptrptr, ti);
 }
 
 void TFileOutputManager::write_output(const identifier & tree_id){
@@ -386,15 +421,21 @@ void TFileOutputManager::write_output(const identifier & tree_id){
     it->second->Fill();
 }
 
-void TFileOutputManager::write_event(){
-    assert(outfile);
-    if(event_tree){
-        // read all event members; to make sure info is up to date in case of lazy reads:
-        for(const auto & em : event_members){
-            event.get(*em.second, em.first);
-        }
-        event_tree->Fill();
+void TFileOutputManager::write_event(Event & event){
+    if(!setup_output_called){
+        setup_output(event);
+        setup_output_called = true;
     }
+    assert(outfile);
+    if(!event_tree) return;
+    // read all event members; this is to make sure info is up to date in case of lazy reads:
+    for(const auto & b : output_branches){
+        event.get(b.ti, b.handle);
+    }
+    if(!setup_output_called){
+        setup_output(event);
+    }
+    event_tree->Fill();
 }
 
 void TFileOutputManager::close(){

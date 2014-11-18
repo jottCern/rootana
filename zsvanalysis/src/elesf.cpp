@@ -1,4 +1,3 @@
-#include "zsvanalysis/MuScleFitCorrector_v4_3/MuScleFitCorrector.h"
 #include "ra/include/analysis.hpp"
 #include "ra/include/config.hpp"
 #include "ra/include/context.hpp"
@@ -30,17 +29,21 @@ private:
     double getsf(const lepton & lep);
     
     bool is_real_data;
-    unique_ptr<TH2F> sfs;
+    unique_ptr<TH2> sfs;
+    
+    string filename, histname;
     
     Event::Handle<double> h_weight, h_elesf;
     Event::Handle<lepton> h_lepton_minus, h_lepton_plus;
 };
 
 elesf::elesf(const ptree & cfg){
-    string filename = resolve_file("electrons_scale_factors.root");
+    string filename = ptree_get<string>(cfg, "filename", "electrons_scale_factors.root"); // default is for MVA
+    string histname = ptree_get<string>(cfg, "histname", "electronsDATAMCratio_FO_ID_ISO");
+    filename = resolve_file(filename);
     if(filename.empty()) throw runtime_error("could not find electrons scale factor file");
     TFile f(filename.c_str(), "read");
-    sfs = gethisto<TH2F>(f, "electronsDATAMCratio_FO_ID_ISO");
+    sfs = gethisto<TH2>(f, histname);
     sfs->SetDirectory(0);
     // leaving here closes f, disposes histo
 }

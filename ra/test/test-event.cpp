@@ -41,8 +41,10 @@ int dummy = make_test_tree("tree.root");
 BOOST_AUTO_TEST_SUITE(event)
 
 BOOST_AUTO_TEST_CASE(simple){
-    Event e;
-    auto h = e.get_handle<int>("test");
+    EventStructure es;
+    auto h = es.get_handle<int>("test");
+    
+    Event e(es);
     BOOST_CHECK(e.get_state(h) == Event::state::nonexistent);
     BOOST_CHECK_THROW(e.get(h), std::runtime_error);
     
@@ -62,8 +64,10 @@ BOOST_AUTO_TEST_CASE(simple){
 
 // test that addresses of the data in Event do not change across calls to 'set'.
 BOOST_AUTO_TEST_CASE(addresses){
-    Event e;
-    auto h = e.get_handle<int>("test");
+    EventStructure es;
+    auto h = es.get_handle<int>("test");
+    
+    Event e(es);
     e.set(h, 5);
     
     int & idata = e.get(h);
@@ -76,28 +80,32 @@ BOOST_AUTO_TEST_CASE(addresses){
 
 // check that getting handles with same name/type is the same:
 BOOST_AUTO_TEST_CASE(handles){
-    Event e;
-    auto h0 = e.get_handle<int>("test");
+    EventStructure es;
+    auto h0 = es.get_handle<int>("test");
+    
+    Event e(es);
+    
     e.set(h0, 5);
+    BOOST_CHECK_EQUAL(es.name(h0), "test");
     
-    BOOST_CHECK_EQUAL(e.name(h0), "test");
-    
-    auto h1 = e.get_handle<int>("test");
+    auto h1 = es.get_handle<int>("test");
     BOOST_CHECK_EQUAL(e.get(h1), 5);
     
-    BOOST_CHECK_EQUAL(e.name(h1), "test");
+    BOOST_CHECK_EQUAL(es.name(h1), "test");
     
     // same name, other type:
-    auto h2 = e.get_handle<float>("test");
-    BOOST_CHECK_EQUAL(e.get_state(h2), Event::state::nonexistent);
-    BOOST_CHECK_EQUAL(e.name(h2), "test");
+    auto h2 = es.get_handle<float>("test");
+    BOOST_CHECK_THROW(e.get_state(h2), std::runtime_error);
+    BOOST_CHECK_EQUAL(es.name(h2), "test");
 }
 
 BOOST_AUTO_TEST_CASE(unset){
-    Event e;
-    auto h_itest = e.get_handle<int>("itest");
-    BOOST_CHECK_EQUAL(e.get_state(h_itest), Event::state::nonexistent);
+    EventStructure es;
+    auto h_itest = es.get_handle<int>("itest");
     
+    Event e(es);
+    
+    BOOST_CHECK_EQUAL(e.get_state(h_itest), Event::state::nonexistent);
     e.set(h_itest, 17);
     BOOST_CHECK_EQUAL(e.get_state(h_itest), Event::state::valid);
     BOOST_REQUIRE_EQUAL(e.get(h_itest), 17);
@@ -120,10 +128,11 @@ BOOST_AUTO_TEST_CASE(unset){
 
 
 BOOST_AUTO_TEST_CASE(get_callback){
-    Event e;
-    auto h = e.get_handle<int>("itest");
-    BOOST_CHECK_EQUAL(e.get_state(h), Event::state::nonexistent);
+    EventStructure es;
+    auto h = es.get_handle<int>("itest");
     
+    Event e(es);
+    BOOST_CHECK_EQUAL(e.get_state(h), Event::state::nonexistent);
     int n_callback_called = 0;
     e.set(h, -1);
     int & iref = e.get(h);
@@ -161,14 +170,15 @@ BOOST_AUTO_TEST_CASE(get_callback){
 
 BOOST_AUTO_TEST_CASE(read){
     // check that reading intdata works:
-    Event event;
-    auto in = InputManagerBackendRegistry::build("root", event, ptree());
+    EventStructure es;
+    auto in = InputManagerBackendRegistry::build("root", es, ptree());
     in->declare_event_input<int>("intdata");
-    size_t nentries = in->setup_input_file("test", "tree.root");
-    auto h_intdata = event.get_handle<int>("intdata");
+    Event event(es);
+    size_t nentries = in->setup_input_file(event, "test", "tree.root");
+    auto h_intdata = es.get_handle<int>("intdata");
     BOOST_REQUIRE_EQUAL(nentries, size_t(100));
     for(int i=0; i<100; ++i){
-        in->read_event(i);
+        in->read_event(event, i);
         int idata = event.get(h_intdata);
         BOOST_CHECK_EQUAL(idata, i+1);
     }
@@ -176,16 +186,17 @@ BOOST_AUTO_TEST_CASE(read){
 }
 
 BOOST_AUTO_TEST_CASE(read_lazy){
-    Event event;
+    EventStructure es;
     ptree cfg;
     cfg.add_child("lazy", ptree("true"));
-    auto in = InputManagerBackendRegistry::build("root", event, cfg);
+    auto in = InputManagerBackendRegistry::build("root", es, cfg);
     in->declare_event_input<int>("intdata");
+    Event event(es);
     auto h_intdata = in->get_handle<int>("intdata");
-    size_t nentries = in->setup_input_file("test", "tree.root");
+    size_t nentries = in->setup_input_file(event, "test", "tree.root");
     BOOST_REQUIRE_EQUAL(nentries, size_t(100));
     for(int i=0; i<100; ++i){
-        in->read_event(i);
+        in->read_event(event, i);
         int idata = event.get(h_intdata);
         BOOST_CHECK_EQUAL(idata, i+1);
     }
@@ -211,38 +222,38 @@ BOOST_AUTO_TEST_CASE(read_noevent){
 
 BOOST_AUTO_TEST_CASE(read_wrong_type){
     // it should not work to read intdata as double:
-    Event event;
+    EventStructure es;
     ptree cfg;
-    auto in = InputManagerBackendRegistry::build("root", event, cfg);
+    auto in = InputManagerBackendRegistry::build("root", es, cfg);
     in->declare_event_input<double>("intdata");
-    BOOST_CHECK_THROW(in->setup_input_file("test", "tree.root"), std::runtime_error);
+    Event event(es);
+    BOOST_CHECK_THROW(in->setup_input_file(event, "test", "tree.root"), std::runtime_error);
 }
 
 
 
 BOOST_AUTO_TEST_CASE(outtree){
     { // create output file:
-    Event event;
-    auto out = OutputManagerBackendRegistry::build("root", event, "eventtree", "out");
-    
-    out->declare_event_output<int>("my_int");
-    auto h_my_int = event.get_handle<int>("my_int");
+    EventStructure es;
+    auto out = OutputManagerBackendRegistry::build("root", es, "eventtree", "out");
+    auto h_my_int =out->declare_event_output<int>("my_int");
+    Event event(es);
     for(int i=0; i<100; ++i){
-        event.get(h_my_int) = i;
-        out->write_event();
+        event.set(h_my_int, i);
+        out->write_event(event);
     }
     }
     
     // check that the output file is Ok:
-    Event inevent;
+    EventStructure es;
     ptree cfg;
-    auto in = InputManagerBackendRegistry::build("root", inevent, cfg);
-    in->declare_event_input<int>("my_int");
-    auto h_my_int = in->get_handle<int>("my_int");
-    size_t nevents = in->setup_input_file("eventtree", "out.root");
+    auto in = InputManagerBackendRegistry::build("root", es, cfg);
+    auto h_my_int = in->declare_event_input<int>("my_int");
+    Event inevent(es);
+    size_t nevents = in->setup_input_file(inevent, "eventtree", "out.root");
     BOOST_REQUIRE_EQUAL(nevents, size_t(100));
     for(size_t i=0; i<nevents; ++i){
-        in->read_event(i);
+        in->read_event(inevent, i);
         int idata = inevent.get(h_my_int);
         BOOST_CHECK_EQUAL(idata, i);
     }
@@ -252,27 +263,28 @@ BOOST_AUTO_TEST_CASE(outtree){
 // output tree in a directory within the output file:
 BOOST_AUTO_TEST_CASE(outtree_dir){
     {
-    Event event;
-    auto out = OutputManagerBackendRegistry::build("root", event, "dir/eventtree", "out");
+    EventStructure es;
     
-    out->declare_event_output<int>("my_int");
-    auto h_my_int = event.get_handle<int>("my_int");
+    auto out = OutputManagerBackendRegistry::build("root", es, "dir/eventtree", "out");
+    auto h_my_int = out->declare_event_output<int>("my_int");
+    Event event(es);
     for(int i=0; i<100; ++i){
-        event.get(h_my_int) = i;
-        out->write_event();
+        event.set(h_my_int, i);
+        out->write_event(event);
     }
     }
     
     // check that the output file is Ok:
-    Event inevent;
+    EventStructure es;
+    
     ptree cfg;
-    auto in = InputManagerBackendRegistry::build("root", inevent, cfg);
-    in->declare_event_input<int>("my_int");
-    size_t nevents = in->setup_input_file("dir/eventtree", "out.root");
-    auto h_my_int = in->get_handle<int>("my_int");
+    auto in = InputManagerBackendRegistry::build("root", es, cfg);
+    auto h_my_int = in->declare_event_input<int>("my_int");
+    Event inevent(es);
+    size_t nevents = in->setup_input_file(inevent, "dir/eventtree", "out.root");
     BOOST_REQUIRE_EQUAL(nevents, size_t(100));
     for(int i=0; i<100; ++i){
-        in->read_event(i);
+        in->read_event(inevent, i);
         int idata = inevent.get(h_my_int);
         BOOST_CHECK_EQUAL(idata, i);
     }
@@ -280,8 +292,8 @@ BOOST_AUTO_TEST_CASE(outtree_dir){
 
 
 BOOST_AUTO_TEST_CASE(outhist){
-    Event event;
-    auto out = OutputManagerBackendRegistry::build("root", event, "eventtree", "outhist");
+    EventStructure es;
+    auto out = OutputManagerBackendRegistry::build("root", es, "eventtree", "outhist");
     
     TH1D * histo = new TH1D("h1", "h1", 100, 0, 1);
     out->put("histname", histo);
@@ -297,8 +309,8 @@ BOOST_AUTO_TEST_CASE(outhist){
 }
 
 BOOST_AUTO_TEST_CASE(outhist_dir){
-    Event event;
-    auto out = OutputManagerBackendRegistry::build("root", event, "eventtree", "outhist_dir");
+    EventStructure es;
+    auto out = OutputManagerBackendRegistry::build("root", es, "eventtree", "outhist_dir");
     
     TH1D * histo = new TH1D("h1", "h1", 100, 0, 1);
     out->put("dir1/dir2/dir3/histname", histo);

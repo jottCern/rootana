@@ -150,6 +150,43 @@ private:
 
 REGISTER_SELECTION(LeptonFlavorSelection)
 
+class GenLeptonFlavorSelection: public Selection{
+public:
+    GenLeptonFlavorSelection(const ptree & cfg, InputManager & in, OutputManager &){
+        string sf = ptree_get<string>(cfg, "select_flavor");
+        if(sf=="ee"){
+            select_flavor = ee;
+        }
+        else if(sf=="mm"){
+            select_flavor=mm;
+        }
+        else if (sf=="me"){
+            select_flavor = me;
+        }
+        else{
+            throw runtime_error("invalid select_flavor='" + sf + "' (allowed: ee, mm, me)");
+        }
+        
+        h_leptons = in.get_handle<vector<mcparticle>>(ptree_get<string>(cfg, "input_mcleptons"));
+    }
+    
+    bool operator()(const Event & event){
+        const auto & leptons = event.get(h_leptons);
+        if(leptons.size() != 2) return false;
+        int flsum = abs(leptons[0].pdgid) + abs(leptons[1].pdgid);
+        return (select_flavor == ee && flsum == 22) || (select_flavor == mm && flsum == 26) || (select_flavor == me && flsum == 24);
+    }
+    
+private:
+    enum e_select_flavor {ee, mm, me };
+    e_select_flavor select_flavor;
+    
+    Event::Handle<vector<mcparticle>> h_leptons;
+};
+
+
+REGISTER_SELECTION(GenLeptonFlavorSelection)
+
 
 class LeptonTriggerMatchSelection: public Selection{
 public:
@@ -169,46 +206,26 @@ private:
 REGISTER_SELECTION(LeptonTriggerMatchSelection)
 
 
-class Muon21Selection: public Selection{
+class LeptonKinematicSelection: public Selection{
 public:
-    Muon21Selection(const ptree & cfg, InputManager & in, OutputManager &){
+    LeptonKinematicSelection(const ptree & cfg, InputManager & in, OutputManager &){
+        max_eta = ptree_get<double>(cfg, "max_eta", std::numeric_limits<double>::infinity());
+        min_pt = ptree_get<double>(cfg, "min_pt", 0.0);
         h_lepton_minus = in.get_handle<lepton>("lepton_minus");
         h_lepton_plus = in.get_handle<lepton>("lepton_plus");
     }
     
     bool operator()(const Event & event){
         const auto & lp = event.get(h_lepton_plus);
-        if(abs(lp.pdgid)==13 && fabs(lp.p4.eta()) > 2.1) return false;
+        if(fabs(lp.p4.eta()) > max_eta || lp.p4.pt() < min_pt) return false;
         const auto & lm = event.get(h_lepton_minus);
-        if(abs(lm.pdgid)==13 && fabs(lm.p4.eta()) > 2.1) return false;
+        if(fabs(lm.p4.eta()) > max_eta || lm.p4.pt() < min_pt) return false;
         return true;
     }
     
 private:
+    double max_eta, min_pt;
      Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
 };
 
-REGISTER_SELECTION(Muon21Selection)
-
-
-
-class HardLeptonSelection: public Selection{
-public:
-    HardLeptonSelection(const ptree & cfg, InputManager & in, OutputManager &){
-        h_lepton_minus = in.get_handle<lepton>("lepton_minus");
-        h_lepton_plus = in.get_handle<lepton>("lepton_plus");
-    }
-    
-    bool operator()(const Event & event){
-        const auto & lp = event.get(h_lepton_plus);
-        if(fabs(lp.p4.eta()) > 2.0 || lp.p4.pt() < 30.0) return false;
-        const auto & lm = event.get(h_lepton_minus);
-        if(fabs(lm.p4.eta()) > 2.0 || lm.p4.pt() < 30.0) return false;
-        return true;
-    }
-    
-private:
-     Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
-};
-
-REGISTER_SELECTION(HardLeptonSelection)
+REGISTER_SELECTION(LeptonKinematicSelection)

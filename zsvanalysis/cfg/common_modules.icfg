@@ -30,9 +30,17 @@ musf {
     type dimusf
 }
 
+; use this for MVA:
 elesf {
     type elesf
 }
+
+; and this for cut-based medium:
+;elesf {
+;    type elesf
+;    filename CutBasedIdScaleFactors.root
+;    histname sfMEDIUM
+;}
 
 zp4 {
     type calc_zp4
@@ -45,4 +53,3 @@ ttdec {
 ttdec_weight {
     type ttdec_weight
 }
-

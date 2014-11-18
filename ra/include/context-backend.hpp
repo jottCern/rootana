@@ -16,10 +16,10 @@ namespace ra {
 class InputManagerBackend: public InputManager {
 public:
     // return the number of events in the file.
-    virtual size_t setup_input_file(const std::string & treename, const std::string & filename) = 0;
+    virtual size_t setup_input_file(Event & event, const std::string & treename, const std::string & filename) = 0;
     
     // populate the event container with the data from event number ievent
-    virtual void read_event(size_t ievent) = 0;
+    virtual void read_event(Event & event, size_t ievent) = 0;
     
     // get the number of bytes read since the last time this function was called. Note that
     // this is not returned by read_event to allow for lazy reads.
@@ -28,28 +28,30 @@ public:
     virtual ~InputManagerBackend();
     
 protected:
-    explicit InputManagerBackend(Event & event): InputManager(event){}
+    explicit InputManagerBackend(EventStructure & es): InputManager(es){}
 };
 
-typedef Registry<ra::InputManagerBackend, std::string, Event &, const ptree &> InputManagerBackendRegistry;
+typedef Registry<ra::InputManagerBackend, std::string, EventStructure &, const ptree &> InputManagerBackendRegistry;
 #define REGISTER_INPUT_MANAGER_BACKEND(T, name) namespace { int dummy##T = ::ra::InputManagerBackendRegistry::register_<T>(name); }
 
 
 class OutputManagerBackend: public OutputManager {
 public:
     // constructor arguments for derived classes:
-    // Event & event, const string & treename, const string & output_basename
+    // EventStructure & es, const string & treename, const string & output_basename
     // where the output_basename is the output filename without extension.
-    virtual void write_event() = 0;
+    
+    // called after each event. event is the always the same for each call.
+    virtual void write_event(Event & event) = 0;
     virtual void close() = 0;
     
     virtual ~OutputManagerBackend();
     
 protected:
-    explicit OutputManagerBackend(Event & event): OutputManager(event){}
+    explicit OutputManagerBackend(EventStructure & es): OutputManager(es){}
 };
 
-typedef Registry<ra::OutputManagerBackend, std::string, Event &, const std::string &, const std::string &> OutputManagerBackendRegistry;
+typedef Registry<ra::OutputManagerBackend, std::string, EventStructure &, const std::string &, const std::string &> OutputManagerBackendRegistry;
 
 // a class allowing operations on output files, such as merging.
 // For each OutputManagerBackend implementation, an OutputManagerOperations implementation

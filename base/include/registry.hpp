@@ -50,7 +50,6 @@ public:
         return instance().iregister<T>(key);
     }
     
-    
     /// Build an object according to the given key and constructor arguments
     static std::unique_ptr<base_type> build(const key_type & key, ctypes... params){
         return instance().ibuild(key, params...);

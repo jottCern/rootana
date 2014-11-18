@@ -66,7 +66,7 @@ REGISTER_ANALYSIS_MODULE(select_mcparticles)
  * 
  * Visible phase space for this analysis is defined as events with exactly two opposite-sign selected leptons with 
  * mll_max > mll > mll_min and the given number of B hadrons (usually two). This module only tests the lepton and B multiplicity and the 
- * mll criterion. The lepton and B kinematic selection has to be performed outside of thise module (e.g. with select_mcparticles).
+ * mll criterion. The lepton and B kinematic selection has to be performed outside of this module (e.g. with select_mcparticles).
  * 
  * \code
  * mllmin    81
@@ -104,10 +104,7 @@ gen_phasespace::gen_phasespace(const ptree & cfg, InputManager & in, OutputManag
     else{
         mllmin = mllmax = -1.0;
     }
-    
-    
 }
-
 
 bool gen_phasespace::operator()(const Event & e){
     // b cut:
@@ -121,7 +118,7 @@ bool gen_phasespace::operator()(const Event & e){
         if(leps.size() != 2) return false;
         if(leps[0].pdgid * leps[1].pdgid > 0) return false;
         double mll = (leps[0].p4 + leps[1].p4).M();
-        if(mll < mllmin or mll < mllmax) return false;
+        if(mll < mllmin or mll > mllmax) return false;
     }
     return true;
 }

@@ -1,32 +1,22 @@
-#ifndef RA_EVENT2_HPP
-#define RA_EVENT2_HPP
+#pragma once
 
-#include "fwd.hpp"
-#include "identifier.hpp"
-
-#include <boost/optional.hpp>
-#include <boost/functional/hash.hpp> // for hash of std::pair
-
-#include <unordered_map>
-#include <utility>
 #include <typeinfo>
 #include <typeindex>
 #include <algorithm>
 #include <memory>
+#include <boost/optional.hpp>
 
 namespace ra {
 
-/** \brief A generic event container saving arbitrary kind of data
+/** \brief A generic, extensible event container for saving arbitrary kind of data
  * 
- * This event container is a replacement of event data structs. It holds a number of named
- * pointers/references which can be accessed via 'set' and 'get' methods. 'set'ting a member
- * allocates memory and marks the member as 'valid'. It can then be accessed via the same name and type via 'get'.
+ * This event container is a replacement of event data structs and allows to dynamically define
+ * the actual 'content' of the struct.
  * 
- * While members are referred to by name, actual access is done in two steps: first, a handle is created using the type and
- * the name pf the member, Then, this handle is used to actually access the data in a second step. This separation
- * is mainly an optimization: The typical use is that handles are created outside the event loop once and then used
- * a lot in the event loop. This means that while creating a new handle (which requires e.g. string manipulation) in general
- * is 'costly'in terms of CPU time, using the handle to set/get data is very 'cheap'.
+ * Using this class is split in two steps: First, the structure of the event container is defined via EventStructure.
+ * Using this structure, an actual Event is created. This separation corresponds to the declaration of a struct to
+ * actually defining one and allocating memory for it. It also has the (wanted) side-effect that all members have to be declared
+ * at an early point of the program, in particular outside of any tight loops.
  * 
  * Elements are identified by their type and name; it is possible to use the same name more than once for different types.
  * The exact same type has to be used for identifying an element in 'get' and 'set'; so it is NOT possible to 'get' via
@@ -38,23 +28,26 @@ namespace ra {
  * could also be implemented via a "erase" method, that would entail frequent re-allocation in tight loops which is avoided
  * here. Also, erase has other problems, see below.)
  * 
- * Once a data member is 'set', its address is guaranteed to remain the same throughout the lifetime
- * of the Event object. There is also no mechanism to "erase" a data member. In this sense, it is similar to the
- * 'structs' and allows to use this class e.g. with root and TTree::SetBranchAddress (which would be hard or impossible if
- * the member addresses where allowed to change by erasing and re-setting a data member).
- * 
  * In addition to the get/set interface, it is also possible to register a callback via 'set_get_callback' which is
  * called if 'get' is called on an invalid data member. This allows implementing lazy evaluation (or lazy reads) for
- * data. Note that the callback is *not* called for member data in 'valid' state, so it will only called again if the
- * state is reset to 'invalid' again.
+ * data. Note that the callback is *only* called when accessing members in 'invalid' state. This effectively caches
+ * the result of the callback.
+ * 
+ * Implementation note: most methods are implemented twice, once as template methods taking the type of the data member
+ * as template argument and once as a 'raw' version using a runtime type_info as additional argument instead of a compile-time
+ * template argument. Users usually only need the templated version; the 'raw' versions are needed by the framework to support
+ * setting members whose type is not known at compile time but only at run time. Also, this avoids template code bloat as templated
+ * versions of the methods just forward the call to the 'raw' ones.
  */
-class Event;
-class Event {
+
+class EventStructure {
+friend class Event;
 public:
     class RawHandle;
     
     template<typename T>
     class Handle {
+        friend class EventStructure;
         friend class Event;
         uint64_t index;
         Handle<T>(const RawHandle & handle): index(handle.index){}
@@ -66,6 +59,7 @@ public:
     };
     
     class RawHandle {
+        friend class EventStructure;
         friend class Event;
         uint64_t index;
         template<typename T>
@@ -78,14 +72,6 @@ public:
             return index == other.index;
         }
     };
-    
-    enum class state { nonexistent, invalid, valid };
-    
-    Event(){}
-    
-    // prevent copying and moving, as we manage memory
-    Event(const Event &) = delete;
-    Event(Event &&) = delete;
     
     template<typename T>
     Handle<T> get_handle(const std::string & name){
@@ -100,13 +86,36 @@ public:
     }
     
     std::string name(const RawHandle & handle);
+    
+private:
+    struct member_info {
+        std::string name;
+        const std::type_info & type; // points to static global data
+        
+        member_info(const std::string & name_, const std::type_info & ti): name(name_), type(ti){}
+    };
+    std::vector<member_info> member_infos;
+};
 
+class Event {
+public:
+    enum class state { nonexistent, invalid, valid };
+    
+    typedef EventStructure::RawHandle RawHandle;
+    template<class T> using Handle = EventStructure::Handle<T>;
+    
+    explicit Event(const EventStructure &);
+    
+    // prevent copying and moving, as we manage memory
+    Event(const Event &) = delete;
+    Event(Event &&) = delete;
+    
     /** \brief Get an element of this event
      *
      * If the data member does not exist (state 'nonexistent'), an exception is thrown.
      * 
      * In other states, the behavior depends on 'check_valid':
-     * check_valid is true and the member is in state 'invalid', and exception is thrown, otherwise
+     * If check_valid is true and the member is in state 'invalid', and exception is thrown, otherwise
      * a reference to the member data is returned.
      */
     template<typename T>
@@ -145,18 +154,22 @@ public:
      */
     template<typename T>
     void set(const Handle<T> & handle, T value){
-        assert(handle.index < elements.size());
-        element & e = elements[handle.index];
-        assert(e.type == typeid(T));
-        if(e.data != 0){
-            *(reinterpret_cast<T*>(e.data)) = std::move(value);
+        check(typeid(T), RawHandle(handle), "set");
+        member_data & md = member_datas[handle.index];
+        if(md.data != 0){
+            *(reinterpret_cast<T*>(md.data)) = std::move(value);
         }
         else{
-            e.data = new T(std::move(value));
-            e.eraser.reset(new eraser<T>());
+            md.data = new T(std::move(value));
+            md.eraser.reset(new eraser<T>());
         }
-        e.valid = true;
+        md.valid = true;
     }
+    
+    // set a data member via the handle to the given pointer. This pointer memory will NOT
+    // be managed by this Event container. The caller is responsible to keep the pointer valid long enough
+    // and dispose of the memory.
+    void set_unmanaged(const std::type_info & ti, const RawHandle & handle, void * data);
     
     /** \brief Install a get callback
      * 
@@ -204,7 +217,8 @@ public:
     ~Event();
     
 private:
-    void fail(const std::type_info & ti, const RawHandle & handle, const char * msg) const;
+    void fail(const std::type_info & ti, const RawHandle & handle, const std::string & msg) const;
+    void check(const std::type_info & ti, const RawHandle & handle, const std::string & where) const;
     
     struct eraser_base{
         virtual ~eraser_base(){}
@@ -220,35 +234,30 @@ private:
     };
     
     // type-erased data member.
-    // Life-cycle: it is created upon handle creation with data=0, eraser=0, generator=none, valid=false. At this point, it is considered nonexistent
-    // 'set' sets data, eraser, valid=true. Now, it is 'valid'.
+    // Life-cycle: it is created upon Event creation with data=0, eraser=0, generator=none, valid=false. At this point, it is considered 'nonexistent'
+    // 'set' sets data and eraser, valid=true. Now, it is 'valid'.
     // 'set_validity' can be used to set it to 'invalid' or 'valid' now.
-    // 'set_generator' sets generator
+    // 'set_get_callback' sets generator
     // destructor calls the eraser on data, if eraser is set.
-    struct element {
+    struct member_data {
         bool valid;
-        std::string name;
-        void * data; // managed by eraser. Can be 0 if not 'set' yet, but handle exists
+        void * data; // managed by eraser. Can be 0 if not 'set' yet, but handle exists, or if unmanaged.
         std::unique_ptr<eraser_base> eraser;
-        const std::type_info & type; // points to static global data
         boost::optional<std::function<void ()>> generator;
         
-        ~element();
-        element(const element &) = delete;
-        element(element &&) = default; // note: default is save although this class manages the memory of 'data', as a move will make 'eraser' null, preventing double delete of data.
-        void operator=(const element & other) = delete;
-        void operator=(element && other) = delete;
+        ~member_data();
+        member_data(const member_data &) = delete;
+        member_data(member_data &&) = default; // note: default is save although this class manages the memory of 'data', as a move will make 'eraser' null, preventing double delete of data.
+        void operator=(const member_data & other) = delete;
+        void operator=(member_data && other) = delete;
         
-        // element takes memory ownership of d and e.
-        element(bool v, std::string name_, void * d, eraser_base *e, const std::type_info & t, boost::optional<std::function<void ()>> g = boost::none):
-           valid(v), name(std::move(name_)), data(d), eraser(e), type(t), generator(std::move(g)){}
+        member_data(): valid(false), data(0) {}
     };
-    mutable std::vector<element> elements; // note: mutable required for lazy generation of data with const access
+    
+    const std::vector<EventStructure::member_info> member_infos;
+    mutable std::vector<member_data> member_datas; // note: mutable required for lazy generation of data with const access
 };
-
 
 std::ostream & operator<<(std::ostream & out, Event::state s);
 
 }
-
-#endif

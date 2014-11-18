@@ -128,258 +128,6 @@ private:
 
 REGISTER_HISTS(BaseHists)
 
-class JetHists: public Hists {
-public:
-    JetHists(const ptree &, const std::string & dirname, const s_dataset & dataset, InputManager & in, OutputManager & out): Hists(dirname, dataset, out){
-        // jets:
-        book<TH1D>("nj", 10, 0, 10); // pt > 20, |\eta| < 2.4
-        book<TH1D>("ptj0", 60, 0, 180);
-        book<TH1D>("ptj1", 60, 0, 180);
-        book<TH1D>("etaj0", 60, -3, 3);
-        book<TH1D>("etaj1", 60, -3, 3);
-        
-        // does the leading jet match to a mc B with pt10/15/20 DR<0.2/0.3?
-        book<TH1D>("ptj0_mcb_r2", 60, 0, 180); // only filled if eta(j) < 1.8
-        book<TH1D>("ptj0_mcb_r3", 60, 0, 180);
-        book<TH1D>("etaj0_mcb_r2", 60, -3, 3);
-        book<TH1D>("etaj0_mcb_r3", 60, -3, 3);
-        
-        // does the second leading jet match to a mc B?
-        book<TH1D>("ptj1_mcb_r2", 60, 0, 180); // only filled if with eta(j) < 1.8
-        book<TH1D>("ptj1_mcb_r3", 60, 0, 180);
-        book<TH1D>("etaj1_mcb_r2", 60, -3, 3); // ptj > 20
-        book<TH1D>("etaj1_mcb_r3", 60, -3, 3);
-        
-        // actually found reco b:
-        book<TH1D>("ptj0_bc_r2", 60, 0, 180);
-        book<TH1D>("ptj0_bc_r3", 60, 0, 180);
-        book<TH1D>("etaj0_bc_r2", 60, -3, 3);
-        book<TH1D>("etaj0_bc_r3", 60, -3, 3);
-        
-        book<TH1D>("ptj1_bc_r2", 60, 0, 180);
-        book<TH1D>("ptj1_bc_r3", 60, 0, 180);
-        book<TH1D>("etaj1_bc_r2", 60, -3, 3);
-        book<TH1D>("etaj1_bc_r3", 60, -3, 3);
-        
-        // top quark discrimination: 
-        book<TH1D>("mlj0", 100, 0, 250);
-        book<TH1D>("mlj0_bc_r2", 100, 0, 250);
-        book<TH1D>("mlj1", 100, 0, 250);
-        book<TH1D>("mlj1_bc_r2", 100, 0, 250);
-        
-        // tag + probe: in >= 2jet events, ask 1 jet to be b-tagged (dr < 0.2, 'tight')
-        // If it is, look at the other jet.
-        // Record the overall 'probe' jets and the tagged ones of those:
-        book<TH1D>("ptjp", 60, 0, 180); // all probes
-        book<TH1D>("etajp", 60, -3, 3);
-        book<TH1D>("ptjp_bc_r2", 60, 0, 180); // passing probes with 0.2
-        book<TH1D>("etajp_bc_r2", 60, -3, 3);
-        book<TH1D>("ptjp_bc_r3", 60, 0, 180);
-        book<TH1D>("etajp_bc_r3", 60, -3, 3);
-        
-        // control plot: how many probes are actually b?
-        book<TH1D>("ptjp_mcb_r2", 60, 0, 180);
-        book<TH1D>("etajp_mcb_r2", 60, -3, 3);
-        book<TH1D>("ptjp_mcb_r3", 60, 0, 180);
-        book<TH1D>("etajp_mcb_r3", 60, -3, 3);
-        
-        h_weight = in.get_handle<double>("weight");
-        h_jets = in.get_handle<vector<jet>>("jets");
-        h_lepton_plus = in.get_handle<lepton>("lepton_plus");
-        h_lepton_minus = in.get_handle<lepton>("lepton_minus");
-        h_mc_bs = in.get_handle<vector<mcparticle>>("mc_bs");
-        h_selected_bcands = in.get_handle<vector<Bcand>>("selected_bcands");
-    }
-    
-    void fill(const identifier & id, double value){
-        get(id)->Fill(value, current_weight);
-    }
-    
-    virtual void process(Event & e);
-    
-private:
-    double current_weight;
-    
-    Event::Handle<double> h_weight;
-    Event::Handle<vector<jet>> h_jets;
-    Event::Handle<lepton> h_lepton_plus, h_lepton_minus;
-    Event::Handle<vector<mcparticle>> h_mc_bs;
-    Event::Handle<vector<Bcand>> h_selected_bcands;
-};
-
-void JetHists::process(Event & e){
-    current_weight = e.get(h_weight);
-    auto jets = e.get<vector<jet>>(h_jets);
-    const auto & lepton_plus = e.get<lepton>(h_lepton_plus);
-    const auto & lepton_minus = e.get<lepton>(h_lepton_minus);
-    sort(jets.begin(), jets.end(), [](const jet & j1, const jet & j2){return j1.p4.pt () > j2.p4.pt();});
-    for(size_t i=0; i<jets.size(); ++i){
-        if(fabs(jets[i].p4.eta()) > 2.4 || deltaR(jets[i].p4, lepton_plus.p4) < 0.5 || deltaR(jets[i].p4, lepton_minus.p4) < 0.5){
-            jets.erase(jets.begin() + i);
-            --i;
-            continue;
-        }
-        if(jets[i].p4.pt() < 30.0){
-            jets.erase(jets.begin() + i, jets.end());
-            break;
-        }
-    }
-    ID(nj);
-    size_t njets = jets.size();
-    fill(nj, njets);
-    if(njets==0) return;
-    
-    ID(ptj0); ID(etaj0);
-    ID(ptj1); ID(etaj1);
-    if(jets.size() >= 1){
-        fill(ptj0, jets[0].p4.pt());
-        fill(etaj0, jets[0].p4.eta());
-    }
-    if(jets.size() >= 2){
-        fill(ptj1, jets[1].p4.pt());
-        fill(etaj1, jets[1].p4.eta());
-    }
-
-    // match to mc bs:
-    double dr_mcb_j0 = numeric_limits<double>::infinity();
-    double dr_mcb_j1 = dr_mcb_j0;
-    auto & mc_bhads = e.get<vector<mcparticle> >(h_mc_bs);
-    for(const auto & mcb: mc_bhads){
-        dr_mcb_j0 = min(dr_mcb_j0, deltaR(mcb.p4, jets[0].p4));
-        if(njets > 1){
-            dr_mcb_j1 = min(dr_mcb_j1, deltaR(mcb.p4, jets[1].p4));
-        }
-    }
-    ID(ptj0_mcb_r2); ID(ptj0_mcb_r3);ID(etaj0_mcb_r2); ID(etaj0_mcb_r3);
-    if(dr_mcb_j0 < 0.2){
-        fill(ptj0_mcb_r2, jets[0].p4.pt());
-        fill(etaj0_mcb_r2, jets[0].p4.eta());
-    }
-    if(dr_mcb_j0 < 0.3){
-        fill(ptj0_mcb_r3, jets[0].p4.pt());
-        fill(etaj0_mcb_r3, jets[0].p4.eta());
-    }
-    if(jets.size() > 1){
-        ID(ptj1_mcb_r2); ID(ptj1_mcb_r3);ID(etaj1_mcb_r2); ID(etaj1_mcb_r3);
-        if(dr_mcb_j1 < 0.2){
-            fill(ptj1_mcb_r2, jets[1].p4.pt());
-            fill(etaj1_mcb_r2, jets[1].p4.eta());
-        }
-        if(dr_mcb_j1 < 0.3){
-            fill(ptj1_mcb_r3, jets[1].p4.pt());
-            fill(etaj1_mcb_r3, jets[1].p4.eta());
-        }
-    }
-    
-    // match to reco bs:
-    double dr_bc_j0 = numeric_limits<double>::infinity();
-    double dr_bc_j1 = dr_bc_j0;
-    auto & bcands = e.get<vector<Bcand> >(h_selected_bcands);
-    for(const auto & bc: bcands){
-        dr_bc_j0 = min(dr_bc_j0, deltaR(bc.p4, jets[0].p4));
-        if(njets > 1){
-            dr_bc_j1 = min(dr_bc_j1, deltaR(bc.p4, jets[1].p4));
-        }
-    }
-    ID(ptj0_bc_r2); ID(ptj0_bc_r3);ID(etaj0_bc_r2); ID(etaj0_bc_r3);
-    if(dr_bc_j0 < 0.2){
-        fill(ptj0_bc_r2, jets[0].p4.pt());
-        fill(etaj0_bc_r2, jets[0].p4.eta());
-    }
-    if(dr_bc_j0 < 0.3){
-        fill(ptj0_bc_r3, jets[0].p4.pt());
-        fill(etaj0_bc_r3, jets[0].p4.eta());
-    }
-    if(jets.size() > 1){
-        ID(ptj1_bc_r2); ID(ptj1_bc_r3);ID(etaj1_bc_r2); ID(etaj1_bc_r3);
-        if(dr_bc_j1 < 0.2){
-            fill(ptj1_bc_r2, jets[1].p4.pt());
-            fill(etaj1_bc_r2, jets[1].p4.eta());
-        }
-        if(dr_bc_j1 < 0.3){
-            fill(ptj1_bc_r3, jets[1].p4.pt());
-            fill(etaj1_bc_r3, jets[1].p4.eta());
-        }
-    }
-    
-    // mlj:
-    if(jets.size() >= 2){
-        double mlj0_plus = (jets[0].p4 + lepton_plus.p4).M();
-        double mlj0_minus = (jets[0].p4 + lepton_minus.p4).M();
-        double mlj1_plus = (jets[1].p4 + lepton_plus.p4).M();
-        double mlj1_minus = (jets[1].p4 + lepton_minus.p4).M();
-    
-        double chi_1 = fabs(mlj0_plus - 172) + fabs(mlj1_minus - 172);
-        double chi_2 = fabs(mlj1_plus - 172) + fabs(mlj0_minus - 172);
-        double mlj0_value = chi_1 < chi_2 ? mlj0_plus : mlj0_minus;
-        double mlj1_value = chi_1 < chi_2 ? mlj1_minus : mlj1_plus;
-        
-        ID(mlj0); ID(mlj1);
-        fill(mlj0, mlj0_value);
-        fill(mlj1, mlj1_value);
-        if(dr_bc_j0 < 0.2){
-            ID(mlj0_bc_r2); ID(mlj1_bc_r2);
-            fill(mlj0_bc_r2, mlj0_value);
-            fill(mlj1_bc_r2, mlj1_value);
-        }
-    }
-    
-    // tag and probe:
-    if(njets >= 2){
-        ID(ptjp); ID(etajp);
-        ID(ptjp_bc_r2); ID(etajp_bc_r2);ID(ptjp_bc_r3); ID(etajp_bc_r3);
-        ID(ptjp_mcb_r2); ID(etajp_mcb_r2); ID(ptjp_mcb_r3); ID(etajp_mcb_r3);
-        // j0 is tag?
-        if(dr_bc_j0 < 0.2){
-            // j1 is probe:
-            fill(ptjp, jets[1].p4.pt());
-            fill(etajp, jets[1].p4.eta());
-            if(dr_bc_j1 < 0.2){
-                fill(ptjp_bc_r2, jets[1].p4.pt());
-                fill(etajp_bc_r2, jets[1].p4.eta());
-            }
-            if(dr_bc_j1 < 0.3){
-                fill(ptjp_bc_r3, jets[1].p4.pt());
-                fill(etajp_bc_r3, jets[1].p4.eta());
-            }
-            if(dr_mcb_j1 < 0.2){
-                fill(ptjp_mcb_r2, jets[1].p4.pt());
-                fill(etajp_mcb_r2, jets[1].p4.eta());
-            }
-            if(dr_mcb_j1 < 0.3){
-                fill(ptjp_mcb_r3, jets[1].p4.pt());
-                fill(etajp_mcb_r3, jets[1].p4.eta());
-            }
-        }
-        // j1 is tag?
-        if(dr_bc_j1 < 0.2){
-            // j0 is probe:
-            fill(ptjp, jets[0].p4.pt());
-            fill(etajp, jets[0].p4.eta());
-            if(dr_bc_j0 < 0.2){
-                fill(ptjp_bc_r2, jets[0].p4.pt());
-                fill(etajp_bc_r2, jets[0].p4.eta());
-            }
-            if(dr_bc_j0 < 0.3){
-                fill(ptjp_bc_r3, jets[0].p4.pt());
-                fill(etajp_bc_r3, jets[0].p4.eta());
-            }
-            if(dr_mcb_j0 < 0.2){
-                fill(ptjp_mcb_r2, jets[0].p4.pt());
-                fill(etajp_mcb_r2, jets[0].p4.eta());
-            }
-            if(dr_mcb_j0 < 0.3){
-                fill(ptjp_mcb_r3, jets[0].p4.pt());
-                fill(etajp_mcb_r3, jets[0].p4.eta());
-            }
-        }
-    }
-}
-
-
-REGISTER_HISTS(JetHists)
-
-
 class BcandHists: public Hists{
 public:
     BcandHists(const ptree & cfg, const std::string & dirname, const s_dataset & dataset, InputManager & in, OutputManager & out): Hists(dirname, dataset, out){
@@ -432,9 +180,25 @@ public:
         book<TH1D>("mcb_bcand_angle", 100, 0, 0.2);
         book<TH1D>("mcb_bcand_deta", 100, 0, 0.2);
         
-        // g->bb study for ttbar: look how often we have more than one b-pair
-        // as a function of DR(B,B). x-axis = DRBB, y-axis = number of mcb / 2
-        book<TH2D>("Nmcbpair_vs_DRBB", 100, 0, 5, 4, 0, 4);
+        // cross-check of pt(B) modeling: plot y = pt(B) versus x = DR(B,B) (and x=DPhi(B,B))
+        // to make sure that this is modeled correctly (if not, it means that the efficiency
+        // in the DR / DPhi bins is off, as the efficiency depends on pt(B)).
+        // Use pt of bcand0 (leading in pt) and bcand1 (subleading in pt).
+        book<TH2D>("bcand0pt_drbb", 50, 0, 5, 100, 0, 100);
+        book<TH2D>("bcand1pt_drbb", 50, 0, 5, 100, 0, 100);
+        book<TH2D>("bcand0pt_dphibb", 32, 0, 3.2, 100, 0, 64);
+        book<TH2D>("bcand1pt_dphibb", 32, 0, 3.2, 100, 0, 64);
+        
+        // same for MC bs:
+        book<TH2D>("mcb0pt_drbb", 50, 0, 5, 100, 0, 100);
+        book<TH2D>("mcb1pt_drbb", 50, 0, 5, 100, 0, 100);
+        book<TH2D>("mcb0pt_dphibb", 32, 0, 3.2, 100, 0, 64);
+        book<TH2D>("mcb1pt_dphibb", 32, 0, 3.2, 100, 0, 64);
+        
+        // y = mll versus x = DR(B,B) or DPhi(B,B). Can be used to estimate
+        // purity of Z (?!)
+        book<TH2D>("mll_drbb", 50, 0, 5, 120, 60, 180);
+        book<TH2D>("mll_dphibb", 32, 0, 3.2, 120, 60, 180);
         
         // double b efficiency:
         /*book<TH1D>("double_mcb_lower_pt", 200, 0, 200);
@@ -543,9 +307,10 @@ public:
             const auto & lminus = e.get(h_lepton_minus);
             
             auto drbb = deltaR(b0.flightdir, b1.flightdir);
+            auto dphibb = deltaPhi(b0.flightdir, b1.flightdir);
             
             fill(DR_BB, drbb);
-            fill(DPhi_BB, deltaPhi(b0.flightdir, b1.flightdir));
+            fill(DPhi_BB, dphibb);
             fill(m_BB, (b0.p4 + b1.p4).M());
             
             double dr0 = deltaR(p4Z, b0.p4);
@@ -560,13 +325,43 @@ public:
             fill(DR_ZB, dr1);
             fill(min_DR_ZB, min_dr);
             fill(A_ZBB, (max_dr - min_dr) / (max_dr + min_dr));
-            ID(Nmcbpair_vs_DRBB);
-            fill(Nmcbpair_vs_DRBB, drbb, mc_bhads.size() / 2);
             ID(min_DR_Blep);
             fill(min_DR_Blep, min(min_dr_b0lep, min_dr_b1lep));
+            
+            ID(bcand0pt_drbb); ID(bcand1pt_drbb);
+            ID(bcand0pt_dphibb); ID(bcand1pt_dphibb);
+            
+            auto b0pt = bcands[0].p4.pt();
+            auto b1pt = bcands[1].p4.pt();
+            if(b1pt > b0pt) swap(b0pt, b1pt);
+            
+            fill(bcand0pt_drbb, drbb, b0pt);
+            fill(bcand1pt_drbb, drbb, b1pt);
+            fill(bcand0pt_dphibb, dphibb, b0pt);
+            fill(bcand1pt_dphibb, dphibb, b1pt);
+            
+            ID(mll_drbb); ID(mll_dphibb);
+            auto mll = p4Z.M();
+            fill(mll_drbb, drbb, mll);
+            fill(mll_dphibb, dphibb, mll);
         }
 
         fill(number_mcbs, mc_bhads.size());
+        
+        auto mc_bhads_sorted = mc_bhads;
+        sort(mc_bhads_sorted.begin(), mc_bhads_sorted.end(), [](const mcparticle & p0, const mcparticle & p1){return p0.p4.pt() > p1.p4.pt();});
+        
+        if(mc_bhads_sorted.size() >= 2){
+            auto drbb = deltaR(mc_bhads_sorted[0].p4, mc_bhads_sorted[1].p4);
+            auto dphibb = deltaPhi(mc_bhads_sorted[0].p4, mc_bhads_sorted[1].p4);
+            ID(mcb0pt_dphibb); ID(mcb0pt_drbb);
+            ID(mcb1pt_dphibb); ID(mcb1pt_drbb);
+            fill(mcb0pt_drbb, drbb, mc_bhads_sorted[0].p4.pt());
+            fill(mcb1pt_drbb, drbb, mc_bhads_sorted[1].p4.pt());
+            fill(mcb0pt_dphibb, dphibb, mc_bhads_sorted[0].p4.pt());
+            fill(mcb1pt_dphibb, dphibb, mc_bhads_sorted[1].p4.pt());
+        }
+        
         
         set<unsigned int> already_matched_bcands;
         for (auto & mc_b : mc_bhads){
@@ -632,8 +427,6 @@ public:
                 }
             }
         }*/
-        
-        
     }
     
 private:

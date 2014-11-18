@@ -7,7 +7,7 @@ using namespace ra;
 
 int main(){
     const string outputdir = "plot_gen_out/";
-    const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/genplots/";
+    const string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/genplots/";
     shared_ptr<ProcessHistograms> dybbm(new ProcessHistogramsTFile(inputdir+"dybbm.root", "dybbm"));
     shared_ptr<ProcessHistograms> dybb4f(new ProcessHistogramsTFile(inputdir+"dybb4f.root", "dybb4f"));
     
@@ -23,7 +23,7 @@ int main(){
     formatters_x.add<SetOption>
        ("*", "title_ur", "scaled to L=19.7/fb")
        (":all/", "title_ul", "no cuts")
-       (":gen/", "title_ul", "N_{B} = 2 (with p_{T}(B) > 15, |#eta(B)| < 2)")
+       (":gen/", "title_ul", "N_{B} = 2 (p_{T}(B) > 15 GeV, |#eta(B)| < 2)")
        ("drbb", "xtext", "#Delta R(B,B)")
        ("dphibb", "xtext", "#Delta #phi(B,B)")
        ("ptb0", "xtext", "p_{T}(B_{0}) [GeV]")
@@ -36,12 +36,12 @@ int main(){
        
     // 1. shape plots for all histograms, comparing processes:
     Formatters formatters(formatters_x);
-    formatters.add<RebinFactor>("drbb", 4)("dphibb", 4)("pt*", 4)("eta*",4);
+    formatters.add<RebinFactor>("drbb", 5)("dphibb", 4)("pt*", 4)("eta*",4);
     formatters.add<SetFillColor>("dy0:", 415)("dy1:", 416)("dy2:", 417)("dy3:", 418)("dy4:", 419);
     formatters.add<SetLineColor>("*", 1)("dybbm:", 810) ("dy:", 414) ("dybb4f:", kBlue) ;
     formatters.add<SetLineWidth>("*", 2);
     formatters.add<SetLegends>("dy:", "Z/#gamma*+Jets inclusive", "$Z/\\gamma^*$+Jets")("dybbm:", "Z/#gamma*+bb+Jets, massive-b") ("dybb4f:", "Z/#gamma*+bb+Jets, 4FS");
-    formatters.add<SetOption>("*", "ytext", "events");
+    formatters.add<SetOption>("*", "ytext", "events")("*", "ylabel_factor", "1.1");
     
     Plotter p1(outputdir, {dybbm, dybb4f, dy}, formatters);
     //p1.shapeplots({"ttbar", "dy"});
