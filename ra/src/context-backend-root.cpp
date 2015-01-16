@@ -3,6 +3,7 @@
 #include "base/include/utils.hpp"
 #include "base/include/ptree-utils.hpp"
 #include "identifier.hpp"
+#include "root-utils.hpp"
 
 #include "TClass.h"
 #include "TFile.h"
@@ -27,69 +28,37 @@ public:
     virtual void read_event(Event & event, size_t ievent) override;
 
     virtual size_t nbytes_read() override {
-        size_t result = bytes_read;
-        bytes_read = 0;
-        return result;
+        return intree->get_reset_bytes_read();
     }
     
 private:
+    
+    // save the information from all calls to do_declare_event_input for later processing:
     struct branchinfo {
-        TBranch * branch;
-        void * addr; // memory belongs to branchinfo, not managed by Event
-        boost::optional<std::function<void (void*)> > eraser; // eraser for addr
-        const type_info & ti; // this is always a non-pointer type.
+        const type_info & ti;
         Event::RawHandle handle;
+        std::string branchname;
         
-        branchinfo(const type_info & ti_, const Event::RawHandle & handle_): branch(0), addr(0), ti(ti_), handle(handle_){} // eraser is None
-        ~branchinfo(){
-            if(eraser && addr){
-                (*eraser)(addr);
-            }
-        }
+        branchinfo(const type_info & ti_, const Event::RawHandle & handle_, const std::string & branchname_): ti(ti_), handle(handle_), branchname(branchname_){}
     };
     
     void read_branch(branchinfo & bi);
     
-    size_t current_ientry; // for installing read_branch as callback for the Event container, need to know what current index is.
-    size_t nentries;
-    size_t bytes_read;
-    std::map<std::string, branchinfo> bname2bi;
+    std::list<branchinfo> branch_infos;
     bool lazy;
     
     std::unique_ptr<TFile> file;
+    std::unique_ptr<InTree> intree;
 };
 
 REGISTER_INPUT_MANAGER_BACKEND(TTreeInputManager, "root")
 
 void TTreeInputManager::do_declare_event_input(const std::type_info & ti, const std::string & bname, const std::string & mname){
-    if(bname2bi.find(bname) != bname2bi.end()){
-         throw runtime_error("InputManager: input for branch name '" + string(bname) + "' declared multiple times. This is not allowed.");
-    }
     Event::RawHandle handle = es.get_raw_handle(ti, mname);
-    bname2bi.insert(pair<string, branchinfo>(bname, branchinfo(ti, handle)));
+    branch_infos.emplace_back(ti, handle, bname);
 }
 
-namespace{
-
-void write_type_info(ostream & out, TClass * class_, EDataType type_){
-    if(class_){
-        out << class_->GetName();
-        out << "(c++ name: '" << demangle(class_->GetTypeInfo()->name()) << "')";
-    }
-    else{
-        auto tn = TDataType::GetTypeName(type_);
-        if(tn == string("")){
-            out << "(type not known to ROOT!)";
-        }
-        else{
-            out << tn;
-        }
-    }
-}
-
-}
-
-TTreeInputManager::TTreeInputManager(EventStructure & es_, const ptree & cfg): InputManagerBackend(es_), current_ientry(0), nentries(0), bytes_read(0) {
+TTreeInputManager::TTreeInputManager(EventStructure & es_, const ptree & cfg): InputManagerBackend(es_) {
     lazy = ptree_get<bool>(cfg, "lazy", false);
 }
 
@@ -102,96 +71,16 @@ size_t TTreeInputManager::setup_input_file(Event & event, const string & treenam
     if(!tree){
         throw runtime_error("TTreeInputManager::setup_input_file: did not find TTree '" + treename + "' in file '" + filename + "'");
     }
-    nentries = 0;
-    for(auto & name_bi : bname2bi){
-        const string & bname = name_bi.first;
-        branchinfo & bi = name_bi.second;
-        TBranch * branch = tree->GetBranch(bname.c_str());
-        if(branch==0){
-            throw runtime_error("Could not find branch '" + bname + "' in tree '" + tree->GetName() + "'");
-        }
-        // now do SetBranchAddress, using address-to-address in case of a class, and simple address otherwise.
-        // get branch type:
-        TClass * branch_class = 0;
-        EDataType branch_dtype = kNoType_t;
-        int res = branch->GetExpectedType(branch_class, branch_dtype);
-        if(res > 0){
-            throw runtime_error("input branch '" + bname + "': error reading type information");
-        }
-        
-        // get address type:
-        TClass * address_class = TBuffer::GetClass(bi.ti);
-        EDataType address_dtype = kNoType_t;
-        TDataType * address_tdatatype = TDataType::GetDataType(TDataType::GetType(bi.ti));
-        if(address_tdatatype){
-            address_dtype = EDataType(address_tdatatype->GetType());
-        }
-        
-        // compare if they match; note that it's an error if the class or data type has not been found:
-        if((branch_class && address_class) && ((branch_class == address_class) || (branch_class->GetTypeInfo() == address_class->GetTypeInfo()))){
-            if(bi.addr == 0){
-                bi.addr = branch_class->New();
-                bi.eraser = branch_class->GetDelete();
-                event.set_unmanaged(bi.ti, bi.handle, bi.addr);
-            }
-            branch->SetAddress(&bi.addr);
-        }
-        else if(branch_dtype != kNoType_t && (branch_dtype == address_dtype)){
-            if(bi.addr == 0){
-                bi.addr = new uint64_t; // largest primitive type
-                bi.eraser = [](void * addr){delete reinterpret_cast<uint64_t*>(addr);};
-                event.set_unmanaged(bi.ti, bi.handle, bi.addr);
-            }
-            branch->SetAddress(bi.addr);
-        }
-        else{ // this is an error:
-            stringstream ss;
-            ss << "Type error for branch '" << bname << "': branch holds type '";
-            write_type_info(ss, branch_class, branch_dtype);
-            ss << "', but the type given in declare_input was '";
-            write_type_info(ss, address_class, address_dtype);
-            ss << "'";
-            throw runtime_error(ss.str());
-        }
-        bi.branch = branch;
-        // if we're lazy, install the callbacks:
-        if(lazy){
-            boost::optional<std::function< void()> > callback(std::bind(&TTreeInputManager::read_branch, this, ref(bi)));
-            event.set_get_callback(bi.ti, bi.handle, std::move(callback));
-        }
+    intree.reset(new InTree(tree, lazy));
+    
+    for(const auto & bi : branch_infos){
+        intree->open_branch(bi.ti, bi.branchname, event, bi.handle);
     }
-    nentries = tree->GetEntries();
-    return nentries;
+    return intree->get_entries();
 }
-
-
-void TTreeInputManager::read_branch(branchinfo & bi){
-    int res =  bi.branch->GetEntry(current_ientry);
-    if(res < 0){
-        stringstream ss;
-        ss << "Error from TBranch::GetEntry reading entry " << current_ientry;
-        throw runtime_error(ss.str());
-    }
-    bytes_read += res;
-}
-
 
 void TTreeInputManager::read_event(Event & event, size_t ientry){
-    if(ientry >= nentries) throw runtime_error("read_entry called with index beyond current number of entries");
-    current_ientry = ientry;
-    if(lazy){
-        // just mark all invalid to trigger read on access:
-        for(auto & name_bi : bname2bi){
-            event.set_validity(name_bi.second.ti, name_bi.second.handle, false);
-        }
-    }
-    else{
-        // read all:
-        for(auto & name_bi : bname2bi){
-            read_branch(name_bi.second);
-            event.set_validity(name_bi.second.ti, name_bi.second.handle, true);
-        }
-    }
+    intree->get_entry(ientry);
 }
 
 
@@ -393,7 +282,7 @@ void TFileOutputManager::setup_output(Event & event){
         event_tree = create_ttree(*outfile, event_treename);
     }
     for(const auto & b : output_branches){
-        void * addr = event.get(b.ti, b.handle, false);
+        void * addr = event.get(b.ti, b.handle, Event::state::invalid);
         ptrs.push_back(addr);
         void *& ptrptr = ptrs.back();
         ttree_branch(event_tree, b.branchname, addr, &ptrptr, b.ti);

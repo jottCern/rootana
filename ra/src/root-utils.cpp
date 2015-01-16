@@ -8,6 +8,7 @@
 #include "TFileMerger.h"
 
 #include "base/include/log.hpp"
+#include "base/include/utils.hpp"
 #include "Cintex/Cintex.h"
 
 #include <stdexcept>
@@ -180,5 +181,218 @@ void ra::merge_rootfiles(const std::string & file1, const std::vector<std::strin
     
     // TODO: check the TTree entries, if requested.
     LOG_DEBUG("exiting merge_rootfiles");
+}
+
+
+namespace {
+
+void * allocate_type(const std::type_info & ti, std::function<void (void*)> & deallocator){
+    TClass * class_ = TBuffer::GetClass(ti);
+    EDataType dt = TDataType::GetType(ti);
+    void * result;
+    if(class_){
+        result = class_->New();
+        deallocator = class_->GetDelete();
+    }
+    else{
+        if(dt == kOther_t || dt == kNoType_t){
+            throw runtime_error("allocate_type with type called which is not known to ROOT");
+        }
+        result = new uint64_t(0); // largest primitive type
+        deallocator = [](void * addr) {delete reinterpret_cast<uint64_t*>(addr);};
+    }
+    return result;
+}
+
+
+char DataTypeToChar(EDataType datatype){
+    switch(datatype) {
+        case kChar_t:     return 'B';
+        case kUChar_t:    return 'b';
+        case kBool_t:     return 'O';
+        case kShort_t:    return 'S';
+        case kUShort_t:   return 's';
+        case kCounter:
+        case kInt_t:      return 'I';
+        case kUInt_t:     return 'i';
+        case kDouble_t:
+        case kDouble32_t: return 'D';
+        case kFloat_t:
+        case kFloat16_t:  return 'F';
+        case kLong_t:     return sizeof(Long_t) == sizeof(Long64_t) ? 'L' : 'I';
+        case kULong_t:    return sizeof(ULong_t) == sizeof(ULong64_t) ? 'l' : 'i';
+        case kchar:       return 0; // unsupported
+        case kLong64_t:   return 'L';
+        case kULong64_t:  return 'l';
+
+        case kCharStar:   return 'C';
+        case kBits:       return 0; //unsupported
+
+        case kOther_t:
+        case kNoType_t:
+        default:
+            return 0;
+    }
+}
+
+const std::type_info & get_type(TBranch * branch){
+    TClass * branch_class = 0;
+    EDataType branch_dtype = kNoType_t;
+    int res = branch->GetExpectedType(branch_class, branch_dtype);
+    if (res > 0) {
+        throw runtime_error("input branch '" + string(branch->GetName()) + "': error calling GetExpectedType");
+    }
+    if(branch_class){
+        return *branch_class->GetTypeInfo();
+    }
+    else{
+        // normalize branch type to use explicit sizes for some types:
+        if(branch_dtype == kLong_t){
+            if(sizeof(Long_t) == sizeof(Long64_t)){
+                branch_dtype = kLong64_t;
+            }
+            else{
+                assert(sizeof(Long_t) == sizeof(Int_t));
+                branch_dtype = kInt_t;
+            }
+        }
+        else if(branch_dtype == kULong_t){
+            if(sizeof(ULong_t) == sizeof(ULong64_t)){
+                branch_dtype = kULong64_t;
+            }
+            else{
+                assert(sizeof(Long_t) == sizeof(Int_t));
+                branch_dtype = kUInt_t;
+            }
+        }
+        switch(branch_dtype){
+            case kChar_t:     return typeid(Char_t);
+            case kUChar_t:    return typeid(UChar_t);
+            case kBool_t:     return typeid(Bool_t);
+            case kShort_t:    return typeid(Short_t);
+            case kUShort_t:   return typeid(UShort_t);
+            case kCounter:
+            case kInt_t:      return typeid(Int_t);
+            case kUInt_t:     return typeid(UInt_t);
+            case kDouble_t:
+            case kDouble32_t: return typeid(Double_t);
+            case kFloat_t:
+            case kFloat16_t:  return typeid(Float_t);
+            case kLong64_t:   return typeid(int64_t);
+            case kULong64_t:  return typeid(uint64_t);
+            
+            case kLong_t:     // cannot happen as of above normalization
+            case kULong_t:    assert(false);
+
+            case kOther_t:
+            case kNoType_t:
+            default: throw runtime_error("unknown non-class type for branch '" + string(branch->GetName()) + "' / type not known to ROOT");
+        }
+    }
+}
+
+
+void write_type_info(ostream & out, const std::type_info & ti) {
+    out << "'" << demangle(ti.name()) << "'";
+    TClass * class_ = TBuffer::GetClass(ti);
+    EDataType dt = TDataType::GetType(ti);
+    if (class_) {
+        out << " (ROOT class name: '" << class_->GetName() << "')";
+    }
+    else {
+        auto tn = TDataType::GetTypeName(dt);
+        if (tn == string("")) {
+            out << " (type not known to ROOT!)";
+        }
+        else {
+            out << " (ROOT name: '" << tn << "')";
+        }
+    }
+}
+
+namespace detail {
+bool is_class(const std::type_info & ti){
+    return TBuffer::GetClass(ti) != nullptr;
+}
+}
+
+}
+
+
+InTree::InTree(TTree * tree_, bool lazy_): tree(tree_), lazy(lazy_){
+    n_entries = tree->GetEntries();
+}
+
+void InTree::open_branch(const std::type_info & ti, const std::string & branchname, Event & event, const Event::RawHandle & handle){
+    for(const auto & bi : branch_infos){
+        if(bi.branchname == branchname){
+            throw invalid_argument("InTree::open_branch: tried to open branch '" + branchname + "' twice.");
+        }
+    }
+    if(branchname.empty()){
+        throw invalid_argument("InTree::open_branch: tried to open empty branchname in tree '" + string(tree->GetName()) + "'");
+    }
+    TBranch * branch = tree->GetBranch(branchname.c_str());
+    if(branch == nullptr){
+        throw runtime_error("InTree::open_branch: Did not find branch '" + branchname + "'");
+    }
+    const std::type_info & branch_type = get_type(branch);
+    if(branch_type != ti){
+        stringstream ss;
+        ss << "InTree: Type error for branch '" << branchname << "': branch holds type ";
+        write_type_info(ss, branch_type);
+        ss << ", but tried to read into object of type ";
+        write_type_info(ss, ti);
+        ss << "";
+        throw runtime_error(ss.str());
+    }
+    void * addr = event.get(ti, handle, Event::state::nonexistent);
+    if(addr == nullptr){
+        std::function<void (void*)> eraser;
+        addr = allocate_type(ti, eraser);
+        event.set(ti, handle, addr, move(eraser));
+        event.set_validity(ti, handle, false);
+    }
+    if(detail::is_class(branch_type)){
+        ptrs.push_back(addr);
+        branch->SetAddress(&ptrs.back());
+    }
+    else{
+        branch->SetAddress(addr);
+    }
+    branch_infos.emplace_back(branchname, branch, event, handle);
+    auto & bi = branch_infos.back();
+    if(lazy){
+        event.set_get_callback(ti, handle, [&bi, this](){ this->read_branch(bi); });
+    }
+}
+
+void InTree::read_branch(const binfo & bi){
+    int res =  bi.branch->GetEntry(current_index);
+    if(res < 0){
+        stringstream ss;
+        ss << "Error from TBranch::GetEntry reading entry " << current_index;
+        throw runtime_error(ss.str());
+    }
+    bytes_read += res;
+}
+
+void InTree::get_entry(int64_t index){
+    if(index < 0 || index >= n_entries){
+        throw runtime_error("InTree::get_entry: index out of bounds");
+    }
+    current_index = index;
+    if(lazy){
+        for(const auto & bi : branch_infos){
+            bi.event.set_validity(bi.handle, false);
+        }
+    }
+    else{
+        // read all:
+        for(const auto & bi : branch_infos){
+            read_branch(bi);
+            bi.event.set_validity(bi.handle, true);
+        }
+    }
 }
 

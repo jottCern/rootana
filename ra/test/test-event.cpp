@@ -47,6 +47,7 @@ BOOST_AUTO_TEST_CASE(simple){
     Event e(es);
     BOOST_CHECK(e.get_state(h) == Event::state::nonexistent);
     BOOST_CHECK_THROW(e.get(h), std::runtime_error);
+    BOOST_CHECK_EQUAL(e.size(), 1);
     
     e.set(h, 5);
     BOOST_CHECK_EQUAL(e.get(h), 5);
@@ -61,6 +62,36 @@ BOOST_AUTO_TEST_CASE(simple){
     BOOST_CHECK_EQUAL(&e.get(h, false), ptr);
 }
 
+BOOST_AUTO_TEST_CASE(raw_set){
+    
+    bool destructor_called = false;
+    
+    {
+        MutableEvent event;
+        Event::RawHandle hraw = event.get_raw_handle(typeid(int), "testint");
+        Event::Handle<int> h = event.get_handle<int>("testint");
+        BOOST_CHECK_EQUAL(event.size(), 1);
+        int i = 5;
+        event.set(typeid(int), hraw, &i, [&destructor_called](void*){ destructor_called = true; });
+        int value = event.get(h);
+        BOOST_CHECK_EQUAL(value, 5);
+        i = 42;
+        value = event.get(h);
+        BOOST_CHECK_EQUAL(value, 42);
+    }
+    BOOST_CHECK(destructor_called);
+}
+
+
+BOOST_AUTO_TEST_CASE(raw_set2){
+    MutableEvent event;
+    Event::RawHandle hraw = event.get_raw_handle(typeid(int), "testint");
+    int i = 5;
+    event.set(typeid(int), hraw, &i, [](void*){});
+    // setting twice should not succeed, as this would undermine the guarantee
+    // that (once set to non-null value) the address of a data member cannot change.
+    BOOST_CHECK_THROW(event.set(typeid(int), hraw, &i, [](void*){}), std::exception);
+}
 
 // test that addresses of the data in Event do not change across calls to 'set'.
 BOOST_AUTO_TEST_CASE(addresses){
@@ -137,7 +168,7 @@ BOOST_AUTO_TEST_CASE(get_callback){
     e.set(h, -1);
     int & iref = e.get(h);
     auto callback = [&](){++n_callback_called; iref = 5;};
-    boost::optional<std::function<void ()>> cb(callback);
+    std::function<void ()> cb(callback);
     e.set_get_callback(h, cb);
     
     // set_get_callback should reset status to allocated:
@@ -161,7 +192,8 @@ BOOST_AUTO_TEST_CASE(get_callback){
     
     // check resetting the callback:
     e.set_validity(h, false);
-    e.set_get_callback(h, boost::none);
+    std::function<void (void)> null_function;
+    e.set_get_callback(h, null_function);
     iref = 0;
     BOOST_CHECK_THROW(iresult = e.get(h), std::runtime_error);
 }
@@ -236,7 +268,7 @@ BOOST_AUTO_TEST_CASE(outtree){
     { // create output file:
     EventStructure es;
     auto out = OutputManagerBackendRegistry::build("root", es, "eventtree", "out");
-    auto h_my_int =out->declare_event_output<int>("my_int");
+    auto h_my_int = out->declare_event_output<int>("my_int");
     Event event(es);
     for(int i=0; i<100; ++i){
         event.set(h_my_int, i);

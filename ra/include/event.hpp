@@ -4,7 +4,6 @@
 #include <typeindex>
 #include <algorithm>
 #include <memory>
-#include <boost/optional.hpp>
 
 namespace ra {
 
@@ -42,6 +41,7 @@ namespace ra {
 
 class EventStructure {
 friend class Event;
+friend class MutableEvent;
 public:
     class RawHandle;
     
@@ -49,6 +49,7 @@ public:
     class Handle {
         friend class EventStructure;
         friend class Event;
+        friend class MutableEvent;
         uint64_t index;
         Handle<T>(const RawHandle & handle): index(handle.index){}
     public:
@@ -61,6 +62,7 @@ public:
     class RawHandle {
         friend class EventStructure;
         friend class Event;
+        friend class MutableEvent;
         uint64_t index;
         template<typename T>
         RawHandle(const Handle<T> & h): index(h.index){}
@@ -86,6 +88,10 @@ public:
     }
     
     std::string name(const RawHandle & handle);
+    
+    size_t size() const{
+        return member_infos.size();
+    }
     
 private:
     struct member_info {
@@ -116,26 +122,30 @@ public:
      * 
      * In other states, the behavior depends on 'check_valid':
      * If check_valid is true and the member is in state 'invalid', and exception is thrown, otherwise
-     * a reference to the member data is returned.
+     * a reference to the (invalid) member data is returned.
+     * 
+     * In case a callback is installed and the member is in state 'invalid' before the call to 'get',
+     * the callback is called and the state is set to valid. Note that the callback is called even if check_valid
+     * is false.
      */
     template<typename T>
     T & get(const Handle<T> & handle, bool check_valid = true){
-        return *(reinterpret_cast<T*>(get(typeid(T), handle, check_valid, false)));
+        return *(reinterpret_cast<T*>(get(typeid(T), handle, check_valid ? state::valid : state::invalid)));
     }
     
     template<typename T>
     const T & get(const Handle<T> & handle, bool check_valid = true) const{
-        return *(reinterpret_cast<const T*>(get(typeid(T), handle, check_valid, false)));
+        return *(reinterpret_cast<const T*>(get(typeid(T), handle, check_valid ? state::valid : state::invalid)));
     }
     
+    // get with default, in case it is not valid.
     template<typename T>
     T & get_default(const Handle<T> & handle, T & default_value){
-        T * result = reinterpret_cast<T*>(get(typeid(T), handle, true, true));
-        if(result == 0){
+        if(get_state(handle) != state::valid){
             return default_value;
         }
         else{
-            return *result;
+            return get<T>(handle);
         }
     }
     
@@ -144,48 +154,45 @@ public:
         return const_cast<Event*>(this)->get_default(handle, const_cast<T&>(default_value));
     }
     
-    // type-erased versions:
-    void * get(const std::type_info & ti, const RawHandle & handle, bool check_valid = true, bool allow_null = false);
-    const void * get(const std::type_info & ti, const RawHandle & handle, bool check_valid = true, bool allow_null = false) const;
+    void * get(const std::type_info & ti, const RawHandle & handle, state minimum_state = state::valid);
+    const void * get(const std::type_info & ti, const RawHandle & handle, state minimum_state = state::valid) const;
     
     /** \brief Set an element, allocating memory if necessary
      *
      * The element's new presence state will be 'valid'.
      */
-    template<typename T>
-    void set(const Handle<T> & handle, T value){
+    template<typename T, typename U>
+    void set(const Handle<T> & handle, U && value){
         check(typeid(T), RawHandle(handle), "set");
         member_data & md = member_datas[handle.index];
         if(md.data != 0){
-            *(reinterpret_cast<T*>(md.data)) = std::move(value);
+            *(reinterpret_cast<T*>(md.data)) = std::forward<U>(value);
         }
         else{
-            md.data = new T(std::move(value));
-            md.eraser.reset(new eraser<T>());
+            md.data = new T(std::forward<U>(value));
+            md.eraser = [](void * ptr){ delete reinterpret_cast<T*>(ptr);};
         }
         md.valid = true;
     }
     
-    // set a data member via the handle to the given pointer. This pointer memory will NOT
-    // be managed by this Event container. The caller is responsible to keep the pointer valid long enough
-    // and dispose of the memory.
-    void set_unmanaged(const std::type_info & ti, const RawHandle & handle, void * data);
+    // set a data member via the handle to the given pointer. Only valid if the member was nonexistent so far (nullptr).
+    void set(const std::type_info & ti, const RawHandle & handle, void * data, const std::function<void (void*)> & eraser);
     
     /** \brief Install a get callback
      * 
-     * The callback is called whenever 'get' is called on an invalid member; after the call,
-     * the member state is set to 'valid', i.e. the callback is not called again
+     * The callback is called whenever 'get' is called on an invalid member; after that call
+     * to the callback, the member's state is set to 'valid', i.e. the callback is not called again
      * until the member is marked as 'invalid'.
      * 
      * The data member identified by T and name must exist already. Its state will be set to
      * invalid to trigger the callback on the next call to 'get'.
      */
     template<typename T>
-    void set_get_callback(const Handle<T> & handle, boost::optional<std::function<void ()>> callback){
-        set_get_callback(typeid(T), handle, std::move(callback));
+    void set_get_callback(const Handle<T> & handle, const std::function<void ()> & callback){
+        set_get_callback(typeid(T), handle, callback);
     }
     
-    void set_get_callback(const std::type_info & ti, const RawHandle & handle, boost::optional<std::function<void ()>> callback);
+    void set_get_callback(const std::type_info & ti, const RawHandle & handle, const std::function<void ()> & callback);
     
     /** \brief Set the validity flag of an element
      * 
@@ -197,6 +204,9 @@ public:
     }
     
     void set_validity(const std::type_info & ti, const RawHandle & handle, bool valid);
+    
+    // without type checking:
+    void set_validity(const RawHandle & handle, bool valid);
     
     /** \brief Get the current state of an element
      */
@@ -216,22 +226,26 @@ public:
     
     ~Event();
     
-private:
+    
+    // forward calls to EventStructure:
+    template<typename T>
+    std::string name(const Handle<T> & handle){
+        return structure.name(handle);
+    }
+    
+    std::string name(const RawHandle & handle){
+        return structure.name(handle);
+    }
+    
+    size_t size() const{
+        return structure.size();
+    }
+    
+protected:
+    Event(){}
+    
     void fail(const std::type_info & ti, const RawHandle & handle, const std::string & msg) const;
     void check(const std::type_info & ti, const RawHandle & handle, const std::string & where) const;
-    
-    struct eraser_base{
-        virtual ~eraser_base(){}
-        virtual void operator()(void *) = 0;
-    };
-    
-    template<typename T>
-    struct eraser: public eraser_base {
-        virtual void operator()(void * p){
-            T * t = reinterpret_cast<T*>(p);
-            delete t;
-        }
-    };
     
     // type-erased data member.
     // Life-cycle: it is created upon Event creation with data=0, eraser=0, generator=none, valid=false. At this point, it is considered 'nonexistent'
@@ -240,22 +254,39 @@ private:
     // 'set_get_callback' sets generator
     // destructor calls the eraser on data, if eraser is set.
     struct member_data {
-        bool valid;
-        void * data; // managed by eraser. Can be 0 if not 'set' yet, but handle exists, or if unmanaged.
-        std::unique_ptr<eraser_base> eraser;
-        boost::optional<std::function<void ()>> generator;
+        mutable bool valid = false;
+        void * data = nullptr; // managed by eraser. Can be 0 if not 'set' yet, but handle exists, or if unmanaged.
+        std::function<void (void*)> eraser;
+        std::function<void ()> generator;
         
         ~member_data();
         member_data(const member_data &) = delete;
         member_data(member_data &&) = default; // note: default is save although this class manages the memory of 'data', as a move will make 'eraser' null, preventing double delete of data.
         void operator=(const member_data & other) = delete;
         void operator=(member_data && other) = delete;
-        
-        member_data(): valid(false), data(0) {}
+        member_data(){}
     };
+    EventStructure structure;
+    std::vector<member_data> member_datas;
+};
+
+
+// an event which can change structure after creation.
+// (Note that having both Event and MutableEvent is mainly to be able to use Event to enforce a policy
+// of first declaring everything in a setup phase before the processing phase, while using
+// MutableEvent if such a policy is not enforced).
+class MutableEvent: public Event {
+public:
+    using Event::Event;
     
-    const std::vector<EventStructure::member_info> member_infos;
-    mutable std::vector<member_data> member_datas; // note: mutable required for lazy generation of data with const access
+    MutableEvent(){}
+    
+    template<typename T>
+    Handle<T> get_handle(const std::string & name){
+        return Handle<T>(get_raw_handle(typeid(T), name));
+    }
+    
+    RawHandle get_raw_handle(const std::type_info & ti, const std::string & name);
 };
 
 std::ostream & operator<<(std::ostream & out, Event::state s);
