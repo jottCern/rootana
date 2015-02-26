@@ -6,6 +6,7 @@
 #include <memory>
 
 namespace ra {
+   
 
 /** \brief A generic, extensible event container for saving arbitrary kind of data
  * 
@@ -38,60 +39,77 @@ namespace ra {
  * setting members whose type is not known at compile time but only at run time. Also, this avoids template code bloat as templated
  * versions of the methods just forward the call to the 'raw' ones.
  */
-
 class EventStructure {
 friend class Event;
 friend class MutableEvent;
 public:
     class RawHandle;
+    class HandleAccess_; // only for framework use!
     
     template<typename T>
     class Handle {
-        friend class EventStructure;
-        friend class Event;
-        friend class MutableEvent;
-        uint64_t index;
-        Handle<T>(const RawHandle & handle): index(handle.index){}
+        friend class HandleAccess_;
+        int64_t index = -1;
+        explicit constexpr Handle(int64_t index_): index(index_){}
     public:
-        Handle<T>(): index(-1){}
-        bool operator==(const Handle<T> & other) const{
-            return index == other.index;
+        constexpr Handle() = default;
+        bool operator==(const Handle & rhs) const {
+            return index == rhs.index;
         }
     };
     
     class RawHandle {
-        friend class EventStructure;
-        friend class Event;
-        friend class MutableEvent;
-        uint64_t index;
-        template<typename T>
-        RawHandle(const Handle<T> & h): index(h.index){}
-        explicit RawHandle(uint64_t index_): index(index_){}
-        
+        friend class HandleAccess_;
+        int64_t index = -1;
+        explicit constexpr RawHandle(int64_t index_): index(index_){}
     public:
-        RawHandle(): index(-1){}
-        bool operator==(const RawHandle & other) const {
-            return index == other.index;
+        constexpr RawHandle() = default;
+        bool operator==(const RawHandle & rhs) const {
+            return index == rhs.index;
         }
     };
-    
+        
     template<typename T>
     Handle<T> get_handle(const std::string & name){
-        return Handle<T>(get_raw_handle(typeid(T), name));
+        return HandleAccess_::create_handle<T>(get_raw_handle(typeid(T), name));
     }
     
     RawHandle get_raw_handle(const std::type_info & ti, const std::string & name);
     
+    
+    // get the name for the data member of a handle.
     template<typename T>
     std::string name(const Handle<T> & handle){
-        return name(RawHandle(handle));
+        return name(HandleAccess_::create_raw_handle(handle));
     }
     
     std::string name(const RawHandle & handle);
     
+    const std::type_info & type(const RawHandle & handle) const;
+    
+    // number of members defined so far
     size_t size() const{
         return member_infos.size();
     }
+    
+    
+    // below here: framework internals!
+    
+    // HandleAccesss_ accesses the Handle internals and is only supposed to be used by the framework
+    // not by the analysis user.
+    class HandleAccess_ {
+    public:
+        
+        template<typename HT>
+        inline static constexpr int64_t index(const HT & handle);
+        
+        // create handle from another handle or index HT:
+        template<typename T, typename HT>
+        inline static constexpr Handle<T> create_handle(const HT & handle_or_index);
+        
+        template<typename HT>
+        inline static constexpr RawHandle create_raw_handle(const HT & handle_or_index);
+    };
     
 private:
     struct member_info {
@@ -103,12 +121,15 @@ private:
     std::vector<member_info> member_infos;
 };
 
+
+
 class Event {
 public:
     enum class state { nonexistent, invalid, valid };
     
     typedef EventStructure::RawHandle RawHandle;
     template<class T> using Handle = EventStructure::Handle<T>;
+    using HandleAccess_ = EventStructure::HandleAccess_;
     
     explicit Event(const EventStructure &);
     
@@ -130,12 +151,12 @@ public:
      */
     template<typename T>
     T & get(const Handle<T> & handle, bool check_valid = true){
-        return *(reinterpret_cast<T*>(get(typeid(T), handle, check_valid ? state::valid : state::invalid)));
+        return *(reinterpret_cast<T*>(get(typeid(T), EventStructure::HandleAccess_::create_raw_handle(handle), check_valid ? state::valid : state::invalid)));
     }
     
     template<typename T>
     const T & get(const Handle<T> & handle, bool check_valid = true) const{
-        return *(reinterpret_cast<const T*>(get(typeid(T), handle, check_valid ? state::valid : state::invalid)));
+        return *(reinterpret_cast<const T*>(get(typeid(T), EventStructure::HandleAccess_::create_raw_handle(handle), check_valid ? state::valid : state::invalid)));
     }
     
     // get with default, in case it is not valid.
@@ -163,8 +184,9 @@ public:
      */
     template<typename T, typename U>
     void set(const Handle<T> & handle, U && value){
-        check(typeid(T), RawHandle(handle), "set");
-        member_data & md = member_datas[handle.index];
+        check(typeid(T), HandleAccess_::create_raw_handle(handle), "set");
+        auto index = HandleAccess_::index(handle);
+        member_data & md = member_datas[index];
         if(md.data != 0){
             *(reinterpret_cast<T*>(md.data)) = std::forward<U>(value);
         }
@@ -189,7 +211,7 @@ public:
      */
     template<typename T>
     void set_get_callback(const Handle<T> & handle, const std::function<void ()> & callback){
-        set_get_callback(typeid(T), handle, callback);
+        set_get_callback(typeid(T), EventStructure::HandleAccess_::create_raw_handle(handle), callback);
     }
     
     void set_get_callback(const std::type_info & ti, const RawHandle & handle, const std::function<void ()> & callback);
@@ -200,7 +222,7 @@ public:
      */
     template<typename T>
     void set_validity(const Handle<T> & handle, bool valid){
-        set_validity(typeid(T), handle, valid);
+        set_validity(typeid(T), EventStructure::HandleAccess_::create_raw_handle(handle), valid);
     }
     
     void set_validity(const std::type_info & ti, const RawHandle & handle, bool valid);
@@ -212,7 +234,7 @@ public:
      */
     template<typename T>
     state get_state(const Handle<T> & handle) const{
-        return get_state(typeid(T), handle);
+        return get_state(typeid(T), EventStructure::HandleAccess_::create_raw_handle(handle));
     }
     
     state get_state(const std::type_info & ti, const RawHandle & handle) const;
@@ -237,6 +259,10 @@ public:
         return structure.name(handle);
     }
     
+    const std::type_info & type(const RawHandle & handle) const{
+        return structure.type(handle);
+    }
+    
     size_t size() const{
         return structure.size();
     }
@@ -244,8 +270,15 @@ public:
 protected:
     Event(){}
     
-    void fail(const std::type_info & ti, const RawHandle & handle, const std::string & msg) const;
+    // check that the supplied handle is valid and fail if it's not. Optionally with
+    // type checking.
     void check(const std::type_info & ti, const RawHandle & handle, const std::string & where) const;
+    void check(const RawHandle & handle, const std::string & where) const;
+    
+    // raise a runtime error
+    void fail(const std::type_info & ti, const RawHandle & handle, const std::string & msg) const;
+    void fail(const RawHandle & handle, const std::string & msg) const;
+    
     
     // type-erased data member.
     // Life-cycle: it is created upon Event creation with data=0, eraser=0, generator=none, valid=false. At this point, it is considered 'nonexistent'
@@ -283,12 +316,34 @@ public:
     
     template<typename T>
     Handle<T> get_handle(const std::string & name){
-        return Handle<T>(get_raw_handle(typeid(T), name));
+        return EventStructure::HandleAccess_::create_handle<T>(get_raw_handle(typeid(T), name));
     }
     
     RawHandle get_raw_handle(const std::type_info & ti, const std::string & name);
 };
 
 std::ostream & operator<<(std::ostream & out, Event::state s);
+
+
+template<typename HT>
+constexpr int64_t EventStructure::HandleAccess_::index(const HT & handle){
+    return handle.index;
+}
+        
+template<>
+constexpr int64_t EventStructure::HandleAccess_::index<int64_t>(const int64_t & index_){
+    return index_;
+}
+        
+// create handle from another handle or index HT:
+template<typename T, typename HT>
+constexpr EventStructure::Handle<T> EventStructure::HandleAccess_::create_handle(const HT & handle_or_index){
+    return EventStructure::Handle<T>{index(handle_or_index)};
+}
+
+template<typename HT>
+constexpr EventStructure::RawHandle EventStructure::HandleAccess_::create_raw_handle(const HT & handle_or_index){
+    return EventStructure::RawHandle{index(handle_or_index)};
+}
 
 }

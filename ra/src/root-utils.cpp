@@ -5,11 +5,12 @@
 #include "TTree.h"
 #include "TH1.h"
 #include "TMethodCall.h"
-#include "TFileMerger.h"
+//#include "TFileMerger.h"
+#include "Cintex/Cintex.h"
+#include "TEmulatedCollectionProxy.h"
 
 #include "base/include/log.hpp"
 #include "base/include/utils.hpp"
-#include "Cintex/Cintex.h"
 
 #include <stdexcept>
 #include <cassert>
@@ -374,6 +375,7 @@ void InTree::read_branch(const binfo & bi){
         ss << "Error from TBranch::GetEntry reading entry " << current_index;
         throw runtime_error(ss.str());
     }
+    bi.event.set_validity(bi.handle, true);
     bytes_read += res;
 }
 
@@ -391,8 +393,52 @@ void InTree::get_entry(int64_t index){
         // read all:
         for(const auto & bi : branch_infos){
             read_branch(bi);
-            bi.event.set_validity(bi.handle, true);
         }
     }
+}
+
+OutTree::OutTree(TTree * t): tree(t){
+}
+
+void OutTree::create_branch(const std::type_info & ti, const std::string & branchname, Event & event, const Event::RawHandle & handle){
+    branch_infos.emplace_back(ti, branchname, event, handle);
+    auto & bi = branch_infos.back();
+    auto class_ = TBuffer::GetClass(ti);
+    bi.is_class = class_ != nullptr;
+    if(class_){
+        assert(dynamic_cast<TEmulatedCollectionProxy*>(class_->GetCollectionProxy())==0); // if this fails, it means T is a STL without compiled STL dictionary
+        std::function<void (void*)> deallocator;
+        void * obj = allocate_type(ti, deallocator); // dummy object, only for the time of creating the branch. Actual address is set in append (object is not guaranteed to exist in Event at this point).
+        bi.branch = tree->Branch(branchname.c_str(), class_->GetName(), &obj);
+        deallocator(obj);
+    }
+    else{
+        EDataType dt = TDataType::GetType(ti);
+        if(dt==kOther_t or dt==kNoType_t) throw invalid_argument("tree_branch: unknown type");
+        auto root_branch_type = DataTypeToChar(dt);
+        assert(root_branch_type!=0);
+        uint64_t tmp; // dummy object, see above.
+        bi.branch = tree->Branch(branchname.c_str(), &tmp, (branchname + '/' + root_branch_type).c_str());
+    }
+}
+
+void OutTree::append(){
+    for(auto & bi : branch_infos){
+        // make sure to read event content (even in case of lazy read / lazy evaluate):
+        void * obj = bi.event.get(bi.ti, bi.handle);
+        assert(obj != nullptr);
+        // (re-)set branch addresses, if not yet done. Note that now, the object must be available in the event.
+        if(!bi.address_setup){
+            if(bi.is_class){
+                addresses.push_back(obj);
+                bi.branch->SetAddress(&addresses.back());
+            }
+            else{
+                bi.branch->SetAddress(obj);
+            }
+            bi.address_setup = true;
+        }
+    }
+    tree->Fill();
 }
 

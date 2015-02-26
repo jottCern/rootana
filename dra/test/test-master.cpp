@@ -9,7 +9,7 @@ BOOST_AUTO_TEST_SUITE(master)
 BOOST_AUTO_TEST_CASE(indexranges0){
     IndexRanges ir(0, 1);
     BOOST_CHECK(!ir.empty());
-    BOOST_CHECK_EQUAL(ir.size(), 1);
+    BOOST_CHECK_EQUAL(ir.size(), 1u);
     
     IndexRanges ir2(0, 0);
     BOOST_CHECK(ir2.empty());
@@ -18,27 +18,27 @@ BOOST_AUTO_TEST_CASE(indexranges0){
     
     IndexRanges iempty;
     BOOST_CHECK(iempty.empty());
-    BOOST_CHECK_EQUAL(iempty.size(), 0);
+    BOOST_CHECK_EQUAL(iempty.size(), 0u);
 }
 
 BOOST_AUTO_TEST_CASE(ir_consume){
     IndexRanges ir(0, 10);
-    BOOST_CHECK_EQUAL(ir.size(), 10);
+    BOOST_CHECK_EQUAL(ir.size(), 10u);
     
     auto i = ir.consume(5);
-    BOOST_CHECK_EQUAL(i.first, 0);
-    BOOST_CHECK_EQUAL(i.second, 5);
-    BOOST_CHECK_EQUAL(ir.size(), 5);
+    BOOST_CHECK_EQUAL(i.first, 0u);
+    BOOST_CHECK_EQUAL(i.second, 5u);
+    BOOST_CHECK_EQUAL(ir.size(), 5u);
     
     i = ir.consume(2);
-    BOOST_CHECK_EQUAL(i.first, 5);
-    BOOST_CHECK_EQUAL(i.second, 7);
-    BOOST_CHECK_EQUAL(ir.size(), 3);
+    BOOST_CHECK_EQUAL(i.first, 5u);
+    BOOST_CHECK_EQUAL(i.second, 7u);
+    BOOST_CHECK_EQUAL(ir.size(), 3u);
     
     i = ir.consume(30);
-    BOOST_CHECK_EQUAL(i.first, 7);
-    BOOST_CHECK_EQUAL(i.second, 10);
-    BOOST_CHECK_EQUAL(ir.size(), 0);
+    BOOST_CHECK_EQUAL(i.first, 7u);
+    BOOST_CHECK_EQUAL(i.second, 10u);
+    BOOST_CHECK_EQUAL(ir.size(), 0u);
     
     BOOST_CHECK(ir.empty());
     
@@ -70,8 +70,8 @@ BOOST_AUTO_TEST_CASE(indexranges_unionfail){
     
     ir.disjoint_union(ir2);
     auto i = ir.consume(10);
-    BOOST_CHECK_EQUAL(i.first, 0);
-    BOOST_CHECK_EQUAL(i.second, 10);
+    BOOST_CHECK_EQUAL(i.first, 0u);
+    BOOST_CHECK_EQUAL(i.second, 10u);
     ir.consume(10);
     BOOST_CHECK(ir.empty());
     
@@ -92,8 +92,8 @@ BOOST_AUTO_TEST_CASE(indexranges_union3){
     ir.disjoint_union(ir2);
     
     auto i = ir.consume(40);
-    BOOST_CHECK_EQUAL(i.first, 0);
-    BOOST_CHECK_EQUAL(i.second, 40);
+    BOOST_CHECK_EQUAL(i.first, 0u);
+    BOOST_CHECK_EQUAL(i.second, 40u);
     BOOST_CHECK(ir.empty());
 }
 
@@ -116,14 +116,14 @@ BOOST_AUTO_TEST_CASE(er0){
     EventRangeManager erm(2, 100);
     BOOST_CHECK(erm.available());
     auto er = erm.consume(0);
-    BOOST_CHECK_EQUAL(er.ifile, 0);
-    BOOST_CHECK_EQUAL(er.first, 0);
-    BOOST_CHECK_EQUAL(er.last, 100);
+    BOOST_CHECK_EQUAL(er.ifile, 0u);
+    BOOST_CHECK_EQUAL(er.first, 0u);
+    BOOST_CHECK_EQUAL(er.last, 100u);
     
     auto er2 = erm.consume(0);
-    BOOST_CHECK_EQUAL(er2.ifile, 1);
-    BOOST_CHECK_EQUAL(er2.first, 0);
-    BOOST_CHECK_EQUAL(er2.last, 100);
+    BOOST_CHECK_EQUAL(er2.ifile, 1u);
+    BOOST_CHECK_EQUAL(er2.first, 0u);
+    BOOST_CHECK_EQUAL(er2.last, 100u);
     
     BOOST_CHECK(!erm.available());
     BOOST_CHECK_THROW(erm.consume(0), invalid_argument);
@@ -137,9 +137,9 @@ BOOST_AUTO_TEST_CASE(erm_fs){
     erm.set_file_size(0, 130);
     BOOST_CHECK(erm.available());
     auto er = erm.consume(1);
-    BOOST_CHECK_EQUAL(er.ifile, 0);
-    BOOST_CHECK_EQUAL(er.first, 100);
-    BOOST_CHECK_EQUAL(er.last, 130);
+    BOOST_CHECK_EQUAL(er.ifile, 0u);
+    BOOST_CHECK_EQUAL(er.first, 100u);
+    BOOST_CHECK_EQUAL(er.last, 130u);
 }
 
 BOOST_AUTO_TEST_CASE(erm_fs_fail){
@@ -172,20 +172,20 @@ BOOST_AUTO_TEST_CASE(erm_blocksize){
     // second worker requests file: should give unrelated ifile=1,
     // but with blocksize0, although we requested more:
     auto er1 = erm.consume(-1, 200);
-    BOOST_CHECK_EQUAL(er1.ifile, 1);
-    BOOST_CHECK_EQUAL(er1.first, 0);
-    BOOST_CHECK_EQUAL(er1.last, 100);
+    BOOST_CHECK_EQUAL(er1.ifile, 1u);
+    BOOST_CHECK_EQUAL(er1.first, 0u);
+    BOOST_CHECK_EQUAL(er1.last, 100u);
     
     // the only file left is file0:
     auto er2 = erm.consume();
-    BOOST_CHECK_EQUAL(er2.ifile, 0);
-    BOOST_CHECK_EQUAL(er2.first, 100);
-    BOOST_CHECK_EQUAL(er2.last, 200);
+    BOOST_CHECK_EQUAL(er2.ifile, 0u);
+    BOOST_CHECK_EQUAL(er2.first, 100u);
+    BOOST_CHECK_EQUAL(er2.last, 200u);
     
     auto er3 = erm.consume(-1, 200);
-    BOOST_CHECK_EQUAL(er3.ifile, 0);
-    BOOST_CHECK_EQUAL(er3.first, 200);
-    BOOST_CHECK_EQUAL(er3.last, 350);
+    BOOST_CHECK_EQUAL(er3.ifile, 0u);
+    BOOST_CHECK_EQUAL(er3.first, 200u);
+    BOOST_CHECK_EQUAL(er3.last, 350u);
     
     BOOST_CHECK(!erm.available());
     
@@ -196,9 +196,9 @@ BOOST_AUTO_TEST_CASE(erm_blocksize){
         erm_s1.set_file_size(1, 201);
         BOOST_CHECK(erm_s1.available());
         auto er = erm_s1.consume(1, 201);
-        BOOST_CHECK_EQUAL(er.ifile, 1);
-        BOOST_CHECK_EQUAL(er.first, 100);
-        BOOST_CHECK_EQUAL(er.last, 201);
+        BOOST_CHECK_EQUAL(er.ifile, 1u);
+        BOOST_CHECK_EQUAL(er.first, 100u);
+        BOOST_CHECK_EQUAL(er.last, 201u);
         BOOST_CHECK(!erm_s1.available());
     }
     // scenario 2: file size is smaller than blocksize0:
@@ -214,9 +214,9 @@ BOOST_AUTO_TEST_CASE(erm_blocksize){
         // consuming now returns this first block (even though it extends beyond the
         // known file size!):
         auto er = erm_s2.consume(-1, 50);
-        BOOST_CHECK_EQUAL(er.ifile, 1);
-        BOOST_CHECK_EQUAL(er.first, 0);
-        BOOST_CHECK_EQUAL(er.last, 100);
+        BOOST_CHECK_EQUAL(er.ifile, 1u);
+        BOOST_CHECK_EQUAL(er.first, 0u);
+        BOOST_CHECK_EQUAL(er.last, 100u);
         BOOST_CHECK(!erm_s2.available());
     }
     

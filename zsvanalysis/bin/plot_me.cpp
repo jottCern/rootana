@@ -7,7 +7,7 @@ using namespace std;
 
 // make the ratio histograms by taking the sum over all phs and dividing the two histograms
 // hf is applied on the summed histograms to allow re-binning, etc.
-Histogram make_ratio(const vector<shared_ptr<ProcessHistograms>> & phs, const selection_type & selection, const hname_type & num, const hname_type & denom, const
+Histogram make_ratio(const vector<shared_ptr<ProcessHistograms>> & phs, const string & selection, const string & num, const string & denom, const
   std::function<void (Histogram& )> & hf){
     auto n = phs[0]->get_histogram(selection, num);
     auto d = phs[0]->get_histogram(selection, denom);
@@ -22,7 +22,7 @@ Histogram make_ratio(const vector<shared_ptr<ProcessHistograms>> & phs, const se
 }
 
 void apply_csvl_sfb(Histogram & h){
-    if(nameof(h.hname).find("csv") == string::npos) return; // apply reweighting only on numerator (hname=tp_ptp_csvb), not on denominator (hname=tp_ptp).
+    if(h.hname.find("csv") == string::npos) return; // apply reweighting only on numerator (hname=tp_ptp_csvb), not on denominator (hname=tp_ptp).
     for(int i=1; i<=h.histo->GetNbinsX(); ++i){
         double x = h.histo->GetXaxis()->GetBinCenter(i);
         // see: https://twiki.cern.ch/twiki/pub/CMS/BtagRecommendation53XReReco/SFb-pt_WITHttbar_payload_EPS13.txt
@@ -38,7 +38,7 @@ int main(){
     shared_ptr<ProcessHistograms> ee(new ProcessHistogramsTFile({inputdir + "dele*.root"}, "ee"));
     shared_ptr<ProcessHistograms> mm(new ProcessHistogramsTFile({inputdir + "dmu*.root"}, "mm"));
 
-    typedef pair<selection_type, shared_ptr<ProcessHistograms>> sd;
+    typedef pair<string, shared_ptr<ProcessHistograms>> sd;
     vector<sd> selection_data = {sd{"presel_me", mue}};
     
     for(const auto & seld: selection_data){
@@ -49,7 +49,7 @@ int main(){
         histos.back().legend = "MC";
         histos.back().options["xtext"] = "p_{T}(probe) [GeV]";
         histos.back().options["ytext"] = "B purity";
-        draw_histos(histos, nameof(selection) + "_probe_purity.pdf");
+        draw_histos(histos, selection + "_probe_purity.pdf");
     
         // use a data-driven way to cross-check b-jet purity in the sample
         histos.clear();
@@ -68,7 +68,7 @@ int main(){
         histos[0].options["ratio_ymin"] = "0.7";
         histos[0].options["ratio_ymax"] = "1.3";
         histos[0].options["ratio_line1"] = "1";
-        draw_histos(histos, nameof(selection) + "_probe_purity_dd.pdf");
+        draw_histos(histos, selection + "_probe_purity_dd.pdf");
         
         Histogram eff_mc, eff_data;
         eff_mc = make_ratio({top}, selection, "tp_ptp_bcb", "tp_ptp", RebinFactor(2));
@@ -88,7 +88,7 @@ int main(){
         histos.clear();
         histos.emplace_back(move(eff_mc));
         histos.emplace_back(move(eff_data));
-        draw_histos(histos, nameof(selection) + "_eff.pdf");
+        draw_histos(histos, selection + "_eff.pdf");
         
         if(selection == "presel_me"){
             TH1D * ratio = (TH1D*)histos[0].histo->Clone();
@@ -124,7 +124,7 @@ int main(){
             h.legend = "";
             histos.clear();
             histos.emplace_back(move(h));
-            draw_histos(histos, nameof(selection) + "_eff_fit.pdf");
+            draw_histos(histos, selection + "_eff_fit.pdf");
         }
     }
 }

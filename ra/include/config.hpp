@@ -1,9 +1,6 @@
 #ifndef RA_CONFIG_HPP
 #define RA_CONFIG_HPP
 
-#include <boost/property_tree/ptree.hpp>
-#include <boost/lexical_cast.hpp>
-
 #include <map>
 #include <vector>
 #include <stdexcept>

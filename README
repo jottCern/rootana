@@ -1,0 +1,16 @@
+This is a framework for root-based ntuple analysis. It is split into several components,
+from simple to complex / according to dependencies (note that dependency on base is not documented):
+ * base: a few basic utilities, e.g. logging
+ * ra: libraries for root analysis. Allows to run user-defined modules on input root files in a single process.
+ * dc: framework for distributed computing, including message passing, non-blocking i/o framework, serialization, and a model
+   based on state machines for workers in a distributed environment with remotely initialized state transitions via messages (similar to rpc)
+ * dra (depends on ra and dc): distributed root analysis; allows running the same user-defined modules as used in ra in a distributed environment
+   with a common shared filesystem; includes merging the output file, error handling, etc. Also includes 'omega.sh' script to start
+   the workers via qsub.
+ * plot: make plots for root files
+ * unfold (some parts depend on plot): regularized unfolding, based on analytically/symbolically calculating with polynomials as long as possible
+   before numerically handling the (matrix) problem. Includes toy-based tests calculating the statistical covariance from toys, tests
+   for bias in case input spectrum is reweighted, and other code (e.g. plotting) going beyond unfolding itself.
+ * zsvanalysis (depends on plot, ra): analysis for Z+bb. This introduces the analysis-specific data format and modules to run. It also
+   includes analysis-specific plotting programs using the 'plot' package. See zsvanalysis/README to get an overview of the analysis steps.
+

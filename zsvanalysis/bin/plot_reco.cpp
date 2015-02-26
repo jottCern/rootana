@@ -14,7 +14,7 @@ namespace {
 string outputdir = "plot_reco_out/";
 }
 
-void print_sfs(const shared_ptr<ProcessHistograms> & ph, const selection_type & selection){
+void print_sfs(const shared_ptr<ProcessHistograms> & ph, const string & selection){
     auto h = ph->get_histogram(selection, "musf");
     cout << "musf: " << h.histo->GetMean() << endl;
     h = ph->get_histogram(selection, "elesf");
@@ -23,124 +23,28 @@ void print_sfs(const shared_ptr<ProcessHistograms> & ph, const selection_type & 
     cout << "pileup: " << h.histo->GetMean() << endl;
 }
 
-void print_trigger_effs(const shared_ptr<ProcessHistograms> & ph, const selection_type & selection){
+void print_trigger_effs(const shared_ptr<ProcessHistograms> & ph, const string & selection){
     auto h = ph->get_histogram(selection, "lepton_trigger");
     cout << "lepton trigger efficiency (w.r.t. offline lepton selection): " << h.histo->GetBinContent(2) /  (h.histo->GetBinContent(1) + h.histo->GetBinContent(2)) << endl;
     h = ph->get_histogram(selection, "lepton_triggermatch");
     cout << "lepton trigger matching efficiency (after offline selection and trigger): " << h.histo->GetBinContent(2) /  (h.histo->GetBinContent(1) + h.histo->GetBinContent(2))<< endl;
 }
 
-void dump_histo(const shared_ptr<ProcessHistograms> & ph, const selection_type & selection, const hname_type & hname){
+void dump_histo(const shared_ptr<ProcessHistograms> & ph, const string & selection, const string & hname){
     auto h = ph->get_histogram(selection, hname);
     for(int i=1; i<=h.histo->GetNbinsX(); ++i){
         cout << i << " (" << h.histo->GetXaxis()->GetBinLowEdge(i) << "--" << h.histo->GetXaxis()->GetBinUpEdge(i) << ")" << h.histo->GetBinContent(i) << endl;
     }
 }
 
-// make a 'virtual' input by adding histograms from certain directories
-class AddSelections: public ProcessHistograms {
-public:
-    AddSelections(const shared_ptr<ProcessHistograms> & ph_, const selection_type & added_selection_name, const vector<selection_type> & sels): phs{ph_},
-       sname(added_selection_name), selections(sels){
-    }
-    
-    AddSelections(const vector<shared_ptr<ProcessHistograms>> & phs_, const selection_type & added_selection_name, const vector<selection_type> & sels): phs(phs_),
-       sname(added_selection_name), selections(sels){
-           if(phs.size() != selections.size()){
-               throw runtime_error("AddSelections: phs.size() != selectios.size()");
-           }
-    }
-    
-    virtual process_type get_process(){
-        return phs[0]->get_process();
-    }
-    
-    virtual std::vector<selection_type> get_selections(){
-        vector<selection_type> result {sname};
-        return result;
-    }
-    
-    virtual std::vector<hname_type> get_hnames(const selection_type & selection){
-        if(selection != sname){
-            throw runtime_error("AddSelection: invalid selection '" + selection + "' given in get_hnames");
-        }
-        return phs[0]->get_hnames(selections[0]);
-    }
-    
-    virtual Histogram get_histogram(const selection_type & selection, const hname_type & hname){
-        if(selection != sname){
-            throw runtime_error("AddSelection: invalid selection '" + selection + "' given in get_histogram");
-        }
-        Histogram result = phs[0]->get_histogram(selections[0], hname);
-        // use all from phs[0], add selections:
-        if(phs.size() == 1){
-            for(size_t i=1; i<selections.size(); ++i){
-                Histogram tmp = phs[0]->get_histogram(selections[i], hname);
-                result.histo->Add(tmp.histo.get());
-            }
-        }
-        else{
-            assert(phs.size() == selections.size());
-            for(size_t i=1; i<selections.size(); ++i){
-                Histogram tmp = phs[i]->get_histogram(selections[i], hname);
-                result.histo->Add(tmp.histo.get());
-            }
-        }
-        return move(result);
-    }
-    
-    virtual ~AddSelections(){}
-    
-private:
-    vector<shared_ptr<ProcessHistograms>> phs;
-    selection_type sname;
-    vector<selection_type> selections;
-};
 
-// make a 'virtual' input file by adding histograms from other, underlying ProcessHistograms
-class AddProcesses: public ProcessHistograms {
-public:
-    AddProcesses(const vector<shared_ptr<ProcessHistograms>> & ph_, const process_type & added_process_name): phs{ph_},
-       pname(added_process_name) {
-    }
-    
-    virtual process_type get_process(){
-        return pname;
-    }
-    
-    virtual std::vector<selection_type> get_selections(){
-        return phs[0]->get_selections();
-    }
-    
-    virtual std::vector<hname_type> get_hnames(const selection_type & selection){
-        return phs[0]->get_hnames(selection);
-    }
-    
-    virtual Histogram get_histogram(const selection_type & selection, const hname_type & hname){
-        Histogram result = phs[0]->get_histogram(selection, hname);
-        for(size_t i=1; i<phs.size(); ++i){
-            Histogram tmp = phs[i]->get_histogram(selection, hname);
-            result.histo->Add(tmp.histo.get());
-        }
-        result.process = pname;
-        return move(result);
-    }
-    
-    virtual ~AddProcesses(){}
-    
-private:
-    vector<shared_ptr<ProcessHistograms>> phs;
-    process_type pname;
-};
-
-
-void compare_meanpt_vs_dr(const vector<shared_ptr<ProcessHistograms>> & phs, const selection_type & sel, const string & outname_prefix, const Formatters & f){
+void compare_meanpt_vs_dr(const vector<shared_ptr<ProcessHistograms>> & phs, const string & sel, const string & outname_prefix, const Formatters & f){
     vector<unique_ptr<TH2D>> hists;
     size_t idata = -1;
     for(const auto & ph : phs){
         auto h = ph->get_histogram(sel, "bcand1pt_drbb");
         f(h);
-        hists.emplace_back(dynamic_cast<TH2D*>(h.histo.release())); // x = DR, y = pt
+        hists.emplace_back(dynamic_cast<TH2D*>((TH2D*)h.histo->Clone())); // x = DR, y = pt
         if(h.process == "data"){
             idata = hists.size() - 1;
         }
@@ -398,14 +302,14 @@ int main(){
     //return 0;
     
      // me selections:
-     /*{
-        //Plotter p(outputdir, {ttbar2b, ttbar4b, st, diboson, dylight, dycc, dybbany, me_data}, formatters);
-        Plotter p(outputdir, {ttbar, st, diboson, dylight, dycc, dybbother, dybbvis, dybbm_bbvis, dybb4f_bbvis, me_data}, formatters);
+     {
+        Plotter p(outputdir, {ttbar2b, ttbar4b, st, diboson, dylight, dycc, dybbany, me_data}, formatters);
+        //Plotter p(outputdir, {ttbar, st, diboson, dylight, dycc, dybbother, dybbvis, dybbm_bbvis, dybb4f_bbvis, me_data}, formatters);
         p.set_histogram_filter(RegexFilter(".*", ".*_me_.*|presel_me", ".*"));
         p.set_option("add_nonstacked_to_stack", "1");
-        p.stackplots({"ttbar", "st", "diboson", "dylight", "dycc", "dybbother" });
-        //p.stackplots({"ttbar2b", "ttbar4b", "st", "diboson", "dylight", "dycc", "dybbany" });
-     }*/
+        //p.stackplots({"ttbar", "st", "diboson", "dylight", "dycc", "dybbother" });
+        p.stackplots({"ttbar2b", "ttbar4b", "st", "diboson", "dylight", "dycc", "dybbany" });
+     }
      
      
      // mm selection:
@@ -432,24 +336,27 @@ int main(){
      }*/
      
      // mm + ee:
-     {
+     /*{
          //shared_ptr<ProcessHistograms> ttbar_added(new AddSelections(ttbar, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
          //shared_ptr<ProcessHistograms> st_added(new AddSelections(st, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
          
-         shared_ptr<ProcessHistograms> top_added(new AddSelections(top, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
-         shared_ptr<ProcessHistograms> diboson_added(new AddSelections(diboson, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
+         auto mmsel = "fs_mm_bc2_mll";
+         auto eesel = "fs_ee_bc2_mll";
          
-         shared_ptr<ProcessHistograms> dylight_added(new AddSelections(dylight, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
-         shared_ptr<ProcessHistograms> dycc_added(new AddSelections(dycc, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
-         shared_ptr<ProcessHistograms> dybbother_added(new AddSelections(dybbother, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
+         shared_ptr<ProcessHistograms> top_added(new AddSelections(top, "mm_ee", {mmsel, eesel}));
+         shared_ptr<ProcessHistograms> diboson_added(new AddSelections(diboson, "mm_ee", {mmsel, eesel}));
+         
+         shared_ptr<ProcessHistograms> dylight_added(new AddSelections(dylight, "mm_ee", {mmsel, eesel}));
+         shared_ptr<ProcessHistograms> dycc_added(new AddSelections(dycc, "mm_ee", {mmsel, eesel}));
+         shared_ptr<ProcessHistograms> dybbother_added(new AddSelections(dybbother, "mm_ee", {mmsel, eesel}));
          
          shared_ptr<ProcessHistograms> dy_nonsignal(new AddProcesses({dylight_added, dycc_added, dybbother_added}, "dynonb"));
          
-         shared_ptr<ProcessHistograms> dybbvis_added(new AddSelections(dybbvis, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
-         shared_ptr<ProcessHistograms> dybbm_bbvis_added(new AddSelections(dybbm_bbvis, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
-         shared_ptr<ProcessHistograms> dybb4f_bbvis_added(new AddSelections(dybb4f_bbvis, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
+         shared_ptr<ProcessHistograms> dybbvis_added(new AddSelections(dybbvis, "mm_ee", {mmsel, eesel}));
+         shared_ptr<ProcessHistograms> dybbm_bbvis_added(new AddSelections(dybbm_bbvis, "mm_ee", {mmsel, eesel}));
+         shared_ptr<ProcessHistograms> dybb4f_bbvis_added(new AddSelections(dybb4f_bbvis, "mm_ee", {mmsel, eesel}));
          
-         shared_ptr<ProcessHistograms> data_added(new AddSelections({mm_data, ee_data}, "mm_ee", {"fs_mm_bc2_mll_met", "fs_ee_bc2_mll_met"}));
+         shared_ptr<ProcessHistograms> data_added(new AddSelections({mm_data, ee_data}, "mm_ee", {mmsel, eesel}));
          
          //compare_meanpt_vs_dr({ttbar_added, st_added, diboson_added, dylight_added, dycc_added, dybbother_added, dybbvis_added, data_added}, "mm_ee", "dy_", formatters);
          //compare_meanpt_vs_dr({ttbar_added, st_added, diboson_added, dylight_added, dycc_added, dybbother_added, dybbm_bbvis_added, data_added}, "mm_ee", "dybbm_", formatters);
@@ -459,7 +366,7 @@ int main(){
          p.set_histogram_filter(RegexFilter(".*", "mm_ee", ".*"));
          p.set_option("add_nonstacked_to_stack", "1");
          p.stackplots({"top", "diboson", "dynonb"});
-     }
+     }*/
      
      // yields:
      /*{

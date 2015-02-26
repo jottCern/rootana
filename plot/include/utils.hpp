@@ -16,24 +16,11 @@
 #include <boost/regex.hpp>
 #include <boost/optional.hpp>
 
-typedef std::string process_type;
-typedef std::string selection_type;
-typedef std::string hname_type;
-
-
-inline std::string nameof(const std::string & s){
-    return s;
-}
-
-inline std::string nameof(const ra::identifier & i){
-    return i.name();
-}
-
 struct Histogram {
-    std::unique_ptr<TH1> histo;// the actual root histogram
-    process_type process;   // process name
-    selection_type selection; // selection (path in input rootfile)
-    hname_type hname;     // histogram name as in the input rootfile (without path)
+    std::shared_ptr<TH1> histo;// the actual root histogram
+    std::string process;   // process name
+    std::string selection; // selection (path in input rootfile)
+    std::string hname;     // histogram name as in the input rootfile (without path)
     std::string legend;       // legend to use in root plotting
     std::string latex_legend; // legend to use for latex
     
@@ -41,6 +28,27 @@ struct Histogram {
        // "xmin", "xmax": minimum and maximum to draw
        // "xtext", "ytext": alternative labels for the x and y axes
        // (... see draw_histos in utils.cpp for a complete list)
+       
+       
+    Histogram(){}
+       
+    Histogram copy_shallow() const{
+        return Histogram(*this);
+    }
+    
+    Histogram copy_deep() const{
+        Histogram result(*this);
+        result.histo.reset((TH1*)histo->Clone());
+        return result;
+    }
+    
+    Histogram(Histogram &&) = default; // moving is allowed
+    Histogram & operator=(Histogram &&) = default;
+    
+    // use copy_* above instead of copy-assign:
+    Histogram & operator=(const Histogram &) = delete;
+private:
+    Histogram(const Histogram &) = default; // corresponds to shallow copy
 };
 
 void draw_histos(const std::vector<Histogram> & histos, const std::string & filename);
@@ -55,10 +63,10 @@ void get_names_of_type(std::vector<T> & result, TDirectory * dir, const char * t
 // histograms are organized in two levels: a source has a list of selections, and there is a list of histograms for each selection.
 class ProcessHistograms {
 public:
-    virtual process_type get_process() = 0; // unique name for this process; data should be called 'data' or 'DATA'
-    virtual std::vector<selection_type> get_selections() = 0; // the directories (corresponding to selections)
-    virtual std::vector<hname_type> get_hnames(const selection_type & selection) = 0; // the histogram names for this selection
-    virtual Histogram get_histogram(const selection_type & selection, const hname_type & hname) = 0; // get a copy of the histogram named
+    virtual std::string get_process() = 0; // unique name for this process; data should be called 'data' or 'DATA'
+    virtual std::vector<std::string> get_selections() = 0; // the directories (corresponding to selections)
+    virtual std::vector<std::string> get_hnames(const std::string & selection) = 0; // the histogram names for this selection
+    virtual Histogram get_histogram(const std::string & selection, const std::string & hname) = 0; // get a copy of the histogram named
     
     virtual ~ProcessHistograms();
 };
@@ -69,13 +77,13 @@ public:
 // which root files to use. The histograms of all files will be added.
 class ProcessHistogramsTFile: public ProcessHistograms {
 public:
-    ProcessHistogramsTFile(const std::string & filename, const process_type & process);
-    ProcessHistogramsTFile(const std::initializer_list<std::string> & filenames, const process_type & process);
+    ProcessHistogramsTFile(const std::string & filename, const std::string & process);
+    ProcessHistogramsTFile(const std::initializer_list<std::string> & filenames, const std::string & process);
     
-    virtual std::vector<selection_type> get_selections();
-    virtual std::vector<hname_type> get_hnames(const selection_type & selection);
-    virtual Histogram get_histogram(const selection_type & selection, const hname_type & hname);
-    virtual process_type get_process(){
+    virtual std::vector<std::string> get_selections();
+    virtual std::vector<std::string> get_hnames(const std::string & selection);
+    virtual Histogram get_histogram(const std::string & selection, const std::string & hname);
+    virtual std::string get_process(){
         return process_;
     }
     
@@ -84,9 +92,84 @@ public:
 private:
     void init_files(const std::initializer_list<std::string> & filenames);
     
-    process_type process_;
+    std::string process_;
     std::vector<TFile*> files;
 };
+
+// 'virtual' histogram input which adds histograms from different selections to create one virtual 'selection'
+// For example, suppose you already have root files and created ProcessHistograms ttbar, zjets with the
+// selections 'ee' and 'mm' (say dielectron and dimuon). In this case, AddSelections can be used to create the
+// virtual selection corresponding to ee or mm, called 'mpluse', via
+//  AddSelection ttbar_mpluse(ttbar, "mpluse", {"ee", "mm"});
+//  AddSelection zjets_mpluse(zjets, "mpluse", {"ee", "mm"});
+//
+// In some cases (in particular data), you might want to specify which ProcessHistogram object to use for which selection
+// when adding. In the example above, given data_ee and data_mm, and to use the histograms in selection 'ee' always from data_ee
+// and for 'mm' from data_mm, use
+//   AddSelection data_mpluse({data_ee, data_mm}, "mpluse", {"ee", "mm"});
+// make sure to use consistent order for the first argument and third argument.
+class AddSelections: public ProcessHistograms {
+public:
+    AddSelections(const std::shared_ptr<ProcessHistograms> & ph_, const std::string & added_selection_name, const std::vector<std::string> & sels);
+    AddSelections(const std::vector<std::shared_ptr<ProcessHistograms>> & phs_, const std::string & added_selection_name, const std::vector<std::string> & sels);
+    
+    virtual std::string get_process() override;
+    
+    virtual std::vector<std::string> get_selections() override;
+    
+    virtual std::vector<std::string> get_hnames(const std::string & selection) override;
+    
+    virtual Histogram get_histogram(const std::string & selection, const std::string & hname) override;
+    
+    virtual ~AddSelections();
+    
+private:
+    std::vector<std::shared_ptr<ProcessHistograms>> phs;
+    std::string sname;
+    std::vector<std::string> selections;
+};
+
+
+// make a 'virtual' input file by adding histograms from other, underlying ProcessHistograms
+class AddProcesses: public ProcessHistograms {
+public:
+    AddProcesses(const std::vector<std::shared_ptr<ProcessHistograms>> & ph_, const std::string & added_process_name): phs{ph_},
+       pname(added_process_name) {
+    }
+    
+    virtual std::string get_process(){
+        return pname;
+    }
+    
+    virtual std::vector<std::string> get_selections(){
+        return phs[0]->get_selections();
+    }
+    
+    virtual std::vector<std::string> get_hnames(const std::string & selection){
+        return phs[0]->get_hnames(selection);
+    }
+    
+    virtual Histogram get_histogram(const std::string & selection, const std::string & hname){
+        Histogram result = phs[0]->get_histogram(selection, hname);
+        for(size_t i=1; i<phs.size(); ++i){
+            Histogram tmp = phs[i]->get_histogram(selection, hname);
+            result.histo->Add(tmp.histo.get());
+        }
+        result.process = pname;
+        return std::move(result);
+    }
+    
+    virtual ~AddProcesses(){}
+    
+private:
+    std::vector<std::shared_ptr<ProcessHistograms>> phs;
+    std::string pname;
+};
+
+
+
+
+void makestack(const std::vector<TH1*> & histos);
 
 
 class Formatters;
@@ -124,21 +207,21 @@ private:
     struct fspec {
         enum e_matchmode { mm_any, mm_full, mm_prefix, mm_suffix };
         
-        process_type proc;
-        selection_type sel;
+        std::string proc;
+        std::string sel;
         
         e_matchmode hname_mm; // mm_any = match any, mm_full = use hname_full equality; mm_prefix = match hname_substring as prefix; mm_suffix = match hname_substring as suffix
         std::string hname_substr;
-        hname_type hname_full;
+        std::string hname_full;
         
         formatter_type formatter;
         
-        fspec(const process_type & proc_, const selection_type & sel_, e_matchmode hname_mode_, const std::string & hname_, const formatter_type & formatter_):
+        fspec(const std::string & proc_, const std::string & sel_, e_matchmode hname_mode_, const std::string & hname_, const formatter_type & formatter_):
             proc(proc_), sel(sel_), hname_mm(hname_mode_), hname_substr(hname_), hname_full(hname_), formatter(formatter_){}
     };
     
-    process_type all_processes;
-    selection_type all_selections;
+    std::string all_processes;
+    std::string all_selections;
     
     std::vector<fspec> formatters;
 };
@@ -164,7 +247,7 @@ public:
     void operator()(Histogram & h){
         h.legend = legend;
         if(latex_legend.empty()){
-            h.latex_legend = nameof(h.process);
+            h.latex_legend = h.process;
         }
         else{
             h.latex_legend = latex_legend;
@@ -225,7 +308,7 @@ public:
     
 private:
     double factor;
-    process_type data;
+    std::string data;
 };
 
 class SetFillColor {
@@ -296,14 +379,14 @@ public:
     // relevant options:
     // * "add_nonstacked_to_stack": if set, the 'stackplots' method will add the non-stacked histograms to the stacked histogram,
     //    instead of the default which does not do that.
-    void stackplots(const std::initializer_list<process_type> & processes_to_stack, const std::string & filenamesuffix = "");
+    void stackplots(const std::initializer_list<std::string> & processes_to_stack, const std::string & filenamesuffix = "");
     
     // draw normalized plots of different processes; useful to compare the shape of a variable
     // each histogram in the input will lead to one output plot
-    void shapeplots(const std::initializer_list<process_type> & processes_to_compare, const std::string & filenamesuffix = "");
+    void shapeplots(const std::initializer_list<std::string> & processes_to_compare, const std::string & filenamesuffix = "");
     
     // make selection comparison plots by plotting different selections in the same histogram
-    void selcomp_plots(const std::initializer_list<selection_type> & selections_to_compare, const std::initializer_list<hname_type> & plots_to_compare,
+    void selcomp_plots(const std::initializer_list<std::string> & selections_to_compare, const std::initializer_list<std::string> & plots_to_compare,
                        const std::string & outputname);
     
     // set global options (per-histogram options are set by the filters).
@@ -314,7 +397,7 @@ public:
     
     // set the current histogram filter to f. For each histogram in the input, f(process, selection, hname) will be called and the return value decides
     // whether the histogram is actually used
-    typedef std::function<bool (const process_type &, const selection_type &, const hname_type &)> filter_function_type;
+    typedef std::function<bool (const std::string &, const std::string &, const std::string &)> filter_function_type;
     void set_histogram_filter(const filter_function_type & f){
         filter = f;
     }
@@ -322,10 +405,10 @@ public:
     // print the integral (including underflow and overflow) of the given histogram name of all processes into the file of name filename (relative to outdir
     // given in the constructor).
     // if append is true, this will be appended to the file, otherwise the file is overwritten.
-    void print_integrals(const selection_type & selection, const hname_type & hname, const std::string & filename, const std::string & title, bool append = true);
+    void print_integrals(const std::string & selection, const std::string & hname, const std::string & filename, const std::string & title, bool append = true);
     
     // make a latex cutflow table:
-    void cutflow(const hname_type & cutflow_hname, const std::string & outname);
+    void cutflow(const std::string & cutflow_hname, const std::string & outname);
 private:
     std::string outdir;
     std::vector<std::shared_ptr<ProcessHistograms> > histos;
@@ -334,11 +417,11 @@ private:
     const Formatters & formatters;
     
     // get the formatted histograms for all processes from hsources; identified by seleciton and hname
-    std::vector<Histogram> get_formatted_histograms(const std::vector<std::shared_ptr<ProcessHistograms> > & hsources, const selection_type & selection,
-                                                    const hname_type & hname);
+    std::vector<Histogram> get_formatted_histograms(const std::vector<std::shared_ptr<ProcessHistograms> > & hsources, const std::string & selection,
+                                                    const std::string & hname);
     
     std::vector<Histogram> get_selection_histogram(const std::shared_ptr<ProcessHistograms> & hsource,
-                                                   const std::initializer_list<selection_type> & selections_to_compare, const hname_type & hname);
+                                                   const std::initializer_list<std::string> & selections_to_compare, const std::string & hname);
 };
 
 
@@ -349,7 +432,7 @@ public:
     AndFilter(const Plotter::filter_function_type & f1_, const Plotter::filter_function_type & f2_): f1(f1_), f2(f2_){
     }
     
-    bool operator()(const process_type & p, const selection_type & s, const hname_type & h) const{
+    bool operator()(const std::string & p, const std::string & s, const std::string & h) const{
         if(!f1(p, s, h)) return false;
         return f2(p, s, h);
     }
@@ -363,7 +446,7 @@ class RegexFilter {
 public:
     explicit RegexFilter(const std::string & p_regex, const std::string & s_regex, const std::string & h_regex);
     
-    bool operator()(const process_type & p, const selection_type & s, const hname_type & h) const;
+    bool operator()(const std::string & p, const std::string & s, const std::string & h) const;
     
 private:
     boost::regex p_r, s_r, h_r;

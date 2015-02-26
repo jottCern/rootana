@@ -1,0 +1,18 @@
+Overall workflow
+
+1. create ntuples with CMSSW
+
+2. run this framework on ntuples, see workflow.sh
+ This will run different configurations, e.g. to split the Z+jets samples
+ to their components (Z+b, Z+c, light. ttbar into ttbar+bbbar and rest)
+ It also creates root files with plots
+ 
+3. plot the output of 2.
+  run ./plot_reco
+  other plotting programs can be used for other configurations, e.g.
+  for gen-level plots
+  
+4. run the fit on m_ll (in each bin of DeltaR(B,B)). The fit itself is done with
+  theta. The script performing the fit and running theta is
+  mllfit_workflow.sh
+  To plot the result of the mllfit, use plot_zpurity_fits

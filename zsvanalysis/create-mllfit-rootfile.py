@@ -1,9 +1,16 @@
+# this script uses the output of recoplots and creates
+# a root file for theta with the ttbar background in the Nb=1 sideband and data in the Nb=1 sideband.
+# For the ttbar fit, bernstein polynomials are added as histograms.
+# So theta.root should be used to perform the Bernstein fit
+# in the Nb=1 sideband; this is done as step 1 in mllfit.py, which is to be run after this script.
+
+
+execfile('mllfit_include.py')
+
 import ROOT, glob, scipy.special
 
-indir = '/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/recoplots/'
 
 rootfiles = {}
-
 def gethist(fnames, hname):
     global rootfiles
     result = None
@@ -21,12 +28,6 @@ def gethist(fnames, hname):
             result = result_tmp.Clone()
         else:
             result.Add(result_tmp)
-    """
-    if result.GetDimension() == 2:
-        integ = result.Integral(0, -1, 0, -1)
-    else:
-        integ = result.Integral(0, -1)
-    """
     return result
 
     
@@ -49,12 +50,11 @@ def create_bernstein_hists(n, name_prefix, outdir, nbins, xmin, xmax):
 
 def create_hists(lepton_flavor, outdir):
     top_files = glob.glob(indir + 'ttbar*.root') + glob.glob(indir + 'st*.root')
-    #print top_files
     mll_tmp = gethist(top_files, 'fs_%s_bc1/mll' % lepton_flavor)
     mll = ROOT.TH1D("%s_ttbar__DATA" % lepton_flavor, "%s_ttbar__DATA" % lepton_flavor, 90, 60, 150)
     mll.SetDirectory(outdir)
     
-    def trafo_hist(mll_old, mll_new):
+    def trafo_hist(mll_old, mll_new, scale_for_error = False):
         assert mll_old.GetXaxis().GetBinWidth(1) == 1.0
         assert mll_new.GetXaxis().GetBinWidth(1) == 1.0
         assert mll_new.GetNbinsX() == 90
@@ -66,17 +66,20 @@ def create_hists(lepton_flavor, outdir):
             assert ibin_old <= nbins_old
             mll_new.SetBinContent(i+1, mll_old.GetBinContent(ibin_old))
             mll_new.SetBinError(i+1, mll_old.GetBinError(ibin_old))
+        # scale such that Poisson error corresponds to stat. MC error:
+        if scale_for_error:
+            mll_new.Scale(mll_new.GetEffectiveEntries() / mll_new.Integral())
             
-    trafo_hist(mll_tmp, mll)
+    trafo_hist(mll_tmp, mll, True) # use scale_for_error to get sensible chi2 for Bernstein polynomial fits
     outdir.cd()
     mll.Write()
     
-    if lepton_flavor == 'mm':
-        data_files = glob.glob(indir + 'dmu_run*.root')
+    if mc_as_data:
+        data_files = glob.glob(indir + 'ttbar*.root') + glob.glob(indir + 'st*.root') + glob.glob(indir + 'dy*jets*.root')
     else:
-        assert lepton_flavor == 'ee'
-        data_files = glob.glob(indir + 'dele_run*.root')
-        
+        if lepton_flavor == 'mm': data_files = glob.glob(indir + 'dmu_run*.root')
+        else:  data_files = glob.glob(indir + 'dele_run*.root')
+    #print 'data files: ', data_files
     mll_tmp = gethist(data_files, 'fs_%s_bc1/mll' % lepton_flavor)
     mll = ROOT.TH1D("%s_data__DATA" % lepton_flavor, "%s_data__DATA" % lepton_flavor, 90, 60, 150)
     mll.SetDirectory(outdir)
@@ -85,7 +88,8 @@ def create_hists(lepton_flavor, outdir):
     mll.Write()
     
     # in bins of DR, from the 2D hists:
-    mll_dr = gethist(data_files, 'fs_%s_bc2/mll_drbb' % lepton_flavor) # x-axis = DR, y = mll
+    global final_selection
+    mll_dr = gethist(data_files, (final_selection + '/mll_drbb') % lepton_flavor) # x-axis = DR, y = mll
     assert abs(mll_dr.GetXaxis().GetBinWidth(1) - 0.1) < 1e-5
     for i in range(20):
         mll_old = mll_dr.ProjectionY("_py", 2*i+1, 2*i+2) # sum up 2 bin in DR to have 0.2 bin width
@@ -104,8 +108,8 @@ def create_bkgsub_hists(channel, outdir):
     else:
         assert channel.startswith('ee')
         data_files = glob.glob(indir + 'dele_run*.root')
-    drbb_bkg = gethist(bkg_files, 'fs_%s_bc2_mll/DR_BB' % channel)
-    drbb_sig = gethist(data_files, 'fs_%s_bc2_mll/DR_BB' % channel)
+    drbb_bkg = gethist(bkg_files, (final_selection_mll + '/DR_BB') % channel)
+    drbb_sig = gethist(data_files, (final_selection_mll + '/DR_BB') % channel)
     drbb_bkg.Rebin(8)
     drbb_sig.Rebin(8)
     drbb_bkg.SetName('bkg_%s' % channel)
@@ -120,17 +124,14 @@ def create_bkgsub_hists(channel, outdir):
     drbb_bkg.Write()
     
     
-outfile = ROOT.TFile('theta.root', 'recreate')
+outfile = ROOT.TFile(workdir + 'theta.root', 'recreate')
 create_hists('mm', outfile)
 create_hists('ee', outfile)
 
-#create_hists('mm', outfile, True)
-#create_hists('ee', outfile, True)
-
 #create_hists('me', outfile)
 
-create_bernstein_hists(3, 'mm_ttbar__b', outfile, 90, 60, 150)
-create_bernstein_hists(3, 'ee_ttbar__b', outfile, 90, 60, 150)
+create_bernstein_hists(n_bernstein, 'mm_ttbar__b', outfile, 90, 60, 150)
+create_bernstein_hists(n_bernstein, 'ee_ttbar__b', outfile, 90, 60, 150)
 
 d = outfile.mkdir('bkgsub')
 

@@ -167,7 +167,7 @@ BOOST_AUTO_TEST_CASE(get_callback){
     int n_callback_called = 0;
     e.set(h, -1);
     int & iref = e.get(h);
-    auto callback = [&](){++n_callback_called; iref = 5;};
+    auto callback = [&](){++n_callback_called; e.set(h, 5); };
     std::function<void ()> cb(callback);
     e.set_get_callback(h, cb);
     

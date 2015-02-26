@@ -47,12 +47,16 @@ void TUnfolder::do_regularization_scan(TDirectory & out){
     unique_ptr<TGraph> tg = make_tgraph(sv.fvals(), "tau_scan");
     put(out, move(tg));
     
+    const Matrix & R = p.R();
+    const int ngen = R.get_n_cols();
+    
     if(!tau_cfg){
         tau = tau_min;
         cout << "Using tau = " << tau << endl;
     }
     
-    unique_ptr<TH1D> hbias(tunfold->GetBias("bias", "bias"));
+    unique_ptr<TH1D> hbias(new TH1D("bias", "bias", ngen, 0, ngen));
+    tunfold->GetBias(hbias.get());
     put(out, move(hbias));
 }
 
@@ -109,8 +113,13 @@ Spectrum TUnfolder::unfold(const Spectrum & measured_distribution) const{
     if(rho_max >= 1.0){
         throw runtime_error("call to TUnfold::DoUnfold failed");
     }
-    unique_ptr<TH1D> hresult(tunfold->GetOutput("x", "x"));
-    unique_ptr<TH2D> hcov(tunfold->GetEmatrix("cov", "cov"));
+    const Matrix & R = p.R();
+    const int ngen = R.get_n_cols();
+    
+    unique_ptr<TH1D> hresult(new TH1D("x", "x", ngen, 0, ngen));
+    tunfold->GetOutput(hresult.get());
+    unique_ptr<TH2D> hcov(new TH2D("cov", "cov", ngen, 0, ngen, ngen, 0, ngen));
+    tunfold->GetEmatrix(hcov.get());
     return roothist_to_spectrum(*hresult, hcov.get());
 }
 

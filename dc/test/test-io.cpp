@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include <iostream>
+
 using namespace std;
 using namespace dc;
 using namespace std::placeholders;

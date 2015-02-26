@@ -24,8 +24,8 @@ Channel::Channel(int fd_, IOManager & iom_): logger(Logger::get("dc.Channel")), 
 }
 
 Channel::Channel(Channel && other): logger(other.logger), fd(other.fd), iom(other.iom), max_message_size(other.max_message_size),
-   bin(move(other.bin)), bout(move(other.bout)),
-   error_handler(move(other.error_handler)), read_handler(move(other.read_handler)), write_handler(move(other.write_handler)),
+   bin(std::move(other.bin)), bout(std::move(other.bout)),
+   error_handler(std::move(other.error_handler)), read_handler(std::move(other.read_handler)), write_handler(std::move(other.write_handler)),
    io_handler_active(other.io_handler_active) {
    other.error_handler = boost::none;
    other.read_handler = boost::none;

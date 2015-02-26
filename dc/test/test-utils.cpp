@@ -7,6 +7,8 @@
 
 #include <string.h>
 
+#include <iostream>
+
 // set up signal handler to not ignore SIGCHLD. This put child processes in zombie state, so that they can
 // be waited for
 

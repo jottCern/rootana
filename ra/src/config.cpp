@@ -8,6 +8,7 @@
 #include <boost/utility/in_place_factory.hpp>
 
 #include <set>
+#include <iostream>
 
 using boost::property_tree::ptree;
 using namespace std;

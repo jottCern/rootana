@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(test1){
     BOOST_CHECKPOINT("writing buffer");
     Buffer b;
     b << m;
-    BOOST_CHECK_GT(b.size(), 0);
+    BOOST_CHECK_GT(b.size(), 0u);
     BOOST_CHECK_EQUAL(b.position(), b.size());
     BOOST_CHECK_NE(b.data(), NULLPTR);
     
@@ -53,8 +53,8 @@ BOOST_AUTO_TEST_CASE(test1){
     
     std::unique_ptr<Message> m_read_ptr;
     b.seek(0);
-    BOOST_CHECK_GT(b.size(), 0);
-    BOOST_CHECK_EQUAL(b.position(), 0);
+    BOOST_CHECK_GT(b.size(), 0u);
+    BOOST_CHECK_EQUAL(b.position(), 0u);
     b >> m_read_ptr;
     BOOST_REQUIRE_NE(m_read_ptr.get(), NULLPTR);
     BOOST_REQUIRE(typeid(*m_read_ptr) == typeid(mymessage));

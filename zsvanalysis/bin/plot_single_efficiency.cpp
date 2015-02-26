@@ -12,7 +12,7 @@ string inputdir = "/nfs/dust/cms/user/ottjoc/omega-out/ntuple-latest/single_ivf_
 const double pt_bins[] = {0., 8., 10., 12., 14., 16., 18., 20., 22., 24., 26., 28., 30., 32., 34., 36., 38., 40., 42., 44., 46., 48., 50., 52., 54., 56., 58., 60., 62., 64., 66., 68., 70., 72., 74., 76., 78., 80., 84., 88., 92., 96., 100., 104., 108., 112., 116., 120., 130., 140., 160., 200.};
 }
 
-Histogram get_eff_hist(const shared_ptr<ProcessHistograms> & ph, const selection_type & selection, const string & num, const string & denom, const Formatters & format){
+Histogram get_eff_hist(const shared_ptr<ProcessHistograms> & ph, const string & selection, const string & num, const string & denom, const Formatters & format){
     Histogram hnum = ph->get_histogram(selection, num);
     Histogram hden = ph->get_histogram(selection, denom);
     format(hnum);
@@ -21,12 +21,12 @@ Histogram get_eff_hist(const shared_ptr<ProcessHistograms> & ph, const selection
     return move(hnum);
 }
 
-void compare_eff_processes(const vector<shared_ptr<ProcessHistograms> > & phs, const selection_type & selection, const string & num, const string & denom, const Formatters & format, const string & name){
+void compare_eff_processes(const vector<shared_ptr<ProcessHistograms> > & phs, const string & selection, const string & num, const string & denom, const Formatters & format, const string & name){
     vector<Histogram> histos;
     for(const auto & ph : phs){
         histos.emplace_back(get_eff_hist(ph, selection, num, denom, format));
     }
-    string outfilename = outputdir + name + nameof(histos[0].hname) + "_effp.pdf";
+    string outfilename = outputdir + name + histos[0].hname + "_effp.pdf";
     draw_histos(histos, outfilename);
 }
 

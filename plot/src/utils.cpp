@@ -68,26 +68,6 @@ bool draw_init2() {
    
 bool abc = draw_init2();
 
-long int string2int(const std::string & s){
-    const char * c = s.c_str();
-    char * end;
-    long int result = strtol(c, &end, 10);
-    if(end != c + s.size()){
-        throw runtime_error("could not convert '" + s + "' to int.");
-    }
-    return result;
-}
-
-//Will add such that the histos should be drawn in the order given
-// here, i.e., first histo will be the sum of all, and so on ...
-void makestack(vector<TH1*> & histos){
-  for(size_t i=0; i<histos.size(); ++i){
-    for(size_t j=i+1; j<histos.size(); ++j){
-      histos[i]->Add(histos[j]);
-    }
-  }
-}
-
 template<typename T>
 T get_option(const map<string, string> & options, const string & key, const T def){
     auto it = options.find(key);
@@ -102,6 +82,16 @@ void trim(string & s){
 
 const double mainpad_height = 0.67;
 
+}
+
+//Will add such that the histos should be drawn in the order given
+// here, i.e., first histo will be the sum of all, and so on ...
+void makestack(const vector<TH1*> & histos){
+  for(size_t i=0; i<histos.size(); ++i){
+    for(size_t j=i+1; j<histos.size(); ++j){
+      histos[i]->Add(histos[j]);
+    }
+  }
 }
 
 
@@ -171,16 +161,16 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
     // basic sanity checks:
     int n = -1;
     for(const auto & h : histos){
-        if(!h.histo) throw logic_error("draw_histos: passed null ptr in histos vector for process '" + nameof(h.process)
-            + "', selection '" + nameof(h.selection) + "', hname '" + nameof(h.hname) + "'");
+        if(!h.histo) throw logic_error("draw_histos: passed null ptr in histos vector for process '" + h.process
+            + "', selection '" + h.selection + "', hname '" + h.hname + "'");
         if(n==-1){
             n = h.histo->GetNbinsX();
         }
         else{
-            if(n != h.histo->GetNbinsX()){
+            /*if(n != h.histo->GetNbinsX()){
                 throw logic_error("draw_histos: inconsistent binning for process '" +
-                    nameof(h.process) + "', selection '" + nameof(h.selection) + "', hname '" + nameof(h.hname) + "'");
-            }
+                    h.process + "', selection '" + h.selection + "', hname '" + h.hname + "'");
+            }*/
         }
     }
     
@@ -276,9 +266,9 @@ void draw_histos(const vector<Histogram> & histos, const string & filename) {
     // *** histograms:
     std::vector<std::unique_ptr<TObject>> tmp_objects; // will be destroyed upon return ...
     TH1* total_error_hist=0;
-    static process_type data("data");
+    static string data("data");
     for (size_t i=0; i<histos.size(); i++) {
-        process_type process = histos[i].process;
+        string process = histos[i].process;
         if(process==data){
             if(draw_total_error){ // just before drawing data, draw the total error
                 //cout << "draw total error" << endl;
@@ -512,9 +502,9 @@ void do_draw_ratio(int ndiv_x, const vector<Histogram> & histos, const map<strin
     int idenom=-1;
     vector<int> num(ratios_num.size(), -1);
     for(size_t i=0; i<histos.size(); ++i){
-        if(ratio_denom == nameof(histos[i].process) || (ratio_denom == "bkg" && i==0)) idenom = i;
+        if(ratio_denom == histos[i].process || (ratio_denom == "bkg" && i==0)) idenom = i;
         for(size_t j=0; j<ratios_num.size(); ++j){
-            if(ratios_num[j] == nameof(histos[i].process) || (ratios_num[j] == "bkg" && i==0)) num[j] = i;
+            if(ratios_num[j] == histos[i].process || (ratios_num[j] == "bkg" && i==0)) num[j] = i;
         }
     }
     
@@ -600,7 +590,7 @@ void do_draw_ratio(int ndiv_x, const vector<Histogram> & histos, const map<strin
     if(!ratio_denom_error.empty()){
         int ierr=-1;
         for(size_t i=0; i<histos.size(); ++i){
-            if(ratio_denom_error == nameof(histos[i].process)){
+            if(ratio_denom_error == histos[i].process){
                 ierr = i;
                 break;
             }
@@ -669,11 +659,11 @@ void create_dir(const string & filename){
 
 ProcessHistograms::~ProcessHistograms(){}
 
-ProcessHistogramsTFile::ProcessHistogramsTFile(const std::string & filename, const process_type & pid): process_(pid){
+ProcessHistogramsTFile::ProcessHistogramsTFile(const std::string & filename, const string & pid): process_(pid){
     init_files({filename});
 }
 
-ProcessHistogramsTFile::ProcessHistogramsTFile(const std::initializer_list<std::string> & filenames, const process_type & pid): process_(pid){
+ProcessHistogramsTFile::ProcessHistogramsTFile(const std::initializer_list<std::string> & filenames, const string & pid): process_(pid){
     init_files(filenames);
 }
 
@@ -694,6 +684,60 @@ void ProcessHistogramsTFile::init_files(const std::initializer_list<std::string>
         throw runtime_error("ProcessHistogramsTFile: no files given");
     }
 }
+
+
+AddSelections::AddSelections(const shared_ptr<ProcessHistograms> & ph_, const string & added_selection_name, const vector<string> & sels): phs{ph_},
+       sname(added_selection_name), selections(sels){
+}
+    
+AddSelections::AddSelections(const vector<shared_ptr<ProcessHistograms>> & phs_, const string & added_selection_name, const vector<string> & sels): phs(phs_),
+    sname(added_selection_name), selections(sels){
+        if(phs.size() != selections.size()){
+            throw runtime_error("AddSelections: phs.size() != selectios.size()");
+        }
+}
+    
+string AddSelections::get_process(){
+    return phs[0]->get_process();
+}
+    
+std::vector<string> AddSelections::get_selections(){
+    vector<string> result {sname};
+    return result;
+}
+    
+std::vector<string> AddSelections::get_hnames(const string & selection){
+    if(selection != sname){
+       throw runtime_error("AddSelection: invalid selection '" + selection + "' given in get_hnames");
+    }
+    return phs[0]->get_hnames(selections[0]);
+}
+
+    
+Histogram AddSelections::get_histogram(const string & selection, const string & hname){
+    if(selection != sname){
+        throw runtime_error("AddSelection: invalid selection '" + selection + "' given in get_histogram");
+    }
+    Histogram result = phs[0]->get_histogram(selections[0], hname);
+    // use all from phs[0], add selections:
+    if(phs.size() == 1){
+        for(size_t i=1; i<selections.size(); ++i){
+            Histogram tmp = phs[0]->get_histogram(selections[i], hname);
+            result.histo->Add(tmp.histo.get());
+        }
+    }
+    else{
+        assert(phs.size() == selections.size());
+        for(size_t i=1; i<selections.size(); ++i){
+            Histogram tmp = phs[i]->get_histogram(selections[i], hname);
+            result.histo->Add(tmp.histo.get());
+        }
+    }
+    return move(result);
+}
+
+AddSelections::~AddSelections(){}
+
 
 // get all names of the objects in the TDirectory dir and fill them into result.
 // if 'recursive' is true, will follow into subdirectories and report names
@@ -721,19 +765,19 @@ void get_names_of_type(std::vector<T> & result, TDirectory * dir, const char * t
 template
 void get_names_of_type<string>(std::vector<string> & result, TDirectory * dir, const char * type, bool recursive, const string & prefix);
 
-std::vector<selection_type> ProcessHistogramsTFile::get_selections(){
-    std::vector<selection_type> result;
+std::vector<string> ProcessHistogramsTFile::get_selections(){
+    std::vector<string> result;
     get_names_of_type(result, files[0], "TDirectory");
     return result;
 }
 
 
-std::vector<hname_type> ProcessHistogramsTFile::get_hnames(const selection_type & selection){
-    TDirectory * sel_dir = files[0]->GetDirectory(nameof(selection).c_str()); // also works with empty selection = toplevel
+std::vector<string> ProcessHistogramsTFile::get_hnames(const string & selection){
+    TDirectory * sel_dir = files[0]->GetDirectory(selection.c_str()); // also works with empty selection = toplevel
     if(!sel_dir){
-        throw runtime_error("did not find selection '" + nameof(selection) + "' in file '" + files[0]->GetName() + "'");
+        throw runtime_error("did not find selection '" + selection + "' in file '" + files[0]->GetName() + "'");
     }
-    std::vector<hname_type> result;
+    std::vector<string> result;
     get_names_of_type(result, sel_dir, "TH1");
     return result;
 }
@@ -760,11 +804,11 @@ string lastdirname(const string & fullname){
 
 }
 
-Histogram ProcessHistogramsTFile::get_histogram(const selection_type & selection, const hname_type & hname){
+Histogram ProcessHistogramsTFile::get_histogram(const string & selection, const string & hname){
     Histogram result;
-    string name = nameof(selection);
+    string name = selection;
     if(!name.empty()) name += '/';
-    name += nameof(hname);
+    name += hname;
     for(size_t i=0; i<files.size(); ++i){
         TH1* histo = dynamic_cast<TH1*>(files[i]->Get(name.c_str()));
         if(!histo){
@@ -795,8 +839,8 @@ Formatters::Formatters(): all_processes("*"), all_selections("*"){
 }
 
 void Formatters::add(const std::string & histos_, const formatter_type & formatter){
-    process_type proc = "*";
-    selection_type sel = "*";
+    string proc = "*";
+    string sel = "*";
     std::string histos(histos_);
     // try to interpret string as
     // proc:sel/hname
@@ -854,10 +898,10 @@ void Formatters::operator()(Histogram & h) const{
                 matches = h.hname == f.hname_full;
                 break;
             case fspec::mm_prefix:
-                matches = f.hname_substr.compare(0, f.hname_substr.size(), nameof(h.hname), 0, f.hname_substr.size()) == 0;
+                matches = f.hname_substr.compare(0, f.hname_substr.size(), h.hname, 0, f.hname_substr.size()) == 0;
                 break;
             case fspec::mm_suffix:
-                hname = nameof(h.hname);
+                hname = h.hname;
                 matches = hname.size() >= f.hname_substr.size() &&
                     // compare all of "this"=f.hname_substr to last part of "that" = hname
                     f.hname_substr.compare(0, f.hname_substr.size(), hname, hname.size() - f.hname_substr.size(), f.hname_substr.size()) == 0;
@@ -868,7 +912,7 @@ void Formatters::operator()(Histogram & h) const{
 }
 
 void RebinRange::operator()(Histogram & h){
-    if(xmin < h.histo->GetXaxis()->GetXmin() || xmax > h.histo->GetXaxis()->GetXmax()) throw runtime_error("tried to rebin beyond input histogram '" + nameof(h.hname) + "'");
+    if(xmin < h.histo->GetXaxis()->GetXmin() || xmax > h.histo->GetXaxis()->GetXmax()) throw runtime_error("tried to rebin beyond input histogram '" + h.hname + "'");
     const double binwidth = (xmax - xmin) / nbins;
     double new_contents[nbins];
     double new_errors[nbins];
@@ -909,7 +953,7 @@ void RebinRange::operator()(Histogram & h){
 }
 
 void RebinVariable::operator() (Histogram & h) {
-    new_name = nameof(h.hname)+"_var_bin";
+    new_name = h.hname+"_var_bin";
     TH1* rebin_histo = h.histo->Rebin(nbins, new_name.c_str(), bin_arr);
     h.histo->SetBins(nbins, bin_arr);
     for(int i=0; i<nbins; ++i){
@@ -922,8 +966,8 @@ void RebinVariable::operator() (Histogram & h) {
 }
 
 
-std::vector<Histogram> Plotter::get_formatted_histograms(const std::vector<std::shared_ptr<ProcessHistograms> > & hsources, const selection_type & selection,
-                                                        const hname_type & hname){
+std::vector<Histogram> Plotter::get_formatted_histograms(const std::vector<std::shared_ptr<ProcessHistograms> > & hsources, const string & selection,
+                                                        const string & hname){
     vector<Histogram> histograms;
     for(auto & p : hsources){
         Histogram p_histo;
@@ -934,8 +978,8 @@ std::vector<Histogram> Plotter::get_formatted_histograms(const std::vector<std::
             p_histo = p->get_histogram(selection, hname);
         }
         catch(std::runtime_error & ex){
-            cout << "Warning: Error reading histogram '" << nameof(hname) << "' for process '" <<
-                    nameof(p->get_process()) << "' selection '" << nameof(selection) << "': " << ex.what() << endl;
+            cout << "Warning: Error reading histogram '" << hname << "' for process '" <<
+                    p->get_process() << "' selection '" << selection << "': " << ex.what() << endl;
             continue;
         }
         formatters(p_histo);
@@ -946,7 +990,7 @@ std::vector<Histogram> Plotter::get_formatted_histograms(const std::vector<std::
 }
 
 std::vector<Histogram> Plotter::get_selection_histogram(const std::shared_ptr<ProcessHistograms> & hsource,
-                                                        const std::initializer_list<selection_type> & selections_to_compare, const hname_type & hname){
+                                                        const std::initializer_list<string> & selections_to_compare, const string & hname){
     vector<Histogram> histograms;
     for (const auto & selection : selections_to_compare) {
         Histogram p_histo;
@@ -957,8 +1001,8 @@ std::vector<Histogram> Plotter::get_selection_histogram(const std::shared_ptr<Pr
             p_histo = hsource->get_histogram(selection, hname);
         }
         catch(std::runtime_error & ex){
-            cout << "Warning: Error reading histogram '" << nameof(hname) << "' for process '" <<
-                    nameof(hsource->get_process()) << "' selection '" << nameof(selection) << "': " << ex.what() << endl;
+            cout << "Warning: Error reading histogram '" << hname << "' for process '" <<
+                    hsource->get_process() << "' selection '" << selection << "': " << ex.what() << endl;
             continue;
         }
         formatters(p_histo);
@@ -969,15 +1013,15 @@ std::vector<Histogram> Plotter::get_selection_histogram(const std::shared_ptr<Pr
 }
 
 
-void Plotter::stackplots(const std::initializer_list<process_type> & processes_to_stack, const std::string & filenamesuffix){
+void Plotter::stackplots(const std::initializer_list<string> & processes_to_stack, const std::string & filenamesuffix){
     // get list of histograms:
-    static process_type data("data");
+    static string data("data");
     bool add_nonstacked_to_stack = not get_option<string>(options, "add_nonstacked_to_stack", "").empty();
     auto selections = histos[0]->get_selections();
     selections.push_back(""); // toplevel plots like cutflow, control histos
     for(const auto selection : selections){
         auto hnames = histos[0]->get_hnames(selection);
-        string s_selection = nameof(selection);
+        string s_selection = selection;
         for(const auto & hname : hnames){
             auto histograms = get_formatted_histograms(histos, selection, hname);
             if(histograms.empty()) continue;
@@ -1022,7 +1066,7 @@ void Plotter::stackplots(const std::initializer_list<process_type> & processes_t
     }
 }
 
-void Plotter::print_integrals(const selection_type & selection, const hname_type & hname, const std::string & filename, const std::string & title, bool append){
+void Plotter::print_integrals(const string & selection, const string & hname, const std::string & filename, const std::string & title, bool append){
     string filename_full = outdir + filename;
     ofstream out(filename_full.c_str(), append ? ios_base::app : ios_base::trunc);
     if(!out){
@@ -1036,7 +1080,7 @@ void Plotter::print_integrals(const selection_type & selection, const hname_type
     out << endl;
 }
 
-void Plotter::shapeplots(const std::initializer_list<process_type> & processes_to_compare, const string & suffix){
+void Plotter::shapeplots(const std::initializer_list<string> & processes_to_compare, const string & suffix){
     std::vector<std::shared_ptr<ProcessHistograms> > selected_histos;
     for(auto process : processes_to_compare){
         for(auto & psource : histos){
@@ -1046,7 +1090,7 @@ void Plotter::shapeplots(const std::initializer_list<process_type> & processes_t
     auto selections = histos[0]->get_selections();
     for(const auto & selection: selections){
         auto hnames = histos[0]->get_hnames(selection);
-        string s_selection = nameof(selection);
+        string s_selection = selection;
         for(const auto & hname : hnames){
             auto histograms = get_formatted_histograms(selected_histos, selection, hname);
             if(histograms.empty()) continue;
@@ -1067,7 +1111,7 @@ void Plotter::shapeplots(const std::initializer_list<process_type> & processes_t
     }
 }
 
-void Plotter::cutflow(const hname_type & cutflow_hname, const string & outname){
+void Plotter::cutflow(const string & cutflow_hname, const string & outname){
     ofstream out(outdir + outname);
     // rows are the processes, columns are the selections
     bool first_histo = true;
@@ -1108,13 +1152,13 @@ Plotter::Plotter(const std::string & outdir_, const std::vector<std::shared_ptr<
 }
 
 
-void Plotter::selcomp_plots(const std::initializer_list<selection_type> & selections_to_compare,
-                            const std::initializer_list<hname_type> & plots_to_compare, const std::string & outputname){
+void Plotter::selcomp_plots(const std::initializer_list<string> & selections_to_compare,
+                            const std::initializer_list<string> & plots_to_compare, const std::string & outputname){
     if(selections_to_compare.size()==0){
         throw runtime_error("selcomp_plots: empty selections given");
     }
     
-    std::vector<hname_type> hnames;
+    std::vector<string> hnames;
     if (!plots_to_compare.size()){
         hnames = histos[0]->get_hnames(*selections_to_compare.begin());
     }else{
@@ -1131,8 +1175,8 @@ void Plotter::selcomp_plots(const std::initializer_list<selection_type> & select
             for(auto & h: histograms1){
                 h.histo->Scale(1.0 / h.histo->Integral());
             }
-            string outfilename1 = outdir + outputname + "/" + nameof(histo->get_process()) + "_" + nameof(hname) + "_selcomp_norm.pdf";
-            string outfilename2 = outdir + outputname + "/" + nameof(histo->get_process()) + "_" + nameof(hname) + "_selcomp_abs.pdf";
+            string outfilename1 = outdir + outputname + "/" + histo->get_process() + "_" + hname + "_selcomp_norm.pdf";
+            string outfilename2 = outdir + outputname + "/" + histo->get_process() + "_" + hname + "_selcomp_abs.pdf";
             create_dir(outfilename1);
             draw_histos(histograms1, outfilename1);
             draw_histos(histograms2, outfilename2);
@@ -1144,7 +1188,7 @@ void Plotter::selcomp_plots(const std::initializer_list<selection_type> & select
 RegexFilter::RegexFilter(const std::string & p_regex, const std::string & s_regex, const std::string & h_regex): p_r(p_regex), s_r(s_regex), h_r(h_regex){
 }
     
-bool RegexFilter::operator()(const process_type & p, const selection_type & s, const hname_type & h) const{
+bool RegexFilter::operator()(const string & p, const string & s, const string & h) const{
     using boost::regex_match;
     using boost::match_any;
     return regex_match(p, p_r, match_any ) && regex_match(s, s_r, match_any) && regex_match(h, h_r, match_any );

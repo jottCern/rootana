@@ -136,12 +136,12 @@ void plot_corr(TH2D & corr, const string & filename){
     c->Print(filename.c_str());
 }
 
-void plot_response(const TH2D & response, const string & filename){
+void plot_response(const std::shared_ptr<TH2D> & response, const string & filename){
     unique_ptr<TCanvas> c(new TCanvas("c", "c", 600, 600));
     // make a copy with corr values:
     //auto corr = make_corr(cov);
     
-    unique_ptr<TH2D> r2(dynamic_cast<TH2D*>(response.Clone()));
+    unique_ptr<TH2D> r2(dynamic_cast<TH2D*>(response->Clone()));
     set_integer_ndiv(r2->GetXaxis());
     set_integer_ndiv(r2->GetYaxis());
     int nrec = r2->GetNbinsX();
@@ -163,7 +163,7 @@ void plot_response(const TH2D & response, const string & filename){
     r2->GetYaxis()->SetTitle("gen bin");
     r2->GetZaxis()->SetTitle("%");
     
-    double maxz = r2->GetBinContent(response.GetMaximumBin());
+    double maxz = r2->GetBinContent(response->GetMaximumBin());
     // round up to integer percent:
     maxz = int(maxz + 1);
     
@@ -252,19 +252,18 @@ void plot_reweighted(TFile & in, const string & name){
     draw_histos(histos.vec, "reweight_" + name + ".eps");
 }
 
-void plot_spectrum(TH1D & h, TH2D * cov, const string & outname){
+void plot_spectrum(const std::shared_ptr<TH1D> & h, const shared_ptr<TH2D> & cov, const string & outname){
     if(cov){
-        for(int i=1; i<=h.GetNbinsX(); ++i){
-            h.SetBinError(i, sqrt(cov->GetBinContent(i,i)));
+        for(int i=1; i<=h->GetNbinsX(); ++i){
+            h->SetBinError(i, sqrt(cov->GetBinContent(i,i)));
         }
     }
     Histogram h0;
-    h0.histo.reset(&h);
+    h0.histo = h;
     h0.options["use_errors"] = "1";
     vector<Histogram> histos;
     histos.emplace_back(move(h0));
     draw_histos(histos, outname);
-    histos.back().histo.release(); // we do not own &h ...
 }
 
 int main(){
@@ -272,15 +271,15 @@ int main(){
     TFile in("out.root", "read");
     
     // unfolding result:
-    auto hresult = gethisto<TH1D>(in, "unfold/unfolded");
-    auto hresult_cov = gethisto<TH2D>(in, "unfold/unfolded_cov");
-    plot_spectrum(*hresult, hresult_cov.get(), "unfolded.eps");
+    shared_ptr<TH1D> hresult = gethisto<TH1D>(in, "unfold/unfolded");
+    shared_ptr<TH2D> hresult_cov = gethisto<TH2D>(in, "unfold/unfolded_cov");
+    plot_spectrum(hresult, hresult_cov, "unfolded.eps");
     
     // plot input:
-    auto hresponse = gethisto<TH2D>(in, "input/response");
-    plot_response(*hresponse, "response.eps");
-    auto asimov_data = gethisto<TH1D>(in, "input/asimov_data");
-    plot_spectrum(*asimov_data, 0, "asimov_data.eps");
+    shared_ptr<TH2D> hresponse = gethisto<TH2D>(in, "input/response");
+    plot_response(hresponse, "response.eps");
+    shared_ptr<TH1D> asimov_data = gethisto<TH1D>(in, "input/asimov_data");
+    plot_spectrum(asimov_data, 0, "asimov_data.eps");
     
     // regularization:
     plot_reg_graphs(in);
@@ -292,8 +291,8 @@ int main(){
     
     // nominal toys:
     compare_input_unfolded(in, "nominal_toys", "toys");
-    auto cov_toys = gethisto<TH2D>(in, "nominal_toys/unfolded_cov");
-    auto cov_toys_est_mean = gethisto<TH2D>(in, "nominal_toys/unfolded_cov_est_mean");
+    shared_ptr<TH2D> cov_toys = gethisto<TH2D>(in, "nominal_toys/unfolded_cov");
+    shared_ptr<TH2D> cov_toys_est_mean = gethisto<TH2D>(in, "nominal_toys/unfolded_cov_est_mean");
     plot_corr(*make_corr(*cov_toys), "corr_toys.eps");
     plot_corr(*make_corr(*cov_toys_est_mean), "corr_toys_est_mean.eps");
     plot_pull(in);

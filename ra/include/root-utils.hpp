@@ -51,8 +51,7 @@ inline std::unique_ptr<T> gethisto(TFile & infile, const std::string & name){
  * There are 4 open_branch methods to implement several scenarios:
  *  - in case a MutableEvent is available, a new member is created based on the event member name
  *  - in case a no MutableEvent (and only Event) is available, a Event::RawHandle is used to identify the event member
- * 
- * Those two exist either as templates or with a std::type_info as argument. 
+ * Those two each exist either as templates or with a std::type_info as argument. 
  *
  */ 
 class InTree {
@@ -118,6 +117,55 @@ private:
     std::list<binfo> branch_infos; // make as list to keep references to elements valid all the time (needed for Event callback of set_get_callback)
     
     void read_branch(const binfo & bi);
+};
+
+/** \brief Wrapper class for writing a TTree
+ * 
+ * See notes on open_branch in InTree on the variants of \c create_branch.
+ */
+class OutTree {
+public:
+    explicit OutTree(TTree * tree);
+    
+    template<typename T>
+    void create_branch(const std::string & branchname, MutableEvent & event, const std::string & event_member_name = ""){
+        create_branch(typeid(T), branchname, event, event_member_name);
+    }
+    
+    void create_branch(const std::type_info & ti, const std::string & branchname, MutableEvent & event, const std::string & event_member_name = ""){
+        auto handle = event.get_raw_handle(ti, event_member_name.empty() ? branchname : event_member_name);
+        create_branch(ti, branchname, event, EventStructure::HandleAccess_::create_raw_handle(handle));
+    }
+    
+    template<typename T>
+    void create_branch(const std::string & branchname, Event & event, const Event::Handle<T> & handle){
+        create_branch(typeid(T), branchname, event, EventStructure::HandleAccess_::create_raw_handle(handle));
+    }
+    
+    void create_branch(const std::type_info & ti, const std::string & branchname, Event & event, const Event::RawHandle & handle);
+    
+    // append the current contents to the underlying TTree. At this point, all event content must be valid.
+    void append();
+    
+private:
+    TTree * tree;
+    
+    struct binfo {
+        const std::type_info & ti;
+        std::string name;
+        Event & event;
+        Event::RawHandle handle;
+        TBranch * branch = nullptr;
+        bool is_class;
+        bool address_setup = false;
+        
+        explicit binfo(const std::type_info & ti_, const std::string & name_, Event & event_, const Event::RawHandle & handle_): ti(ti_),
+            name(name_), event(event_), handle(handle_){}
+    };
+    std::vector<binfo> branch_infos;
+    
+    std::list<void*> addresses;
+    
 };
 
 

@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <libgen.h>
 
+#include <iostream>
+
 using namespace std;
 using namespace ra;
 
