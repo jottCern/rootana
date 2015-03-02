@@ -54,10 +54,11 @@ public:
         return es.get_raw_handle(ti, name);
     }
     
-protected:
     // "low-level" access; addr has to point to a structure of type ti, which has not necessarily to be in the Event container.
     // If the data is not stored in the Event container, use event_member_name="".
     virtual void do_declare_event_input(const std::type_info & ti, const std::string & bname, const std::string & mname) = 0;
+    
+protected:
     
     explicit InputManager(EventStructure & es_): es(es_){}
     

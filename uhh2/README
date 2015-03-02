@@ -1,0 +1,9 @@
+This implements a thin compatibility layer to read in UHH2 ntuples
+and run UHH2 AnalysisModules, where UHH2 refers to the code
+here:
+https://github.com/UHH2/UHH2/
+
+This provides an infrastructure independent of sframe for
+distributed processing of root ntuples with a much smaller code base
+and a larger feature set.
+
